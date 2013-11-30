@@ -1,0 +1,4 @@
+/.git
+*.o
+*.hi
+dist

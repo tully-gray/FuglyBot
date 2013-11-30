@@ -1,0 +1,28 @@
+Name:            FuglyBot
+Version:         0.1.0
+Description:     FuglyBot is an IRC bot.
+Category:        IRC bot
+Synopsis:        FuglyBot is an IRC bot.
+License:         MIT
+License-file:    src/LICENSE
+Author:          various
+Maintainer:      hmm
+Build-type:      Simple
+Cabal-version:   >= 1.8
+
+Library
+    Build-depends:   base == 4.*, containers, filepath, array
+    Hs-source-dirs:  src
+    Exposed-Modules: FuglyLib NLP.WordNet
+    Other-Modules:
+        NLP.WordNet.Common
+        NLP.WordNet.PrimTypes
+        NLP.WordNet.Util
+        NLP.WordNet.Consts
+        NLP.WordNet.Prims
+        NLP.WordNet.Types
+
+Executable fuglybot
+    Main-is:         FuglyBot.hs
+    Build-depends:   base == 4.*, containers, filepath, network, array
+    Hs-source-dirs:  src
