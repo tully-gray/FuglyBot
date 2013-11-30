@@ -86,25 +86,6 @@ insertWords f@(dict ,wne) msg@(x:y:xs) =
       | otherwise  = insertWords' (insertWord f (msg!!a) (msg!!(a-1))
                                   (msg!!(a+1)) [], wne) (a+1) l msg
 
--- insertWord :: Fugly -> String -> String -> String -> String -> Map.Map String Dict
--- insertWord f@(dict, wne) [] _ _ _ = dict
--- insertWord f@(dict, wne) word before after pos =
---   if isJust w then
---     Map.insert ww (Word ww b a ((\x@(Word _ _ _ r _) -> r) (fromJust w)) pp) dict
---     else
---     Map.insert ww (Word ww (e bb) (e aa) [] pp) dict
---   where
---     -- e [] = Map.singleton [] (-1)
---     e [] = Map.empty
---     e x = Map.singleton x 1
---     aa = cleanString isAlpha after
---     bb = cleanString isAlpha before
---     ww = cleanString isAlpha word
---     w = Map.lookup ww dict
---     b = incBefore' (fromJust w) bb
---     a = incAfter' (fromJust w) aa
---     pp = if null pos then UnknownEPos else readEPOS pos
-
 {-# NOINLINE insertWord #-}
 insertWord :: Fugly -> String -> String -> String -> String -> Map.Map String Dict
 insertWord f@(dict, wne) [] _ _ _ = dict
@@ -124,6 +105,7 @@ insertWord f@(dict, wne) word before after pos =
     b = incBefore' (fromJust w) bb
     a = incAfter' (fromJust w) aa
     pp = unsafePerformIO (if null pos then wnPartPOS wne ww else return $ readEPOS pos)
+    -- pp = if null pos then UnknownEPos else readEPOS pos
 
 incBefore' :: Dict -> String -> Map.Map String Int
 incBefore' word@(Word _ b _ _ _) []     = b
