@@ -76,7 +76,7 @@ start = do
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly wndir
-    return (Bot socket (Parameter nick owner 0 2 channel) fugly)
+    return (Bot socket (Parameter nick owner 10 2 channel) fugly)
 
 run :: Bot -> IO ()
 run bot@(Bot socket (Parameter nick _ _ _ _) fugly) = do
@@ -236,14 +236,14 @@ reply bot@(Bot socket params fugly@(dict, wne)) chan [] msg = do
     -- evaluate msg for spelling, grammar, etc
     -- formulate response
     let n = insertWords fugly msg
-    chanMsg socket chan (reverse $ unwords msg)
+--    chanMsg socket chan (reverse $ unwords msg)
     return (Bot socket params (n, wne))
 reply bot@(Bot socket params fugly) chan who msg = do
     -- store and process msg
     -- evaluate msg for spelling, grammar, etc
     -- decide whether to respond
     -- formulate response
-    replyMsg socket chan who (reverse $ unwords msg)
+--    replyMsg socket chan who (reverse $ unwords msg)
     return bot
 
 evalCmd :: Bot -> String -> String -> [String] -> IO Bot
@@ -269,18 +269,16 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _) fugly@(dict, wne)) chan who (x
                                       $ map show $ init allParams)) >> return bot
         else return bot
     | x == "!words" =
-          if who == owner then replyMsg socket chan who (unwords $ listWords dict)
+          replyMsg socket chan who (unwords $ listWords dict)
                                >> return bot
-          else return bot
     | x == "!word" =
-          if who == owner then case (length xs) of
+          case (length xs) of
             1 -> replyMsg socket chan who (listWordFull dict (xs!!0)) >> return bot
             _ -> replyMsg socket chan who "Usage: !word <word>" >> return bot
-          else return bot
     | x == "!help" = if who == owner then replyMsg socket chan who
-                       "Commands: !words !word !params !setparam !nick !join !part !quit"
+                       "Commands: !word !words !params !setparam !nick !join !part !quit"
                        >> return bot
-                     else replyMsg socket chan who "Commands: !none" >> return bot
+                     else replyMsg socket chan who "Commands: !word !words" >> return bot
 evalCmd bot _ _ _ = return bot
 
 chanMsg :: Handle -> String -> String -> IO ()
@@ -299,28 +297,3 @@ write :: Handle -> String -> String -> IO ()
 write socket s msg = do
     hPrintf socket "%s %s\r\n" s msg
     printf         "> %s %s\n" s msg
-
-strip :: Eq a => a -> [a] -> [a]
-strip _ [] = []
-strip a (x:xs)
-    | x == a    = strip a xs
-    | otherwise = x : strip a xs
-
-replace :: Eq a => a -> a -> [a] -> [a]
-replace _ _ [] = []
-replace a b (x:xs)
-    | x == a    = b : replace a b xs
-    | otherwise = x : replace a b xs
-
--- joinWords :: Char -> [String] -> [String]
--- joinWords _ [] = []
--- joinWords a (x:xs)
---     | (head x) == a   = unwords (x : (take num xs)) : joinWords a (drop num xs)
---     | otherwise       = x : joinWords a xs
---   where num = (fromMaybe 0 (elemIndex a $ map last xs)) + 1
-
--- fixUnderscore :: String -> String
--- fixUnderscore = strip '"' . replace ' ' '_'
-
--- wnLength :: [[a]] -> Int
--- wnLength a = (length a) - (length $ elemIndices True (map null a))

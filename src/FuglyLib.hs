@@ -12,7 +12,7 @@ module FuglyLib
        where
 
 import Control.Exception
-import Data.Char (isAlpha)
+import Data.Char (isAlpha, toLower)
 import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
@@ -87,9 +87,8 @@ insertWord f@(dict, wne) word before after pos =
     else if isJust w then
            Map.insert ww (Word ww b a ((\x@(Word _ _ _ r _) -> r) (fromJust w)) pp) dict
          else
-           Map.insert ww (Word ww (e bb) (e aa) [] pp) dict
+           Map.insert ww (Word ww (e bb) (e aa) rel pp) dict
   where
-    -- e [] = Map.singleton [] (-1)
     e [] = Map.empty
     e x = Map.singleton x 1
     aa = cleanString isAlpha after
@@ -100,6 +99,7 @@ insertWord f@(dict, wne) word before after pos =
     a = incAfter' (fromJust w) aa
     pp = unsafePerformIO (if null pos then wnPartPOS wne ww else return $ readEPOS pos)
     -- pp = if null pos then UnknownEPos else readEPOS pos
+    rel = unsafePerformIO (wnRelated wne ww "Hypernym" pp)
 
 incBefore' :: Dict -> String -> Map.Map String Int
 incBefore' word@(Word _ b _ _ _) []     = b
@@ -141,9 +141,10 @@ listWords m = map (\x@(Word w _ _ _ _) -> w) $ Map.elems m
 
 listWordFull :: Map.Map String Dict -> String -> String
 listWordFull m word = if isJust ww then
-                        unwords $ (\x@(Word w b a _ p) ->
+                        unwords $ (\x@(Word w b a r p) ->
                         ["word:", w, " before:", unwords $ listNeigh b,
-                         " after:", unwords $ listNeigh a, " PoS:", (show p)]) (fromJust ww)
+                         " after:", unwords $ listNeigh a, " PoS:", (show p),
+                         " related:", unwords r]) (fromJust ww)
                       else
                         "Nothing!"
   where
@@ -154,6 +155,34 @@ cleanString _ [] = []
 cleanString f (x:xs)
         | not $ f x = cleanString f xs
         | otherwise = x : cleanString f xs
+
+strip :: Eq a => a -> [a] -> [a]
+strip _ [] = []
+strip a (x:xs)
+    | x == a    = strip a xs
+    | otherwise = x : strip a xs
+
+replace :: Eq a => a -> a -> [a] -> [a]
+replace _ _ [] = []
+replace a b (x:xs)
+    | x == a    = b : replace a b xs
+    | otherwise = x : replace a b xs
+
+joinWords :: Char -> [String] -> [String]
+joinWords _ [] = []
+joinWords a (x:xs)
+    | (head x) == a   = unwords (x : (take num xs)) : joinWords a (drop num xs)
+    | otherwise       = x : joinWords a xs
+  where num = (fromMaybe 0 (elemIndex a $ map last xs)) + 1
+
+fixUnderscore :: String -> String
+fixUnderscore = strip '"' . replace ' ' '_'
+
+wnLength :: [[a]] -> Int
+wnLength a = (length a) - (length $ elemIndices True (map null a))
+
+wnFixWord :: String -> String
+wnFixWord = strip '"' . replace ' ' '_'
 
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
@@ -192,3 +221,17 @@ wnPartPOS w a  = do
       | fromMaybe (-1) (elemIndex (maximum a) a) == 2 = POS Adj
       | fromMaybe (-1) (elemIndex (maximum a) a) == 3 = POS Adv
       | otherwise                                     = UnknownEPos
+
+wnRelated :: WordNetEnv -> String -> String -> EPOS -> IO [String]
+wnRelated wne [] _ _  = return [[]] :: IO [String]
+wnRelated wne c [] pos  = wnRelated wne c "Hypernym" pos
+wnRelated wne c d pos = do
+    let wnForm = readForm d
+    let result = if (map toLower d) == "all" then concat $ map (fromMaybe [[]])
+                    (runs wne (relatedByListAllForms (search (wnFixWord c)
+                     (fromEPOS pos) AllSenses)))
+                 else fromMaybe [[]] (runs wne (relatedByList wnForm (search
+                      (wnFixWord c) (fromEPOS pos) AllSenses)))
+    if (null result) || (null $ concat result) then return ["Nothing!"] else
+      return $ map (\x -> replace '_' ' ' $ unwords $ map (++ "\"") $
+                    map ('"' :) $ concat $ map (getWords . getSynset) x) result
