@@ -25,9 +25,6 @@ import NLP.WordNet.PrimTypes
 
 type Fugly = (Map.Map String Dict, WordNetEnv)
 
---data PoS = Noun | Verb | Adjective | Adverb | Pronoun | Conjuction | Unknown
---         deriving (Eq, Ord, Show)
-
 data Dict = Word {
               word    :: String,
               before  :: Map.Map String Int,
@@ -61,11 +58,6 @@ initFugly wndir = do
            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
     return (Map.empty :: Map.Map String Dict, wne)
     --h <- openFile (fuglydir ++ "/words.txt") ReadMode
-
--- initFugly :: FilePath -> IO (Map.Map String Dict)
--- initFugly wndir = do
---     f <- initFugly' wndir
---     return $ fst f
 
 insertWords :: Fugly -> [String] -> Map.Map String Dict
 insertWords f@(dict, wne) [] = dict
