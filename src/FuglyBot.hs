@@ -60,7 +60,7 @@ readParam _                                        = UnknownParam
 main :: IO ()
 main = bracket start stop loop
   where
-    stop    = do hClose . socket
+    stop    = do stopFugly . fugly ; hClose . socket
     loop st = catchIOError (run st) (const $ return ())
 
 start :: IO Bot
@@ -75,15 +75,17 @@ start = do
     let wndir    = args !! 6 :: FilePath
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
-    fugly <- initFugly wndir
+    fugly <- initFugly fuglydir wndir
     return (Bot socket (Parameter nick owner 10 2 channel) fugly)
 
 run :: Bot -> IO ()
 run bot@(Bot socket (Parameter nick _ _ _ _) fugly) = do
     args <- cmdLine
     let channel = args !! 4
+    let passwd  = args !! 7
     write socket "NICK" nick
-    write socket "USER" (nick ++" 0 * :user")
+    write socket "USER" (nick ++ " 0 * :user")
+    privMsg socket "nickserv" ("IDENTIFY " ++ passwd)
     joinChannel socket "JOIN" [channel]
     listenIRC bot
     return () :: IO ()
@@ -118,7 +120,9 @@ cmdLine = do
     let wndirPos     = (maximum' $ elemIndices "-wndir" args) + 1
     let wndir        = if l > wndirPos then args !! wndirPos
                                             else "/usr/share/wordnet/dict/"
-    return (server : port : nick : owner : channel : fuglydir : wndir : [])
+    let passwdPos    = (maximum' $ elemIndices "-passwd" args) + 1
+    let passwd       = if l > passwdPos then args !! passwdPos else ""
+    return (server : port : nick : owner : channel : fuglydir : wndir : passwd : [])
   where
     maximum' [] = 1000
     maximum' a  = maximum a

@@ -1,6 +1,7 @@
 module FuglyLib
        (
          initFugly,
+         stopFugly,
          insertWord,
          insertWords,
          listWords,
@@ -16,7 +17,7 @@ import Data.Char (isAlpha, toLower)
 import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
-import System.IO (FilePath)
+import System.IO
 import System.IO.Unsafe (unsafePerformIO)
 
 import NLP.WordNet
@@ -51,18 +52,28 @@ data Dict = Word {
               related :: [String]
               }
 
-initFugly :: FilePath -> IO Fugly
-initFugly wndir = do
+initFugly :: FilePath -> FilePath -> IO Fugly
+initFugly fuglydir wndir = do
     wne <- NLP.WordNet.initializeWordNetWithOptions
            (return wndir :: Maybe FilePath)
            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
     return (Map.empty :: Map.Map String Dict, wne)
     --h <- openFile (fuglydir ++ "/words.txt") ReadMode
 
+stopFugly :: Fugly -> FilePath -> IO [()]
+stopFugly fugly@(dict, wne) fuglydir = do
+    closeWordNet wne
+    saveDict fugly fuglydir
+
+saveDict :: Fugly -> FilePath -> IO [()]
+saveDict fugly@(dict, wne) fuglydir = do
+  h <- openFile (fuglydir ++ "/dict.txt") WriteMode
+  return $ map (\x -> hPrint h (listWordFull dict x)) (listWords dict) >> return ()
+
 insertWords :: Fugly -> [String] -> Map.Map String Dict
 insertWords f@(dict, wne) [] = dict
 insertWords f [x] = insertWord f x [] [] []
-insertWords f@(dict ,wne) msg@(x:y:xs) =
+insertWords f@(dict, wne) msg@(x:y:xs) =
       case (len) of
         2 -> insertWord (insertWord f x [] y [], wne) y x [] []
         _ -> insertWords' f 0 len msg
@@ -140,13 +151,14 @@ listWords :: Map.Map String Dict -> [String]
 listWords m = map (\x@(Word w _ _ _ _) -> w) $ Map.elems m
 
 listWordFull :: Map.Map String Dict -> String -> String
-listWordFull m word = if isJust ww then
-                        unwords $ (\x@(Word w b a r p) ->
-                        ["word:", w, " before:", unwords $ listNeigh b,
-                         " after:", unwords $ listNeigh a, " PoS:", (show p),
-                         " related:", unwords r]) (fromJust ww)
-                      else
-                        "Nothing!"
+listWordFull m word =
+  if isJust ww then
+    unwords $ (\x@(Word w b a r p) ->
+                ["word:", w, " before:", unwords $ listNeigh b,
+                 " after:", unwords $ listNeigh a, " PoS:", (show p),
+                 " related:", unwords r]) (fromJust ww)
+  else
+    "Nothing!"
   where
     ww = Map.lookup word m
 
