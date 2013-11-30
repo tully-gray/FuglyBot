@@ -17,7 +17,7 @@ import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
 import System.IO (FilePath)
-import System.IO.Unsafe
+import System.IO.Unsafe (unsafePerformIO)
 
 import NLP.WordNet
 import NLP.WordNet.Prims (indexLookup, senseCount, getSynset, getWords, getGloss)
@@ -82,10 +82,12 @@ insertWords f@(dict ,wne) msg@(x:y:xs) =
 insertWord :: Fugly -> String -> String -> String -> String -> Map.Map String Dict
 insertWord f@(dict, wne) [] _ _ _ = dict
 insertWord f@(dict, wne) word before after pos =
-  if isJust w then
-    Map.insert ww (Word ww b a ((\x@(Word _ _ _ r _) -> r) (fromJust w)) pp) dict
-    else
-    Map.insert ww (Word ww (e bb) (e aa) [] pp) dict
+  if pp == UnknownEPos then
+           dict
+    else if isJust w then
+           Map.insert ww (Word ww b a ((\x@(Word _ _ _ r _) -> r) (fromJust w)) pp) dict
+         else
+           Map.insert ww (Word ww (e bb) (e aa) [] pp) dict
   where
     -- e [] = Map.singleton [] (-1)
     e [] = Map.empty
@@ -165,6 +167,7 @@ wnPartString w a  = do
     count' a = if isJust a then senseCount (fromJust a) else 0
     type' [] = "Other"
     type' a
+      | a == [0, 0, 0, 0]                             = "Unknown"
       | fromMaybe (-1) (elemIndex (maximum a) a) == 0 = "Noun"
       | fromMaybe (-1) (elemIndex (maximum a) a) == 1 = "Verb"
       | fromMaybe (-1) (elemIndex (maximum a) a) == 2 = "Adj"
@@ -183,6 +186,7 @@ wnPartPOS w a  = do
     count' a = if isJust a then senseCount (fromJust a) else 0
     type' [] = UnknownEPos
     type' a
+      | a == [0, 0, 0, 0]                             = UnknownEPos
       | fromMaybe (-1) (elemIndex (maximum a) a) == 0 = POS Noun
       | fromMaybe (-1) (elemIndex (maximum a) a) == 1 = POS Verb
       | fromMaybe (-1) (elemIndex (maximum a) a) == 2 = POS Adj
