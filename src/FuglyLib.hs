@@ -9,7 +9,7 @@ module FuglyLib
          listWords,
          listWordFull,
          cleanString,
-         Dict,
+         Word,
          Fugly
        )
        where
@@ -22,13 +22,13 @@ import Data.Maybe
 import System.IO
 import System.IO.Unsafe (unsafePerformIO)
 
-import NLP.WordNet
+import NLP.WordNet hiding (Word)
 import NLP.WordNet.Prims (indexLookup, senseCount, getSynset, getWords, getGloss)
 import NLP.WordNet.PrimTypes
 
-type Fugly = (Map.Map String Dict, WordNetEnv)
+type Fugly = (Map.Map String Word, WordNetEnv)
 
-data Dict = Word {
+data Word = Word {
               word    :: String,
               before  :: Map.Map String Int,
               after   :: Map.Map String Int,
@@ -67,7 +67,7 @@ stopFugly fuglydir fugly@(dict, wne) = do
     saveDict dict fuglydir
     closeWordNet wne
 
-saveDict :: Map.Map String Dict -> FilePath -> IO ()
+saveDict :: Map.Map String Word -> FilePath -> IO ()
 saveDict dict fuglydir = do
     let d = Map.toList dict
     if null d then putStrLn "Empty dict!"
@@ -80,7 +80,7 @@ saveDict dict fuglydir = do
         hFlush h
         hClose h
   where
-    saveDict' :: Handle -> [(String, Dict)] -> IO ()
+    saveDict' :: Handle -> [(String, Word)] -> IO ()
     saveDict' _ [] = return ()
     saveDict' h (x:xs) = do
       let l = format' $ snd x
@@ -94,7 +94,7 @@ saveDict dict fuglydir = do
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("pos: " ++ (show p) ++ "\n")]
 
-loadDict :: FilePath -> IO (Map.Map String Dict)
+loadDict :: FilePath -> IO (Map.Map String Word)
 loadDict fuglydir = do
     let w = (Word [] Map.empty Map.empty [] UnknownEPos)
     h <- openFile (fuglydir ++ "/dict.txt") ReadMode
@@ -111,7 +111,7 @@ loadDict fuglydir = do
     getNeigh'        [] l = l
     getNeigh' (x:y:xs) [] = getNeigh' xs [(x, read y)]
     getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, read y) : [])
-    f :: Handle -> Dict -> [(String, Dict)] -> IO [(String, Dict)]
+    f :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
     -- f _ _ [] = 
     f h word@(Word w b a r p) nm = do
       l <- hGetLine h
@@ -131,7 +131,7 @@ loadDict fuglydir = do
             else
                f h ww nm
 
-insertWords :: Fugly -> [String] -> Map.Map String Dict
+insertWords :: Fugly -> [String] -> Map.Map String Word
 insertWords f@(dict, wne) [] = dict
 insertWords f [x] = insertWord f x [] [] []
 insertWords f@(dict, wne) msg@(x:y:xs) =
@@ -151,7 +151,7 @@ insertWords f@(dict, wne) msg@(x:y:xs) =
                                   (msg!!(a+1)) [], wne) (a+1) l msg
 
 {-# NOINLINE insertWord #-}
-insertWord :: Fugly -> String -> String -> String -> String -> Map.Map String Dict
+insertWord :: Fugly -> String -> String -> String -> String -> Map.Map String Word
 insertWord f@(dict, wne) [] _ _ _ = dict
 insertWord f@(dict, wne) word before after pos =
   if pp == UnknownEPos then
@@ -176,7 +176,7 @@ insertWord f@(dict, wne) word before after pos =
     pb = unsafePerformIO (if null pos then wnPartPOS wne bb else return $ readEPOS pos)
     rel = unsafePerformIO (wnRelated wne ww "Hypernym" pp)
 
-incBefore' :: Dict -> String -> Map.Map String Int
+incBefore' :: Word -> String -> Map.Map String Int
 incBefore' word@(Word _ b _ _ _) []     = b
 incBefore' word@(Word _ b _ _ _) before =
   if isJust w then
@@ -186,13 +186,13 @@ incBefore' word@(Word _ b _ _ _) before =
   where
     w = Map.lookup before b
 
-incBefore :: Map.Map String Dict -> String -> String -> Map.Map String Int
+incBefore :: Map.Map String Word -> String -> String -> Map.Map String Int
 incBefore m word before = do
   let w = Map.lookup word m
   if isJust w then incBefore' (fromJust w) before
     else Map.empty
 
-incAfter' :: Dict -> String -> Map.Map String Int
+incAfter' :: Word -> String -> Map.Map String Int
 incAfter' word@(Word _ _ a _ _) []     = a
 incAfter' word@(Word _ _ a _ _) after  =
   if isJust w then
@@ -202,7 +202,7 @@ incAfter' word@(Word _ _ a _ _) after  =
   where
     w = Map.lookup after a
 
-incAfter :: Map.Map String Dict -> String -> String -> Map.Map String Int
+incAfter :: Map.Map String Word -> String -> String -> Map.Map String Int
 incAfter m word after = do
   let w = Map.lookup word m
   if isJust w then incAfter' (fromJust w) after
@@ -211,10 +211,10 @@ incAfter m word after = do
 listNeigh :: Map.Map String Int -> [String]
 listNeigh m = concat [[w, show c] | (w, c) <- Map.toList m]
 
-listWords :: Map.Map String Dict -> [String]
+listWords :: Map.Map String Word -> [String]
 listWords m = map (\x@(Word w _ _ _ _) -> w) $ Map.elems m
 
-listWordFull :: Map.Map String Dict -> String -> String
+listWordFull :: Map.Map String Word -> String -> String
 listWordFull m word =
   if isJust ww then
     unwords $ (\x@(Word w b a r p) ->
