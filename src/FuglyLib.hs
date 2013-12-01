@@ -348,15 +348,20 @@ wnClosure wne word form [] = do
 wnClosure wne word form pos = do
     let wnForm = readForm form
     let wnPos = fromEPOS $ readEPOS pos
-    let result = runs wne (closureOnList wnForm (search (wnFixWord word) wnPos AllSenses))
+    let result = runs wne (closureOnList wnForm
+                           (search (wnFixWord word) wnPos AllSenses))
     if (null result) then return "Nothing!" else
-      return $ unwords $ map (\x -> if isNothing x then return 'c' else (replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $ nub $ concat $ map (getWords . getSynset) (flatten (fromJust x)))) result
+      return $ unwords $ map (\x -> if isNothing x then return '?'
+                                    else (replace '_' ' ' $ unwords $ map (++ "\"") $
+                                          map ('"' :) $ nub $ concat $ map
+                                          (getWords . getSynset) (flatten
+                                          (fromJust x)))) result
 
 wnMeet :: WordNetEnv -> String -> String -> String -> String -> String -> IO String
 wnMeet _ _ _ [] _ _ = return []
 wnMeet _ _ _ _ [] _ = return []
 wnMeet w a b c d [] = do
-    wnPos <- wnPartString w (wnFixWord c) -- POS not given so use most common.
+    wnPos <- wnPartString w (wnFixWord c)
     wnMeet w a b c d wnPos
 wnMeet w a b c d e  = do
     let wnPos = fromEPOS $ readEPOS e
@@ -365,5 +370,6 @@ wnMeet w a b c d e  = do
     if not (null r1) && not (null r2) then do
         let result = (runs w (meet emptyQueue (head $ r1) (head $ r2)))
         if (isNothing result) then return "Nothing!" else
-            return (replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $ getWords $ getSynset (fromJust result))
+            return (replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $
+                    getWords $ getSynset (fromJust result))
         else return "Nothing!"
