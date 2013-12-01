@@ -2,6 +2,7 @@ module FuglyLib
        (
          initFugly,
          stopFugly,
+         saveDict,
          insertWord,
          insertWords,
          listWords,
@@ -60,15 +61,29 @@ initFugly fuglydir wndir = do
     return (Map.empty :: Map.Map String Dict, wne)
     --h <- openFile (fuglydir ++ "/words.txt") ReadMode
 
-stopFugly :: Fugly -> FilePath -> IO [()]
-stopFugly fugly@(dict, wne) fuglydir = do
+stopFugly :: Fugly -> IO ()
+stopFugly fugly@(dict, wne) = do
+    saveDict dict "/home/lonewolf/fugly/dict.txt"
     closeWordNet wne
-    saveDict fugly fuglydir
 
-saveDict :: Fugly -> FilePath -> IO [()]
-saveDict fugly@(dict, wne) fuglydir = do
-  h <- openFile (fuglydir ++ "/dict.txt") WriteMode
-  return $ map (\x -> hPrint h (listWordFull dict x)) (listWords dict) >> return ()
+saveDict :: Map.Map String Dict -> FilePath -> IO ()
+saveDict dict dictfile = do
+    let d = Map.toList dict
+    if null d then putStrLn "Empty dict!"
+      else do
+        h <- openFile dictfile WriteMode
+        hSetBuffering h LineBuffering
+        putStrLn "Saving dict file..."
+        saveDict' h d
+        hFlush h
+        hClose h
+  where
+    saveDict' :: Handle -> [(String, Dict)] -> IO ()
+    saveDict' _ [] = return ()
+    saveDict' h (x:xs) = do
+      hPutStr h (format' (snd x))
+      saveDict' h xs
+    format' m@(Word w b a r p) = unwords [("word: " ++ w ++ "\n"), ("before: " ++ (unwords $ listNeigh b) ++ "\n"), ("after: " ++ (unwords $ listNeigh a) ++ "\n"), ("related: " ++ (unwords r) ++ "\n"), ("pos: " ++ (show p) ++ "\n")]
 
 insertWords :: Fugly -> [String] -> Map.Map String Dict
 insertWords f@(dict, wne) [] = dict
@@ -98,18 +113,21 @@ insertWord f@(dict, wne) word before after pos =
     else if isJust w then
            Map.insert ww (Word ww b a ((\x@(Word _ _ _ r _) -> r) (fromJust w)) pp) dict
          else
-           Map.insert ww (Word ww (e bb) (e aa) rel pp) dict
+           Map.insert ww (Word ww (e bbb) (e aaa) rel pp) dict
   where
+    w = Map.lookup ww dict
     e [] = Map.empty
     e x = Map.singleton x 1
     aa = cleanString isAlpha after
     bb = cleanString isAlpha before
     ww = cleanString isAlpha word
-    w = Map.lookup ww dict
-    b = incBefore' (fromJust w) bb
     a = incAfter' (fromJust w) aa
+    b = incBefore' (fromJust w) bb
+    aaa = if pa == UnknownEPos then [] else aa
+    bbb = if pb == UnknownEPos then [] else bb
     pp = unsafePerformIO (if null pos then wnPartPOS wne ww else return $ readEPOS pos)
-    -- pp = if null pos then UnknownEPos else readEPOS pos
+    pa = unsafePerformIO (if null pos then wnPartPOS wne aa else return $ readEPOS pos)
+    pb = unsafePerformIO (if null pos then wnPartPOS wne bb else return $ readEPOS pos)
     rel = unsafePerformIO (wnRelated wne ww "Hypernym" pp)
 
 incBefore' :: Dict -> String -> Map.Map String Int

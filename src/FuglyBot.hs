@@ -7,6 +7,7 @@ import System.Environment (getArgs, getProgName)
 import System.Exit
 import System.IO
 import System.IO.Error
+import System.IO.Unsafe (unsafePerformIO)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Exception
 import Text.Printf
@@ -58,14 +59,16 @@ readParam a | (map toLower a) == "chatchannel"     = ChatChannel
 readParam _                                        = UnknownParam
 
 main :: IO ()
-main = bracket start stop loop
-  where
-    stop    = do stopFugly . fugly ; hClose . socket
-    loop st = catchIOError (run st) (const $ return ())
-
-start :: IO Bot
-start = do
+main = do
     args <- cmdLine
+    bracket (start args) stop (loop args)
+  where
+--    stop         = do stopFugly . fugly ; hClose . socket
+    stop         = do hClose . socket
+    loop st args = catchIOError (run st args) (const $ return ())
+
+start :: [String] -> IO Bot
+start args = do
     let server   = args !! 0
     let port     = read $ args !! 1
     let channel  = args !! 4
@@ -78,9 +81,8 @@ start = do
     fugly <- initFugly fuglydir wndir
     return (Bot socket (Parameter nick owner 10 2 channel) fugly)
 
-run :: Bot -> IO ()
-run bot@(Bot socket (Parameter nick _ _ _ _) fugly) = do
-    args <- cmdLine
+run :: [String] -> Bot -> IO ()
+run args bot@(Bot socket (Parameter nick _ _ _ _) fugly) = do
     let channel = args !! 4
     let passwd  = args !! 7
     write socket "NICK" nick
@@ -126,6 +128,9 @@ cmdLine = do
   where
     maximum' [] = 1000
     maximum' a  = maximum a
+
+cmdLineUnsafe :: [String]
+cmdLineUnsafe = unsafePerformIO (cmdLine)
 
 changeNick :: Bot -> [String] -> IO Bot
 changeNick bot [] = return bot
@@ -251,12 +256,16 @@ reply bot@(Bot socket params fugly) chan who msg = do
     return bot
 
 evalCmd :: Bot -> String -> String -> [String] -> IO Bot
-evalCmd bot@(Bot socket (Parameter _ owner _ _ _) fugly) _ who (x:xs)
+evalCmd bot@(Bot socket (Parameter _ owner _ _ _) fugly@(dict, wne)) _ who (x:xs)
     | x == "!quit" =
       if who == owner then case (length xs) of
-        0 -> write socket "QUIT" ":Bye" >> exitWith ExitSuccess >> return bot
-        _ -> write socket "QUIT" (":" ++ unwords xs) >> exitWith ExitSuccess >> return bot
+        -- 0 -> write socket "QUIT" ":Bye" >> exitWith ExitSuccess >> return bot
+        -- _ -> write socket "QUIT" (":" ++ unwords xs) >> exitWith ExitSuccess >> return bot
+        0 -> stopFugly fugly >> write socket "QUIT" ":Bye" >> return bot
+        _ -> stopFugly fugly >> write socket "QUIT" (":" ++ unwords xs) >> return bot
       else return bot
+    | x == "!save" = if who == owner then saveDict dict "/home/lonewolf/fugly/dict.txt"
+                                          >> return bot else return bot
     | x == "!join" = if who == owner then joinChannel socket "JOIN" xs >>
                                           return bot else return bot
     | x == "!part" = if who == owner then joinChannel socket "PART" xs >>
