@@ -7,7 +7,6 @@ import System.Environment (getArgs, getProgName)
 import System.Exit
 import System.IO
 import System.IO.Error
-import System.IO.Unsafe (unsafePerformIO)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Exception
 import Text.Printf
@@ -26,6 +25,8 @@ data Parameter = Nick | Owner | RejoinKick | MaxChanLines | ChatChannel
                | Parameter {
                  nick :: String,
                  owner :: String,
+                 fuglydir :: FilePath,
+                 wndir :: FilePath,
                  rejoinkick :: Int,
                  maxchanlines :: Int,
                  chatchannel :: String
@@ -78,10 +79,10 @@ start args = do
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir
-    return (Bot socket (Parameter nick owner 10 2 channel) fugly)
+    return (Bot socket (Parameter nick owner fuglydir wndir 10 2 channel) fugly)
 
 run :: [String] -> Bot -> IO ()
-run args bot@(Bot socket (Parameter nick _ _ _ _) fugly) = do
+run args bot@(Bot socket (Parameter nick _ _ _ _ _ _) fugly) = do
     let channel = args !! 4
     let passwd  = args !! 7
     write socket "NICK" nick
@@ -128,12 +129,9 @@ cmdLine = do
     maximum' [] = 1000
     maximum' a  = maximum a
 
-cmdLineUnsafe :: [String]
-cmdLineUnsafe = unsafePerformIO (cmdLine)
-
 changeNick :: Bot -> [String] -> IO Bot
 changeNick bot [] = return bot
-changeNick bot@(Bot socket (Parameter nick owner _ _ _) fugly) (x:xs) = do
+changeNick bot@(Bot socket (Parameter nick owner _ _ _ _ _) fugly) (x:xs) = do
     let new = cleanString isAscii x
     write socket "NICK" new
     s <- hGetLine socket
@@ -143,10 +141,10 @@ changeNick bot@(Bot socket (Parameter nick owner _ _ _) fugly) (x:xs) = do
       else return "Something went wrong!" >>= privMsg socket owner >> return bot
   where
     testNick' :: Bot -> String -> [String] -> IO Bot
-    testNick' bot@(Bot socket (Parameter nick owner rejoinkick maxchanlines chatchan) fugly)
+    testNick' bot@(Bot socket (Parameter nick owner fuglydir wndir rejoinkick maxchanlines chatchan) fugly)
       new line
         | (x == "NICK") && (drop 1 y) == new =
-          return (Bot socket (Parameter new owner rejoinkick maxchanlines chatchan) fugly)
+          return (Bot socket (Parameter new owner fuglydir wndir rejoinkick maxchanlines chatchan) fugly)
         | otherwise                          =
             return "Nick change failed!" >>= privMsg socket owner >> return bot
       where
@@ -163,17 +161,18 @@ joinChannel h a (x:xs) = do
         else return ()
 
 changeParam :: Bot -> String -> String -> IO Bot
-changeParam bot@(Bot socket (Parameter nick owner rejoinkick maxchanlines chatchan) fugly)
+changeParam bot@(Bot socket (Parameter nick owner fuglydir wndir
+                             rejoinkick maxchanlines chatchan) fugly)
   param value = do
     case (readParam param) of
       Nick         -> changeNick bot (value : "" : [])
-      Owner        -> return (Bot socket (Parameter nick value rejoinkick
+      Owner        -> return (Bot socket (Parameter nick value fuglydir wndir
+                                          rejoinkick maxchanlines chatchan) fugly)
+      RejoinKick   -> return (Bot socket (Parameter nick owner fuglydir wndir (read value)
                                           maxchanlines chatchan) fugly)
-      RejoinKick   -> return (Bot socket (Parameter nick owner (read value)
-                                          maxchanlines chatchan) fugly)
-      MaxChanLines -> return (Bot socket (Parameter nick owner rejoinkick
+      MaxChanLines -> return (Bot socket (Parameter nick owner fuglydir wndir rejoinkick
                                           (read value) chatchan) fugly)
-      ChatChannel  -> return (Bot socket (Parameter nick owner rejoinkick
+      ChatChannel  -> return (Bot socket (Parameter nick owner fuglydir wndir rejoinkick
                                           maxchanlines value) fugly)
       _            -> return bot
 
@@ -219,7 +218,7 @@ rejoinChannel h chan rk = do
 
 processLine :: Bot -> [String] -> IO Bot
 processLine bot [] = return bot
-processLine bot@(Bot socket (Parameter nick owner rejoinkick _ _) fugly) line
+processLine bot@(Bot socket (Parameter nick owner fuglydir wndir rejoinkick _ _) fugly) line
     | (not $ null $ beenKicked nick line) =
       rejoinChannel socket (beenKicked nick line) rejoinkick >> return bot
     | null msg = return bot
@@ -255,16 +254,18 @@ reply bot@(Bot socket params fugly) chan who msg = do
     return bot
 
 evalCmd :: Bot -> String -> String -> [String] -> IO Bot
-evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _) fugly@(dict, wne)) _ who (x:xs)
+evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ _ _ _) fugly@(dict, wne)) _ who (x:xs)
     | x == "!quit" =
       if who == owner then case (length xs) of
-        0 -> do stopFugly fugly >> write socket "QUIT" ":Bye" >> return bot
-        _ -> do stopFugly fugly >> write socket "QUIT" (":" ++ unwords xs) >> return bot
+        0 -> do stopFugly fuglydir fugly >>
+                  write socket "QUIT" ":Bye" >> return bot
+        _ -> do stopFugly fuglydir fugly >>
+                  write socket "QUIT" (":" ++ unwords xs) >> return bot
       else return bot
-    | x == "!save" = if who == owner then saveDict dict "/home/lonewolf/fugly/dict.txt"
+    | x == "!save" = if who == owner then saveDict dict fuglydir
                                           >> return bot else return bot
     | x == "!load" = if who == owner then do
-        nd <- loadDict "/home/lonewolf/fugly/dict.txt"
+        nd <- loadDict fuglydir
         return (Bot socket params (nd, wne))
                      else return bot
     | x == "!join" = if who == owner then joinChannel socket "JOIN" xs >>
@@ -272,7 +273,7 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _) fugly@(dict, wne)) _ wh
     | x == "!part" = if who == owner then joinChannel socket "PART" xs >>
                                           return bot else return bot
     | x == "!nick" = if who == owner then changeNick bot xs else return bot
-evalCmd bot@(Bot socket (Parameter _ owner _ _ _) fugly@(dict, wne)) chan who (x:xs)
+evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan who (x:xs)
     | x == "!setparam" =
         if who == owner then case (length xs) of
           2 -> changeParam bot (xs!!0) (xs!!1)

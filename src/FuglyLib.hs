@@ -56,23 +56,23 @@ data Dict = Word {
 
 initFugly :: FilePath -> FilePath -> IO Fugly
 initFugly fuglydir wndir = do
+    dict <- loadDict fuglydir
     wne <- NLP.WordNet.initializeWordNetWithOptions
            (return wndir :: Maybe FilePath)
            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
-    return (Map.empty :: Map.Map String Dict, wne)
-    --h <- openFile (fuglydir ++ "/words.txt") ReadMode
+    return (dict, wne)
 
-stopFugly :: Fugly -> IO ()
-stopFugly fugly@(dict, wne) = do
-    saveDict dict "/home/lonewolf/fugly/dict.txt"
+stopFugly :: FilePath -> Fugly -> IO ()
+stopFugly fuglydir fugly@(dict, wne) = do
+    saveDict dict fuglydir
     closeWordNet wne
 
 saveDict :: Map.Map String Dict -> FilePath -> IO ()
-saveDict dict dictfile = do
+saveDict dict fuglydir = do
     let d = Map.toList dict
     if null d then putStrLn "Empty dict!"
       else do
-        h <- openFile dictfile WriteMode
+        h <- openFile (fuglydir ++ "/dict.txt") WriteMode
         hSetBuffering h LineBuffering
         putStrLn "Saving dict file..."
         saveDict' h d
@@ -83,7 +83,8 @@ saveDict dict dictfile = do
     saveDict' :: Handle -> [(String, Dict)] -> IO ()
     saveDict' _ [] = return ()
     saveDict' h (x:xs) = do
-      hPutStr h (format' (snd x))
+      let l = format' $ snd x
+      if null l then return () else hPutStr h l
       saveDict' h xs
     format' m@(Word w b a r p)
       | null w    = []
@@ -94,9 +95,9 @@ saveDict dict dictfile = do
                              ("pos: " ++ (show p) ++ "\n")]
 
 loadDict :: FilePath -> IO (Map.Map String Dict)
-loadDict dictfile = do
+loadDict fuglydir = do
     let w = (Word [] Map.empty Map.empty [] UnknownEPos)
-    h <- openFile dictfile ReadMode
+    h <- openFile (fuglydir ++ "/dict.txt") ReadMode
     hSetBuffering h LineBuffering
     putStrLn "Loading dict file..."
     ff <- f h w [("foo", w)]
