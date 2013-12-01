@@ -63,7 +63,6 @@ main = do
     args <- cmdLine
     bracket (start args) stop (loop args)
   where
---    stop         = do stopFugly . fugly ; hClose . socket
     stop         = do hClose . socket
     loop st args = catchIOError (run st args) (const $ return ())
 
@@ -259,10 +258,8 @@ evalCmd :: Bot -> String -> String -> [String] -> IO Bot
 evalCmd bot@(Bot socket (Parameter _ owner _ _ _) fugly@(dict, wne)) _ who (x:xs)
     | x == "!quit" =
       if who == owner then case (length xs) of
-        -- 0 -> write socket "QUIT" ":Bye" >> exitWith ExitSuccess >> return bot
-        -- _ -> write socket "QUIT" (":" ++ unwords xs) >> exitWith ExitSuccess >> return bot
-        0 -> stopFugly fugly >> write socket "QUIT" ":Bye" >> return bot
-        _ -> stopFugly fugly >> write socket "QUIT" (":" ++ unwords xs) >> return bot
+        0 -> do stopFugly fugly >> write socket "QUIT" ":Bye" >> return bot
+        _ -> do stopFugly fugly >> write socket "QUIT" (":" ++ unwords xs) >> return bot
       else return bot
     | x == "!save" = if who == owner then saveDict dict "/home/lonewolf/fugly/dict.txt"
                                           >> return bot else return bot
