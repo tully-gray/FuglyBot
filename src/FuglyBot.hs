@@ -242,7 +242,7 @@ reply bot@(Bot socket params fugly@(dict, wne)) chan [] msg = do
     -- store and process msg
     -- evaluate msg for spelling, grammar, etc
     -- formulate response
-    let n = insertWords fugly msg
+    n <- insertWords fugly msg
 --    chanMsg socket chan (reverse $ unwords msg)
     return (Bot socket params (n, wne))
 reply bot@(Bot socket params fugly) chan who msg = do

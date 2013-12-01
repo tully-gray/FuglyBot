@@ -20,7 +20,6 @@ import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
 import System.IO
-import System.IO.Unsafe (unsafePerformIO)
 
 import NLP.WordNet hiding (Word)
 import NLP.WordNet.Prims (indexLookup, senseCount, getSynset, getWords, getGloss)
@@ -131,35 +130,35 @@ loadDict fuglydir = do
             else
                f h ww nm
 
-insertWords :: Fugly -> [String] -> Map.Map String Word
-insertWords f@(dict, wne) [] = dict
+insertWords :: Fugly -> [String] -> IO (Map.Map String Word)
+insertWords f@(dict, wne) [] = return dict
 insertWords f [x] = insertWord f x [] [] []
 insertWords f@(dict, wne) msg@(x:y:xs) =
       case (len) of
-        2 -> insertWord (insertWord f x [] y [], wne) y x [] []
+        2 -> do ff <- insertWord f x [] y [] ; insertWord (ff, wne) y x [] []
         _ -> insertWords' f 0 len msg
   where
     len = length msg
-    insertWords' f@(d,w) _ _ [] = d
+    insertWords' f@(d,w) _ _ [] = return d
     insertWords' f@(d,w) a l msg
-      | a == 0     = insertWords' (insertWord f (msg!!a) []
-                                   (msg!!(a+1)) [], wne) (a+1) l msg
-      | a > l - 1  = d
-      | a == l - 1 = insertWords' (insertWord f (msg!!a) (msg!!(a-1))
-                                   [] [], wne) (a+1) l msg
-      | otherwise  = insertWords' (insertWord f (msg!!a) (msg!!(a-1))
-                                  (msg!!(a+1)) [], wne) (a+1) l msg
+      | a == 0     = do ff <- insertWord f (msg!!a) [] (msg!!(a+1)) [] ; insertWords' (ff, wne) (a+1) l msg
+      | a > l - 1  = return d
+      | a == l - 1 = do ff <- insertWord f (msg!!a) (msg!!(a-1)) [] [] ; insertWords' (ff, wne) (a+1) l msg
+      | otherwise  = do ff <- insertWord f (msg!!a) (msg!!(a-1)) (msg!!(a+1)) [] ; insertWords' (ff, wne) (a+1) l msg
 
-{-# NOINLINE insertWord #-}
-insertWord :: Fugly -> String -> String -> String -> String -> Map.Map String Word
-insertWord f@(dict, wne) [] _ _ _ = dict
-insertWord f@(dict, wne) word before after pos =
+insertWord :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
+insertWord f@(dict, wne) [] _ _ _ = return dict
+insertWord f@(dict, wne) word before after pos = do
+  pp <- (if null pos then wnPartPOS wne ww else return $ readEPOS pos)
+  pa <- (if null pos then wnPartPOS wne aa else return $ readEPOS pos)
+  pb <- (if null pos then wnPartPOS wne bb else return $ readEPOS pos)
+  rel <- wnRelated wne ww "Hypernym" pp
   if pp == UnknownEPos then
-           dict
+           return dict
     else if isJust w then
-           Map.insert ww (Word ww b a ((\x@(Word _ _ _ r _) -> r) (fromJust w)) pp) dict
+           return $ Map.insert ww (Word ww b a ((\x@(Word _ _ _ r _) -> r) (fromJust w)) pp) dict
          else
-           Map.insert ww (Word ww (e bbb) (e aaa) rel pp) dict
+           return $ Map.insert ww (Word ww (e $ bbb pb) (e $ aaa pa) rel pp) dict
   where
     w = Map.lookup ww dict
     e [] = Map.empty
@@ -169,12 +168,8 @@ insertWord f@(dict, wne) word before after pos =
     ww = cleanString isAlpha word
     a = incAfter' (fromJust w) aa
     b = incBefore' (fromJust w) bb
-    aaa = if pa == UnknownEPos then [] else aa
-    bbb = if pb == UnknownEPos then [] else bb
-    pp = unsafePerformIO (if null pos then wnPartPOS wne ww else return $ readEPOS pos)
-    pa = unsafePerformIO (if null pos then wnPartPOS wne aa else return $ readEPOS pos)
-    pb = unsafePerformIO (if null pos then wnPartPOS wne bb else return $ readEPOS pos)
-    rel = unsafePerformIO (wnRelated wne ww "Hypernym" pp)
+    aaa x = if x == UnknownEPos then [] else aa
+    bbb x = if x == UnknownEPos then [] else bb
 
 incBefore' :: Word -> String -> Map.Map String Int
 incBefore' word@(Word _ b _ _ _) []     = b
