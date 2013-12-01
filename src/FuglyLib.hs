@@ -20,6 +20,7 @@ import Data.Char (isAlpha, toLower)
 import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.Tree (flatten)
 import System.IO
 
 import NLP.WordNet hiding (Word)
@@ -337,3 +338,32 @@ wnRelated wne c d pos = do
     if (null result) || (null $ concat result) then return ["Nothing!"] else
       return $ map (\x -> replace '_' ' ' $ unwords $ map (++ "\"") $
                     map ('"' :) $ concat $ map (getWords . getSynset) x) result
+
+wnClosure :: WordNetEnv -> String -> String -> String -> IO String
+wnClosure _ [] _ _         = return ""
+wnClosure wne word [] _    = wnClosure wne word "Hypernym" []
+wnClosure wne word form [] = do
+    wnPos <- wnPartString wne (wnFixWord word)
+    wnClosure wne word form wnPos
+wnClosure wne word form pos = do
+    let wnForm = readForm form
+    let wnPos = fromEPOS $ readEPOS pos
+    let result = runs wne (closureOnList wnForm (search (wnFixWord word) wnPos AllSenses))
+    if (null result) then return "Nothing!" else
+      return $ unwords $ map (\x -> if isNothing x then return 'c' else (replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $ nub $ concat $ map (getWords . getSynset) (flatten (fromJust x)))) result
+
+wnMeet :: WordNetEnv -> String -> String -> String -> String -> String -> IO String
+wnMeet _ _ _ [] _ _ = return []
+wnMeet _ _ _ _ [] _ = return []
+wnMeet w a b c d [] = do
+    wnPos <- wnPartString w (wnFixWord c) -- POS not given so use most common.
+    wnMeet w a b c d wnPos
+wnMeet w a b c d e  = do
+    let wnPos = fromEPOS $ readEPOS e
+    let r1 = runs w (search (wnFixWord c) wnPos 1)
+    let r2 = runs w (search (wnFixWord d) wnPos 1)
+    if not (null r1) && not (null r2) then do
+        let result = (runs w (meet emptyQueue (head $ r1) (head $ r2)))
+        if (isNothing result) then return "Nothing!" else
+            return (replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $ getWords $ getSynset (fromJust result))
+        else return "Nothing!"
