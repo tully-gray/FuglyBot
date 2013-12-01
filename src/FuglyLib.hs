@@ -85,11 +85,13 @@ saveDict dict dictfile = do
     saveDict' h (x:xs) = do
       hPutStr h (format' (snd x))
       saveDict' h xs
-    format' m@(Word w b a r p) = unwords [("word: " ++ w ++ "\n"),
-              ("before: " ++ (unwords $ listNeigh b) ++ "\n"),
-              ("after: " ++ (unwords $ listNeigh a) ++ "\n"),
-              ("related: " ++ (unwords r) ++ "\n"),
-              ("pos: " ++ (show p) ++ "\n")]
+    format' m@(Word w b a r p)
+      | null w    = []
+      | otherwise = unwords [("word: " ++ w ++ "\n"),
+                             ("before: " ++ (unwords $ listNeigh b) ++ "\n"),
+                             ("after: " ++ (unwords $ listNeigh a) ++ "\n"),
+                             ("related: " ++ (unwords r) ++ "\n"),
+                             ("pos: " ++ (show p) ++ "\n")]
 
 loadDict :: FilePath -> IO (Map.Map String Dict)
 loadDict dictfile = do
