@@ -29,6 +29,7 @@ type Fugly = (Map.Map String Word, WordNetEnv)
 
 data Word = Word {
               word    :: String,
+              count   :: Int,
               before  :: Map.Map String Int,
               after   :: Map.Map String Int,
               related :: [String],
@@ -36,18 +37,21 @@ data Word = Word {
               } |
             Name {
               word    :: String,
+              count   :: Int,
               before  :: Map.Map String Int,
               after   :: Map.Map String Int,
               related :: [String]
               } |
             Place {
               word    :: String,
+              count   :: Int,
               before  :: Map.Map String Int,
               after   :: Map.Map String Int,
               related :: [String]
               } |
             Phrase {
               word    :: String,
+              count   :: Int,
               before  :: Map.Map String Int,
               after   :: Map.Map String Int,
               related :: [String]
@@ -85,9 +89,10 @@ saveDict dict fuglydir = do
       let l = format' $ snd x
       if null l then return () else hPutStr h l
       saveDict' h xs
-    format' m@(Word w b a r p)
+    format' m@(Word w c b a r p)
       | null w    = []
       | otherwise = unwords [("word: " ++ w ++ "\n"),
+                             ("count: " ++ (show c) ++ "\n"),
                              ("before: " ++ (unwords $ listNeigh b) ++ "\n"),
                              ("after: " ++ (unwords $ listNeigh a) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
@@ -95,14 +100,18 @@ saveDict dict fuglydir = do
 
 loadDict :: FilePath -> IO (Map.Map String Word)
 loadDict fuglydir = do
-    let w = (Word [] Map.empty Map.empty [] UnknownEPos)
+    let w = (Word [] 0 Map.empty Map.empty [] UnknownEPos)
     h <- openFile (fuglydir ++ "/dict.txt") ReadMode
-    hSetBuffering h LineBuffering
-    putStrLn "Loading dict file..."
-    ff <- f h w [("foo", w)]
-    let m = Map.fromList ff
-    hClose h
-    return m
+    eof <- hIsEOF h
+    if eof then
+      return Map.empty
+      else do
+      hSetBuffering h LineBuffering
+      putStrLn "Loading dict file..."
+      ff <- f h w [("foo", w)]
+      let m = Map.fromList ff
+      hClose h
+      return m
   where
     getNeigh :: [String] -> Map.Map String Int
     getNeigh a = Map.fromList $ getNeigh' a []
@@ -112,19 +121,21 @@ loadDict fuglydir = do
     getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, read y) : [])
     f :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
     -- f _ _ [] = 
-    f h word@(Word w b a r p) nm = do
+    f h word@(Word w c b a r p) nm = do
       l <- hGetLine h
       putStrLn l
       --let lll = if length ll < 3 then "blah:" else head ll
       let ww = case (head $ words l) of
-                           "word:"    -> (Word (unwords $ tail $ words l) b a r p)
-                           "before:"  -> (Word w (getNeigh $ tail $ words l) a r p)
-                           "after:"   -> (Word w b (getNeigh $ tail $ words l) r p)
-                           "related:" -> (Word w b a (tail $ words l) p)
-                           "pos:"     -> (Word w b a r (readEPOS $ unwords $ tail $ words l))
-                           _          -> (Word w b a r p)
+                           "word:"    -> (Word (unwords $ tail $ words l) c b a r p)
+                           "count:"   -> (Word w (read $ unwords $ tail $ words l) b a r p)
+                           "before:"  -> (Word w c (getNeigh $ tail $ words l) a r p)
+                           "after:"   -> (Word w c b (getNeigh $ tail $ words l) r p)
+                           "related:" -> (Word w c b a (tail $ words l) p)
+                           "pos:"     -> (Word w c b a r
+                                          (readEPOS $ unwords $ tail $ words l))
+                           _          -> (Word w c b a r p)
       if (head $ words l) == "pos:" then
-        f h ww (nm ++ (((\x@(Word w _ _ _ _) -> w) ww), ww) : [])
+        f h ww (nm ++ (((\x@(Word w _ _ _ _ _) -> w) ww), ww) : [])
         else if (head $ words l) == ">END<" then
           return nm
             else
@@ -156,9 +167,10 @@ insertWord f@(dict, wne) word before after pos = do
   if pp == UnknownEPos then
            return dict
     else if isJust w then
-           return $ Map.insert ww (Word ww b a ((\x@(Word _ _ _ r _) -> r) (fromJust w)) pp) dict
+           return $ Map.insert ww (Word ww c b a ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
+                                   (((\x@(Word _ _ _ _ _ p) -> p)) (fromJust w))) dict
          else
-           return $ Map.insert ww (Word ww (e $ bbb pb) (e $ aaa pa) rel pp) dict
+           return $ Map.insert ww (Word ww 1 (e $ bbb pb) (e $ aaa pa) rel pp) dict
   where
     w = Map.lookup ww dict
     e [] = Map.empty
@@ -168,12 +180,16 @@ insertWord f@(dict, wne) word before after pos = do
     ww = cleanString isAlpha word
     a = incAfter' (fromJust w) aa
     b = incBefore' (fromJust w) bb
+    c = incCount' (fromJust w)
     aaa x = if x == UnknownEPos then [] else aa
     bbb x = if x == UnknownEPos then [] else bb
 
+incCount' :: Word -> Int
+incCount' w@(Word _ c _ _ _ _) = c + 1
+
 incBefore' :: Word -> String -> Map.Map String Int
-incBefore' word@(Word _ b _ _ _) []     = b
-incBefore' word@(Word _ b _ _ _) before =
+incBefore' word@(Word _ _ b _ _ _) []     = b
+incBefore' word@(Word _ _ b _ _ _) before =
   if isJust w then
     Map.insert before ((fromJust w) + 1) b
     else
@@ -188,8 +204,8 @@ incBefore m word before = do
     else Map.empty
 
 incAfter' :: Word -> String -> Map.Map String Int
-incAfter' word@(Word _ _ a _ _) []     = a
-incAfter' word@(Word _ _ a _ _) after  =
+incAfter' word@(Word _ _ _ a _ _) []     = a
+incAfter' word@(Word _ _ _ a _ _) after  =
   if isJust w then
     Map.insert after ((fromJust w) + 1) a
     else
@@ -207,14 +223,14 @@ listNeigh :: Map.Map String Int -> [String]
 listNeigh m = concat [[w, show c] | (w, c) <- Map.toList m]
 
 listWords :: Map.Map String Word -> [String]
-listWords m = map (\x@(Word w _ _ _ _) -> w) $ Map.elems m
+listWords m = map (\x@(Word w _ _ _ _ _) -> w) $ Map.elems m
 
 listWordFull :: Map.Map String Word -> String -> String
 listWordFull m word =
   if isJust ww then
-    unwords $ (\x@(Word w b a r p) ->
-                ["word:", w, " before:", unwords $ listNeigh b,
-                 " after:", unwords $ listNeigh a, " PoS:", (show p),
+    unwords $ (\x@(Word w c b a r p) ->
+                ["word:", w, "count:", show c, " before:", unwords $ listNeigh b,
+                 " after:", unwords $ listNeigh a, " pos:", (show p),
                  " related:", unwords r]) (fromJust ww)
   else
     "Nothing!"
