@@ -275,23 +275,28 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan wh
     | x == "!setparam" =
         if who == owner then case (length xs) of
           2 -> changeParam bot (xs!!0) (xs!!1)
-          _ -> replyMsg socket chan who "Usage: !setparam <parameter> <value>" >> return bot
+          _ -> replyMsg socket chan who "Usage: !setparam parameter value" >> return bot
         else return bot
     | x == "!params" =
         if who == owner then replyMsg socket chan who (init (concat $ map (++ " ")
                                       $ map show $ init allParams)) >> return bot
         else return bot
+    | x == "!dict" =
+          case (length xs) of
+            2 -> (wnGloss wne (xs!!0) (xs!!1)) >>= replyMsg socket chan who >> return bot
+            1 -> (wnGloss wne (xs!!0) []) >>= replyMsg socket chan who >> return bot
+            _ -> replyMsg socket chan who "Usage: !dict word [part-of-speech]" >> return bot
     | x == "!words" =
           replyMsg socket chan who (unwords $ listWords dict)
                                >> return bot
     | x == "!word" =
           case (length xs) of
             1 -> replyMsg socket chan who (listWordFull dict (xs!!0)) >> return bot
-            _ -> replyMsg socket chan who "Usage: !word <word>" >> return bot
+            _ -> replyMsg socket chan who "Usage: !word word" >> return bot
     | x == "!help" = if who == owner then replyMsg socket chan who
-                       "Commands: !word !words !params !setparam !nick !join !part !quit !load !save"
+                       "Commands: !dict !word !words !params !setparam !nick !join !part !quit !load !save"
                        >> return bot
-                     else replyMsg socket chan who "Commands: !word !words" >> return bot
+                     else replyMsg socket chan who "Commands: !dict !word !words" >> return bot
 evalCmd bot _ _ _ = return bot
 
 chanMsg :: Handle -> String -> String -> IO ()

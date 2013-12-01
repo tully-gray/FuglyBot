@@ -9,6 +9,7 @@ module FuglyLib
          listWords,
          listWordFull,
          cleanString,
+         wnGloss,
          Word,
          Fugly
        )
@@ -310,6 +311,18 @@ wnPartPOS w a  = do
       | fromMaybe (-1) (elemIndex (maximum a) a) == 2 = POS Adj
       | fromMaybe (-1) (elemIndex (maximum a) a) == 3 = POS Adv
       | otherwise                                     = UnknownEPos
+
+wnGloss :: WordNetEnv -> String -> String -> IO String
+wnGloss _ [] _ = return "Nothing!  Error!  Abort!"
+wnGloss wne word [] = do
+    wnPos <- wnPartString wne (wnFixWord word)
+    wnGloss wne word wnPos
+wnGloss wne word pos = do
+    let wnPos = fromEPOS $ readEPOS pos
+    let result = map (getGloss . getSynset) (runs wne (search
+                     (wnFixWord word) wnPos AllSenses))
+    if (null result) then return "Nothing!" else
+      return $ unwords result
 
 wnRelated :: WordNetEnv -> String -> String -> EPOS -> IO [String]
 wnRelated wne [] _ _  = return [[]] :: IO [String]
