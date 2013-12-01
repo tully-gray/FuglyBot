@@ -120,19 +120,18 @@ loadDict fuglydir = do
     getNeigh' (x:y:xs) [] = getNeigh' xs [(x, read y)]
     getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, read y) : [])
     f :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
-    -- f _ _ [] = 
     f h word@(Word w c b a r p) nm = do
       l <- hGetLine h
       putStrLn l
-      --let lll = if length ll < 3 then "blah:" else head ll
+      let ll = tail $ words l
       let ww = case (head $ words l) of
-                           "word:"    -> (Word (unwords $ tail $ words l) c b a r p)
-                           "count:"   -> (Word w (read $ unwords $ tail $ words l) b a r p)
-                           "before:"  -> (Word w c (getNeigh $ tail $ words l) a r p)
-                           "after:"   -> (Word w c b (getNeigh $ tail $ words l) r p)
-                           "related:" -> (Word w c b a (tail $ words l) p)
+                           "word:"    -> (Word (unwords ll) c b a r p)
+                           "count:"   -> (Word w (read $ unwords $ ll) b a r p)
+                           "before:"  -> (Word w c (getNeigh $ ll) a r p)
+                           "after:"   -> (Word w c b (getNeigh $ ll) r p)
+                           "related:" -> (Word w c b a ll p)
                            "pos:"     -> (Word w c b a r
-                                          (readEPOS $ unwords $ tail $ words l))
+                                          (readEPOS $ unwords $ ll))
                            _          -> (Word w c b a r p)
       if (head $ words l) == "pos:" then
         f h ww (nm ++ (((\x@(Word w _ _ _ _ _) -> w) ww), ww) : [])
@@ -152,10 +151,13 @@ insertWords f@(dict, wne) msg@(x:y:xs) =
     len = length msg
     insertWords' f@(d,w) _ _ [] = return d
     insertWords' f@(d,w) a l msg
-      | a == 0     = do ff <- insertWord f (msg!!a) [] (msg!!(a+1)) [] ; insertWords' (ff, wne) (a+1) l msg
+      | a == 0     = do ff <- insertWord f (msg!!a) [] (msg!!(a+1)) []
+                        insertWords' (ff, wne) (a+1) l msg
       | a > l - 1  = return d
-      | a == l - 1 = do ff <- insertWord f (msg!!a) (msg!!(a-1)) [] [] ; insertWords' (ff, wne) (a+1) l msg
-      | otherwise  = do ff <- insertWord f (msg!!a) (msg!!(a-1)) (msg!!(a+1)) [] ; insertWords' (ff, wne) (a+1) l msg
+      | a == l - 1 = do ff <- insertWord f (msg!!a) (msg!!(a-1)) [] []
+                        insertWords' (ff, wne) (a+1) l msg
+      | otherwise  = do ff <- insertWord f (msg!!a) (msg!!(a-1)) (msg!!(a+1)) []
+                        insertWords' (ff, wne) (a+1) l msg
 
 insertWord :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWord f@(dict, wne) [] _ _ _ = return dict
