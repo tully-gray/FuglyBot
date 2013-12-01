@@ -2,6 +2,7 @@ module FuglyLib
        (
          initFugly,
          stopFugly,
+         loadDict,
          saveDict,
          insertWord,
          insertWords,
@@ -75,6 +76,7 @@ saveDict dict dictfile = do
         hSetBuffering h LineBuffering
         putStrLn "Saving dict file..."
         saveDict' h d
+        hPutStrLn h ">END<"
         hFlush h
         hClose h
   where
@@ -83,7 +85,48 @@ saveDict dict dictfile = do
     saveDict' h (x:xs) = do
       hPutStr h (format' (snd x))
       saveDict' h xs
-    format' m@(Word w b a r p) = unwords [("word: " ++ w ++ "\n"), ("before: " ++ (unwords $ listNeigh b) ++ "\n"), ("after: " ++ (unwords $ listNeigh a) ++ "\n"), ("related: " ++ (unwords r) ++ "\n"), ("pos: " ++ (show p) ++ "\n")]
+    format' m@(Word w b a r p) = unwords [("word: " ++ w ++ "\n"),
+              ("before: " ++ (unwords $ listNeigh b) ++ "\n"),
+              ("after: " ++ (unwords $ listNeigh a) ++ "\n"),
+              ("related: " ++ (unwords r) ++ "\n"),
+              ("pos: " ++ (show p) ++ "\n")]
+
+loadDict :: FilePath -> IO (Map.Map String Dict)
+loadDict dictfile = do
+    let w = (Word [] Map.empty Map.empty [] UnknownEPos)
+    h <- openFile dictfile ReadMode
+    hSetBuffering h LineBuffering
+    putStrLn "Loading dict file..."
+    ff <- f h w [("foo", w)]
+    let m = Map.fromList ff
+    hClose h
+    return m
+  where
+    getNeigh :: [String] -> Map.Map String Int
+    getNeigh a = Map.fromList $ getNeigh' a []
+    getNeigh' :: [String] -> [(String, Int)] -> [(String, Int)]
+    getNeigh'        [] l = l
+    getNeigh' (x:y:xs) [] = getNeigh' xs [(x, read y)]
+    getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, read y) : [])
+    f :: Handle -> Dict -> [(String, Dict)] -> IO [(String, Dict)]
+    -- f _ _ [] = 
+    f h word@(Word w b a r p) nm = do
+      l <- hGetLine h
+      putStrLn l
+      --let lll = if length ll < 3 then "blah:" else head ll
+      let ww = case (head $ words l) of
+                           "word:"    -> (Word (unwords $ tail $ words l) b a r p)
+                           "before:"  -> (Word w (getNeigh $ tail $ words l) a r p)
+                           "after:"   -> (Word w b (getNeigh $ tail $ words l) r p)
+                           "related:" -> (Word w b a (tail $ words l) p)
+                           "pos:"     -> (Word w b a r (readEPOS $ unwords $ tail $ words l))
+                           _          -> (Word w b a r p)
+      if (head $ words l) == "pos:" then
+        f h ww (nm ++ (((\x@(Word w _ _ _ _) -> w) ww), ww) : [])
+        else if (head $ words l) == ">END<" then
+          return nm
+            else
+               f h ww nm
 
 insertWords :: Fugly -> [String] -> Map.Map String Dict
 insertWords f@(dict, wne) [] = dict

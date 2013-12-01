@@ -255,7 +255,7 @@ reply bot@(Bot socket params fugly) chan who msg = do
     return bot
 
 evalCmd :: Bot -> String -> String -> [String] -> IO Bot
-evalCmd bot@(Bot socket (Parameter _ owner _ _ _) fugly@(dict, wne)) _ who (x:xs)
+evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _) fugly@(dict, wne)) _ who (x:xs)
     | x == "!quit" =
       if who == owner then case (length xs) of
         0 -> do stopFugly fugly >> write socket "QUIT" ":Bye" >> return bot
@@ -263,6 +263,10 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _) fugly@(dict, wne)) _ who (x:xs
       else return bot
     | x == "!save" = if who == owner then saveDict dict "/home/lonewolf/fugly/dict.txt"
                                           >> return bot else return bot
+    | x == "!load" = if who == owner then do
+        nd <- loadDict "/home/lonewolf/fugly/dict.txt"
+        return (Bot socket params (nd, wne))
+                     else return bot
     | x == "!join" = if who == owner then joinChannel socket "JOIN" xs >>
                                           return bot else return bot
     | x == "!part" = if who == owner then joinChannel socket "PART" xs >>
@@ -286,7 +290,7 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _) fugly@(dict, wne)) chan who (x
             1 -> replyMsg socket chan who (listWordFull dict (xs!!0)) >> return bot
             _ -> replyMsg socket chan who "Usage: !word <word>" >> return bot
     | x == "!help" = if who == owner then replyMsg socket chan who
-                       "Commands: !word !words !params !setparam !nick !join !part !quit"
+                       "Commands: !word !words !params !setparam !nick !join !part !quit !load !save"
                        >> return bot
                      else replyMsg socket chan who "Commands: !word !words" >> return bot
 evalCmd bot _ _ _ = return bot
