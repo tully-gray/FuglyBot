@@ -354,8 +354,8 @@ wnClosure wne word form pos = do
       return $ unwords $ map (\x -> if isNothing x then return '?'
                                     else (replace '_' ' ' $ unwords $ map (++ "\"") $
                                           map ('"' :) $ nub $ concat $ map
-                                          (getWords . getSynset) (flatten
-                                          (fromJust x)))) result
+                                          (getWords . getSynset)
+                                          (flatten (fromJust x)))) result
 
 wnMeet :: WordNetEnv -> String -> String -> String -> String -> String -> IO String
 wnMeet _ _ _ [] _ _ = return []

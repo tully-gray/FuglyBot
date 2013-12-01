@@ -299,17 +299,45 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan wh
                      else replyMsg socket chan who "Commands: !dict !word !words" >> return bot
 evalCmd bot _ _ _ = return bot
 
+{-
+   IRC messages are always lines of characters terminated with a CR-LF
+   (Carriage Return - Line Feed) pair, and these messages SHALL NOT
+   exceed 512 characters in length, counting all characters including
+   the trailing CR-LF. Thus, there are 510 characters maximum allowed
+   for the command and its parameters.  There is no provision for
+   continuation of message lines.
+
+   https://tools.ietf.org/html/rfc2812
+-}
+
+maxMsgLen = 450
+
 chanMsg :: Handle -> String -> String -> IO ()
-chanMsg h chan msg = write h "PRIVMSG" (chan ++ " :" ++ msg)
+chanMsg h chan msg =
+  if length msg > maxMsgLen then do
+     write h "PRIVMSG" (chan ++ " :" ++ (take maxMsgLen msg))
+     chanMsg h chan (drop maxMsgLen msg)
+     else
+     chanMsg h chan msg
 
 replyMsg :: Handle -> String -> String -> String -> IO ()
 replyMsg socket chan nick msg
-    | chan == nick   = write socket "PRIVMSG" (nick ++ " :" ++ msg)
-    | otherwise      = write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ msg)
+    | chan == nick   = if length msg > maxMsgLen then do
+      write socket "PRIVMSG" (nick ++ " :" ++ (take maxMsgLen msg))
+      replyMsg socket chan nick (drop maxMsgLen msg) else
+        write socket "PRIVMSG" (nick ++ " :" ++ msg)
+    | otherwise      = if length msg > maxMsgLen then do
+      write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ (take maxMsgLen msg))
+      replyMsg socket chan nick (drop maxMsgLen msg) else
+        write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ msg)
 
 privMsg :: Handle -> String -> String -> IO ()
-privMsg socket nick msg = write socket "PRIVMSG" (nick ++ " :" ++ msg)
---privMsg socket nick msg = replyMsg socket nick nick msg
+privMsg socket nick msg =
+  if length msg > maxMsgLen then do
+    write socket "PRIVMSG" (nick ++ " :" ++ (take maxMsgLen msg))
+    privMsg socket nick (drop maxMsgLen msg)
+    else
+    write socket "PRIVMSG" (nick ++ " :" ++ msg)
 
 write :: Handle -> String -> String -> IO ()
 write socket s msg = do
