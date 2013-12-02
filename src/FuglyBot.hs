@@ -310,32 +310,33 @@ evalCmd bot _ _ _ = return bot
    https://tools.ietf.org/html/rfc2812
 -}
 
-maxMsgLen = 450
+maxMsgLen = 350
+cmdLen chan nick = length "PRIVMSG" + length chan + length nick
 
 chanMsg :: Handle -> String -> String -> IO ()
 chanMsg h chan msg =
   if length msg > maxMsgLen then do
-     write h "PRIVMSG" (chan ++ " :" ++ (take maxMsgLen msg))
-     chanMsg h chan (drop maxMsgLen msg)
+     write h "PRIVMSG" (chan ++ " :" ++ (take (maxMsgLen - cmdLen chan [] - 3) msg))
+     chanMsg h chan (drop (maxMsgLen - cmdLen chan [] - 3) msg)
      else
      chanMsg h chan msg
 
 replyMsg :: Handle -> String -> String -> String -> IO ()
 replyMsg socket chan nick msg
     | chan == nick   = if length msg > maxMsgLen then do
-      write socket "PRIVMSG" (nick ++ " :" ++ (take maxMsgLen msg))
-      replyMsg socket chan nick (drop maxMsgLen msg) else
+      write socket "PRIVMSG" (nick ++ " :" ++ (take (maxMsgLen - cmdLen chan nick - 3) msg))
+      replyMsg socket chan nick (drop (maxMsgLen - cmdLen chan nick - 3) msg) else
         write socket "PRIVMSG" (nick ++ " :" ++ msg)
     | otherwise      = if length msg > maxMsgLen then do
-      write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ (take maxMsgLen msg))
-      replyMsg socket chan nick (drop maxMsgLen msg) else
+      write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ (take (maxMsgLen - cmdLen chan nick - 5) msg))
+      replyMsg socket chan nick (drop (maxMsgLen - cmdLen chan nick - 5) msg) else
         write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ msg)
 
 privMsg :: Handle -> String -> String -> IO ()
 privMsg socket nick msg =
   if length msg > maxMsgLen then do
-    write socket "PRIVMSG" (nick ++ " :" ++ (take maxMsgLen msg))
-    privMsg socket nick (drop maxMsgLen msg)
+    write socket "PRIVMSG" (nick ++ " :" ++ (take (maxMsgLen - cmdLen [] nick - 3) msg))
+    privMsg socket nick (drop (maxMsgLen - cmdLen [] nick - 3) msg)
     else
     write socket "PRIVMSG" (nick ++ " :" ++ msg)
 
