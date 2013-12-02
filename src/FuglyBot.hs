@@ -268,6 +268,10 @@ evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ _ _ _) fugly@(dict,
                                           return bot else return bot
     | x == "!nick" = if who == owner then changeNick bot xs else return bot
 evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan who (x:xs)
+    | x == "!readfile" = if who == owner then case (length xs) of
+        1 -> insertFromFile bot (xs!!0)
+        _ -> replyMsg bot chan who "Usage: !readfile file" >>
+                                          return bot else return bot
     | x == "!setparam" =
         if who == owner then case (length xs) of
           2 -> changeParam bot (xs!!0) (xs!!1)
@@ -303,7 +307,7 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan wh
             2 -> (wnMeet wne (xs!!0) (xs!!1) []) >>= replyMsg bot chan who >> return bot
             _ -> replyMsg bot chan who "Usage: !meet word word [part-of-speech]" >> return bot
     | x == "!help" = if who == owner then replyMsg bot chan who
-                       "Commands: !dict !word !words !closure !meet !params !setparam !nick !join !part !quit !load !save"
+                       "Commands: !dict !word !words !closure !meet !params !setparam !nick !join !part !quit !readfile !load !save"
                        >> return bot
                      else replyMsg bot chan who "Commands: !dict !word !words !closure !meet" >> return bot
 evalCmd bot _ _ _ = return bot
@@ -354,3 +358,8 @@ write :: Handle -> String -> String -> IO ()
 write socket s msg = do
     hPrintf socket "%s %s\r\n" s msg
     printf         "> %s %s\n" s msg
+
+insertFromFile bot@(Bot socket params fugly@(dict, wne)) file = do
+    f <- readFile file
+    n <- insertWords fugly $ words f
+    return (Bot socket params (n, wne))

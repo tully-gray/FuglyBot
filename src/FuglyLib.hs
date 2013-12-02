@@ -117,7 +117,7 @@ loadDict fuglydir = do
       else do
       hSetBuffering h LineBuffering
       putStrLn "Loading dict file..."
-      ff <- f h w [("foo", w)]
+      ff <- f h w [([], w)]
       let m = Map.fromList ff
       hClose h
       return m
@@ -132,8 +132,13 @@ loadDict fuglydir = do
     f h word@(Word w c b a r p) nm = do
       l <- hGetLine h
       putStrLn l
-      let ll = tail $ words l
-      let ww = case (head $ words l) of
+      let wl = words l
+      let l1 = length $ filter (\x -> x /= ' ') l
+      let l2 = length wl
+      let l3 = elem ':' l
+      let l4 = if l1 > 3 && l2 > 0 && l3 == True then True else False
+      let ll = if l4 == True then tail wl else ["BAD BAD BAD"]
+      let ww = if l4 == True then case (head wl) of
                            "word:"    -> (Word (unwords ll) c b a r p)
                            "count:"   -> (Word w (read $ unwords $ ll) b a r p)
                            "before:"  -> (Word w c (getNeigh $ ll) a r p)
@@ -142,12 +147,14 @@ loadDict fuglydir = do
                            "pos:"     -> (Word w c b a r
                                           (readEPOS $ unwords $ ll))
                            _          -> (Word w c b a r p)
-      if (head $ words l) == "pos:" then
-        f h ww (nm ++ (((\x@(Word w _ _ _ _ _) -> w) ww), ww) : [])
-        else if (head $ words l) == ">END<" then
-          return nm
-            else
-               f h ww nm
+               else (Word w c b a r p)
+      if l4 == False then do putStrLn "hmm..." >> return nm
+        else if (head wl) == "pos:" then
+               f h ww (nm ++ (((\x@(Word w _ _ _ _ _) -> w) ww), ww) : [])
+             else if (head wl) == ">END<" then
+                    return nm
+                  else
+                    f h ww nm
 
 insertWords :: Fugly -> [String] -> IO (Map.Map String Word)
 insertWords f@(dict, wne) [] = return dict
