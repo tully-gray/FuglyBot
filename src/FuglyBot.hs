@@ -236,20 +236,16 @@ processLine bot@(Bot socket (Parameter nick owner fuglydir wndir rejoinkick _ _)
     chan = getChannel line
 
 reply :: Bot -> String -> String -> [String] -> IO Bot
-reply bot@(Bot socket params fugly) [] who msg = do
-    return bot
-reply bot@(Bot socket params fugly@(dict, wne)) chan [] msg = do
-    -- store and process msg
-    -- evaluate msg for spelling, grammar, etc
-    -- formulate response
+reply bot@(Bot socket params fugly@(dict, wne)) [] who msg = do
     n <- insertWords fugly msg
     return (Bot socket params (n, wne))
-reply bot@(Bot socket params fugly) chan who msg = do
-    -- store and process msg
-    -- evaluate msg for spelling, grammar, etc
-    -- decide whether to respond
-    -- formulate response
-    return bot
+reply bot@(Bot socket params fugly@(dict, wne)) chan [] msg = do
+    n <- insertWords fugly msg
+    return (Bot socket params (n, wne))
+reply bot@(Bot socket params fugly@(dict, wne)) chan who msg = do
+    replyMsg bot chan who $ unwords $ s1 dict 170 2
+    n <- insertWords fugly msg
+    return (Bot socket params (n, wne))
 
 evalCmd :: Bot -> String -> String -> [String] -> IO Bot
 evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ _ _ _) fugly@(dict, wne)) _ who (x:xs)
@@ -287,7 +283,7 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan wh
             1 -> (wnGloss wne (xs!!0) []) >>= replyMsg bot chan who >> return bot
             _ -> replyMsg bot chan who "Usage: !dict word [part-of-speech]" >> return bot
     | x == "!words" =
-          replyMsg bot chan who (unwords $ listWords dict)
+          replyMsg bot chan who (unwords $ listWordsWithNeigh dict)
                                >> return bot
     | x == "!word" =
           case (length xs) of

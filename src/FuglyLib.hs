@@ -7,11 +7,13 @@ module FuglyLib
          insertWord,
          insertWords,
          listWords,
+         listWordsWithNeigh,
          listWordFull,
          cleanString,
          wnClosure,
          wnGloss,
          wnMeet,
+         s1,
          Word,
          Fugly
        )
@@ -23,7 +25,10 @@ import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.Tree (flatten)
+import System.Random as Random
 import System.IO
+
+import qualified Data.MarkovChain as Markov
 
 import NLP.WordNet hiding (Word)
 import NLP.WordNet.Prims (indexLookup, senseCount, getSynset, getWords, getGloss)
@@ -231,6 +236,12 @@ listNeigh m = concat [[w, show c] | (w, c) <- Map.toList m]
 listWords :: Map.Map String Word -> [String]
 listWords m = map (\x@(Word w _ _ _ _ _) -> w) $ Map.elems m
 
+listWordsWithNeigh :: Map.Map String Word -> [String]
+listWordsWithNeigh m = map (\x@(Word w _ b a _ _) -> (listNeigh' b) ++ " <" ++ w ++ "> " ++ (listNeigh' a) ++ " ; ") $ Map.elems m
+  where
+    listNeigh' :: Map.Map String Int -> String
+    listNeigh' x = unwords $ filter (\x -> length x > 0) [w | (w, c) <- Map.toList x, c > 0]
+
 listWordFull :: Map.Map String Word -> String -> String
 listWordFull m word =
   if isJust ww then
@@ -375,3 +386,5 @@ wnMeet w c d e  = do
             return (replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $
                     getWords $ getSynset (fromJust result))
         else return "Nothing!"
+
+s1 m num runs = take num $ Markov.run runs (listWords m) 0 (Random.mkStdGen 123)
