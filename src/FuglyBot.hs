@@ -20,15 +20,15 @@ data Bot = Bot {
     fugly :: Fugly
     }
 
-data Parameter = Nick | Owner | RejoinKick | MaxChanLines | ChatChannel
+data Parameter = Nick | Owner | RejoinKick | MaxChanMsg | ChatChannel
                | UnknownParam
                | Parameter {
-                 nick :: String,
-                 owner :: String,
-                 fuglydir :: FilePath,
-                 wndir :: FilePath,
-                 rejoinkick :: Int,
-                 maxchanlines :: Int,
+                 nick        :: String,
+                 owner       :: String,
+                 fuglydir    :: FilePath,
+                 wndir       :: FilePath,
+                 rejoinkick  :: Int,
+                 maxchanmsg  :: Int,
                  chatchannel :: String
                  }
                deriving (Eq, Ord, Show)
@@ -39,13 +39,13 @@ instance Enum Parameter where
     toEnum 1 = Nick
     toEnum 2 = Owner
     toEnum 3 = RejoinKick
-    toEnum 4 = MaxChanLines
+    toEnum 4 = MaxChanMsg
     toEnum 5 = ChatChannel
     toEnum 6 = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
     fromEnum RejoinKick     = 3
-    fromEnum MaxChanLines   = 4
+    fromEnum MaxChanMsg     = 4
     fromEnum ChatChannel    = 5
     fromEnum UnknownParam   = 6
     enumFrom i = enumFromTo i UnknownParam
@@ -55,7 +55,7 @@ readParam :: String -> Parameter
 readParam a | (map toLower a) == "nick"            = Nick
 readParam a | (map toLower a) == "owner"           = Owner
 readParam a | (map toLower a) == "rejoinkick"      = RejoinKick
-readParam a | (map toLower a) == "maxchanlines"    = MaxChanLines
+readParam a | (map toLower a) == "maxchanmsg"      = MaxChanMsg
 readParam a | (map toLower a) == "chatchannel"     = ChatChannel
 readParam _                                        = UnknownParam
 
@@ -79,7 +79,7 @@ start args = do
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir
-    return (Bot socket (Parameter nick owner fuglydir wndir 10 2 channel) fugly)
+    return (Bot socket (Parameter nick owner fuglydir wndir 10 300 channel) fugly)
 
 run :: [String] -> Bot -> IO ()
 run args bot@(Bot socket (Parameter nick _ _ _ _ _ _) fugly) = do
@@ -87,7 +87,7 @@ run args bot@(Bot socket (Parameter nick _ _ _ _ _ _) fugly) = do
     let passwd  = args !! 7
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
-    privMsg socket "nickserv" ("IDENTIFY " ++ passwd)
+    privMsg bot "nickserv" ("IDENTIFY " ++ passwd)
     joinChannel socket "JOIN" [channel]
     listenIRC bot
     return () :: IO ()
@@ -138,15 +138,15 @@ changeNick bot@(Bot socket (Parameter nick owner _ _ _ _ _) fugly) (x:xs) = do
     putStrLn s
     let line = words s
     if (length line) > 2 then testNick' bot new (take 2 (drop 1 line))
-      else return "Something went wrong!" >>= privMsg socket owner >> return bot
+      else return "Something went wrong!" >>= privMsg bot owner >> return bot
   where
     testNick' :: Bot -> String -> [String] -> IO Bot
-    testNick' bot@(Bot socket (Parameter nick owner fuglydir wndir rejoinkick maxchanlines chatchan) fugly)
+    testNick' bot@(Bot socket (Parameter nick owner fuglydir wndir rejoinkick maxchanmsg chatchan) fugly)
       new line
         | (x == "NICK") && (drop 1 y) == new =
-          return (Bot socket (Parameter new owner fuglydir wndir rejoinkick maxchanlines chatchan) fugly)
+          return (Bot socket (Parameter new owner fuglydir wndir rejoinkick maxchanmsg chatchan) fugly)
         | otherwise                          =
-            return "Nick change failed!" >>= privMsg socket owner >> return bot
+            return "Nick change failed!" >>= privMsg bot owner >> return bot
       where
         x = head line
         y = last line
@@ -162,18 +162,18 @@ joinChannel h a (x:xs) = do
 
 changeParam :: Bot -> String -> String -> IO Bot
 changeParam bot@(Bot socket (Parameter nick owner fuglydir wndir
-                             rejoinkick maxchanlines chatchan) fugly)
+                             rejoinkick maxchanmsg chatchan) fugly)
   param value = do
     case (readParam param) of
       Nick         -> changeNick bot (value : "" : [])
       Owner        -> return (Bot socket (Parameter nick value fuglydir wndir
-                                          rejoinkick maxchanlines chatchan) fugly)
+                                          rejoinkick maxchanmsg chatchan) fugly)
       RejoinKick   -> return (Bot socket (Parameter nick owner fuglydir wndir (read value)
-                                          maxchanlines chatchan) fugly)
-      MaxChanLines -> return (Bot socket (Parameter nick owner fuglydir wndir rejoinkick
+                                          maxchanmsg chatchan) fugly)
+      MaxChanMsg   -> return (Bot socket (Parameter nick owner fuglydir wndir rejoinkick
                                           (read value) chatchan) fugly)
       ChatChannel  -> return (Bot socket (Parameter nick owner fuglydir wndir rejoinkick
-                                          maxchanlines value) fugly)
+                                          maxchanmsg value) fugly)
       _            -> return bot
 
 getMsg :: [String] -> [String]
@@ -275,28 +275,28 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan wh
     | x == "!setparam" =
         if who == owner then case (length xs) of
           2 -> changeParam bot (xs!!0) (xs!!1)
-          _ -> replyMsg socket chan who "Usage: !setparam parameter value" >> return bot
+          _ -> replyMsg bot chan who "Usage: !setparam parameter value" >> return bot
         else return bot
     | x == "!params" =
-        if who == owner then replyMsg socket chan who (init (concat $ map (++ " ")
+        if who == owner then replyMsg bot chan who (init (concat $ map (++ " ")
                                       $ map show $ init allParams)) >> return bot
         else return bot
     | x == "!dict" =
           case (length xs) of
-            2 -> (wnGloss wne (xs!!0) (xs!!1)) >>= replyMsg socket chan who >> return bot
-            1 -> (wnGloss wne (xs!!0) []) >>= replyMsg socket chan who >> return bot
-            _ -> replyMsg socket chan who "Usage: !dict word [part-of-speech]" >> return bot
+            2 -> (wnGloss wne (xs!!0) (xs!!1)) >>= replyMsg bot chan who >> return bot
+            1 -> (wnGloss wne (xs!!0) []) >>= replyMsg bot chan who >> return bot
+            _ -> replyMsg bot chan who "Usage: !dict word [part-of-speech]" >> return bot
     | x == "!words" =
-          replyMsg socket chan who (unwords $ listWords dict)
+          replyMsg bot chan who (unwords $ listWords dict)
                                >> return bot
     | x == "!word" =
           case (length xs) of
-            1 -> replyMsg socket chan who (listWordFull dict (xs!!0)) >> return bot
-            _ -> replyMsg socket chan who "Usage: !word word" >> return bot
-    | x == "!help" = if who == owner then replyMsg socket chan who
+            1 -> replyMsg bot chan who (listWordFull dict (xs!!0)) >> return bot
+            _ -> replyMsg bot chan who "Usage: !word word" >> return bot
+    | x == "!help" = if who == owner then replyMsg bot chan who
                        "Commands: !dict !word !words !params !setparam !nick !join !part !quit !load !save"
                        >> return bot
-                     else replyMsg socket chan who "Commands: !dict !word !words" >> return bot
+                     else replyMsg bot chan who "Commands: !dict !word !words" >> return bot
 evalCmd bot _ _ _ = return bot
 
 {-
@@ -310,33 +310,37 @@ evalCmd bot _ _ _ = return bot
    https://tools.ietf.org/html/rfc2812
 -}
 
+
+-- maxMsgLen (Parameter _ _ _ _ _ maxchanmsg _) = maxchanmsg
 maxMsgLen = 350
+
+cmdLen :: String -> String -> Int
 cmdLen chan nick = length "PRIVMSG" + length chan + length nick
 
-chanMsg :: Handle -> String -> String -> IO ()
-chanMsg h chan msg =
+chanMsg :: Bot -> String -> String -> IO ()
+chanMsg bot@(Bot socket (Parameter _ _ _ _ _ maxchanmsg _) fugly@(dict, wne)) chan msg =
   if length msg > maxMsgLen then do
-     write h "PRIVMSG" (chan ++ " :" ++ (take (maxMsgLen - cmdLen chan [] - 3) msg))
-     chanMsg h chan (drop (maxMsgLen - cmdLen chan [] - 3) msg)
+     write socket "PRIVMSG" (chan ++ " :" ++ (take (maxMsgLen - cmdLen chan [] - 3) msg))
+     chanMsg bot chan (drop (maxMsgLen - cmdLen chan [] - 3) msg)
      else
-     chanMsg h chan msg
+     chanMsg bot chan msg
 
-replyMsg :: Handle -> String -> String -> String -> IO ()
-replyMsg socket chan nick msg
+replyMsg :: Bot -> String -> String -> String -> IO ()
+replyMsg bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan nick msg
     | chan == nick   = if length msg > maxMsgLen then do
       write socket "PRIVMSG" (nick ++ " :" ++ (take (maxMsgLen - cmdLen chan nick - 3) msg))
-      replyMsg socket chan nick (drop (maxMsgLen - cmdLen chan nick - 3) msg) else
+      replyMsg bot chan nick (drop (maxMsgLen - cmdLen chan nick - 3) msg) else
         write socket "PRIVMSG" (nick ++ " :" ++ msg)
     | otherwise      = if length msg > maxMsgLen then do
       write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ (take (maxMsgLen - cmdLen chan nick - 5) msg))
-      replyMsg socket chan nick (drop (maxMsgLen - cmdLen chan nick - 5) msg) else
+      replyMsg bot chan nick (drop (maxMsgLen - cmdLen chan nick - 5) msg) else
         write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ msg)
 
-privMsg :: Handle -> String -> String -> IO ()
-privMsg socket nick msg =
+privMsg :: Bot -> String -> String -> IO ()
+privMsg bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) nick msg =
   if length msg > maxMsgLen then do
     write socket "PRIVMSG" (nick ++ " :" ++ (take (maxMsgLen - cmdLen [] nick - 3) msg))
-    privMsg socket nick (drop (maxMsgLen - cmdLen [] nick - 3) msg)
+    privMsg bot nick (drop (maxMsgLen - cmdLen [] nick - 3) msg)
     else
     write socket "PRIVMSG" (nick ++ " :" ++ msg)
 
