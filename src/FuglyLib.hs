@@ -14,6 +14,7 @@ module FuglyLib
          wnGloss,
          wnMeet,
          s1,
+         s2,
          Word,
          Fugly
        )
@@ -102,8 +103,8 @@ saveDict dict fuglydir = do
       | null w    = []
       | otherwise = unwords [("word: " ++ w ++ "\n"),
                              ("count: " ++ (show c) ++ "\n"),
-                             ("before: " ++ (unwords $ listNeigh b) ++ "\n"),
-                             ("after: " ++ (unwords $ listNeigh a) ++ "\n"),
+                             ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
+                             ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("pos: " ++ (show p) ++ "\n")]
 
@@ -182,25 +183,32 @@ insertWord f@(dict, wne) word before after pos = do
   pa <- (if null pos then wnPartPOS wne aa else return $ readEPOS pos)
   pb <- (if null pos then wnPartPOS wne bb else return $ readEPOS pos)
   rel <- wnRelated wne ww "Hypernym" pp
-  if pp == UnknownEPos || (length ww < 2) then
-           return dict
-    else if isJust w then
-           return $ Map.insert ww (Word ww c b a ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
+  if isJust w then
+    return $ Map.insert ww (Word ww c b a ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
                                    (((\x@(Word _ _ _ _ _ p) -> p)) (fromJust w))) dict
-         else
-           return $ Map.insert ww (Word ww 1 (e $ bbb pb) (e $ aaa pa) rel pp) dict
+         else if elem ww allowedWords then
+           return $ Map.insert ww (Word ww 1 (e (bbb bb pb)) (e (aaa aa pa)) rel pp) dict
+           else if pp == UnknownEPos || (length ww < 3) then
+                  return dict
+                  else
+                  return $ Map.insert ww (Word ww 1 (e (bbb bb pb))
+                                          (e (aaa aa pa)) rel pp) dict
   where
     w = Map.lookup ww dict
     e [] = Map.empty
     e x = Map.singleton x 1
-    aa = cleanString isAlpha after
-    bb = cleanString isAlpha before
-    ww = cleanString isAlpha word
+    aa = map toLower $ cleanString isAlpha after
+    bb = map toLower $ cleanString isAlpha before
+    ww = map toLower $ cleanString isAlpha word
     a = incAfter' (fromJust w) aa
     b = incBefore' (fromJust w) bb
     c = incCount' (fromJust w)
-    aaa x = if x == UnknownEPos then [] else aa
-    bbb x = if x == UnknownEPos then [] else bb
+    aaa w x = if x == UnknownEPos || (length w < 3) then [] else w
+    bbb w x = if x == UnknownEPos || (length w < 3) then [] else w
+
+allowedWords :: [String]
+allowedWords = ["a", "i", "to", "go", "me", "no", "you", "her", "him", "has", "got",
+                "had", "have", "has", "it", "them", "there", "their"]
 
 incCount' :: Word -> Int
 incCount' w@(Word _ c _ _ _ _) = c + 1
@@ -238,7 +246,10 @@ incAfter m word after = do
     else Map.empty
 
 listNeigh :: Map.Map String Int -> [String]
-listNeigh m = concat [[w, show c] | (w, c) <- Map.toList m]
+listNeigh m = [w | (w, c) <- Map.toList m]
+
+listNeigh2 :: Map.Map String Int -> [String]
+listNeigh2 m = concat [[w, show c] | (w, c) <- Map.toList m]
 
 listNeighMax :: Map.Map String Int -> [String]
 listNeighMax m = concat [[w, show c] | (w, c) <- Map.toList m, c == maximum [c | (w, c) <- Map.toList m]]
@@ -257,8 +268,8 @@ listWordFull :: Map.Map String Word -> String -> String
 listWordFull m word =
   if isJust ww then
     unwords $ (\x@(Word w c b a r p) ->
-                ["word:", w, "count:", show c, " before:", unwords $ listNeigh b,
-                 " after:", unwords $ listNeigh a, " pos:", (show p),
+                ["word:", w, "count:", show c, " before:", unwords $ listNeigh2 b,
+                 " after:", unwords $ listNeigh2 a, " pos:", (show p),
                  " related:", unwords r]) (fromJust ww)
   else
     "Nothing!"
@@ -346,7 +357,7 @@ wnGloss wne word pos = do
     let wnPos = fromEPOS $ readEPOS pos
     let result = map (getGloss . getSynset) (runs wne (search
                      (wnFixWord word) wnPos AllSenses))
-    if (null result) then return "Nothing!" else
+    if (null result) then return [] else
       return $ unwords result
 
 wnRelated :: WordNetEnv -> String -> String -> EPOS -> IO [String]
@@ -359,12 +370,12 @@ wnRelated wne c d pos = do
                      (fromEPOS pos) AllSenses)))
                  else fromMaybe [[]] (runs wne (relatedByList wnForm (search
                       (wnFixWord c) (fromEPOS pos) AllSenses)))
-    if (null result) || (null $ concat result) then return ["Nothing!"] else
+    if (null result) || (null $ concat result) then return [] else
       return $ map (\x -> replace '_' ' ' $ unwords $ map (++ "\"") $
                     map ('"' :) $ concat $ map (getWords . getSynset) x) result
 
 wnClosure :: WordNetEnv -> String -> String -> String -> IO String
-wnClosure _ [] _ _         = return ""
+wnClosure _ [] _ _         = return []
 wnClosure wne word [] _    = wnClosure wne word "Hypernym" []
 wnClosure wne word form [] = do
     wnPos <- wnPartString wne (wnFixWord word)
@@ -374,7 +385,7 @@ wnClosure wne word form pos = do
     let wnPos = fromEPOS $ readEPOS pos
     let result = runs wne (closureOnList wnForm
                            (search (wnFixWord word) wnPos AllSenses))
-    if (null result) then return "Nothing!" else
+    if (null result) then return [] else
       return $ unwords $ map (\x -> if isNothing x then return '?'
                                     else (replace '_' ' ' $ unwords $ map (++ "\"") $
                                           map ('"' :) $ nub $ concat $ map
@@ -393,9 +404,34 @@ wnMeet w c d e  = do
     let r2 = runs w (search (wnFixWord d) wnPos 1)
     if not (null r1) && not (null r2) then do
         let result = (runs w (meet emptyQueue (head $ r1) (head $ r2)))
-        if (isNothing result) then return "Nothing!" else
+        if (isNothing result) then return [] else
             return (replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $
                     getWords $ getSynset (fromJust result))
-        else return "Nothing!"
+        else return []
 
 s1 m num runs = take num $ Markov.run runs (listWords m) 0 (Random.mkStdGen 123)
+
+s2 :: Map.Map String Word -> Int -> String -> [String]
+s2 m num word = word : (s2' m num 0 ((findNextWord1 m word 1) : []))
+  where
+    s2' :: Map.Map String Word -> Int -> Int -> [String] -> [String]
+    s2' m num i words
+      | i == num  = words
+      | otherwise = s2' m num (i + 1) (words ++ [(findNextWord1 m (last words) i)])
+
+findNextWord1 :: Map.Map String Word -> String -> Int -> String
+findNextWord1 m word i =
+  if isJust ww then
+    let neigh = listNeigh ((\x@(Word _ _ _ a _ _) -> a) (fromJust ww)) in
+    if null neigh then
+      if length r > 0 then
+        if length r > i then (r!!i)
+        else head r
+          else []
+    else if length neigh > i then (neigh!!i)
+         else head neigh
+  else
+    []
+  where
+    ww = Map.lookup word m
+    r = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
