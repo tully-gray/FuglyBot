@@ -283,7 +283,7 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan wh
             1 -> (wnGloss wne (xs!!0) []) >>= replyMsg bot chan who >> return bot
             _ -> replyMsg bot chan who "Usage: !dict word [part-of-speech]" >> return bot
     | x == "!words" =
-          replyMsg bot chan who (unwords $ listWordsWithNeigh dict)
+          replyMsg bot chan who (unwords $ listWords dict)
                                >> return bot
     | x == "!word" =
           case (length xs) of

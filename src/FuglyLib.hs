@@ -20,7 +20,7 @@ module FuglyLib
        where
 
 import Control.Exception
-import Data.Char (isAlphaNum, toLower)
+import Data.Char (isAlpha, isAlphaNum, toLower)
 import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
@@ -175,7 +175,7 @@ insertWord f@(dict, wne) word before after pos = do
   pa <- (if null pos then wnPartPOS wne aa else return $ readEPOS pos)
   pb <- (if null pos then wnPartPOS wne bb else return $ readEPOS pos)
   rel <- wnRelated wne ww "Hypernym" pp
-  if pp == UnknownEPos then
+  if pp == UnknownEPos || (length ww < 2) then
            return dict
     else if isJust w then
            return $ Map.insert ww (Word ww c b a ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
@@ -186,9 +186,9 @@ insertWord f@(dict, wne) word before after pos = do
     w = Map.lookup ww dict
     e [] = Map.empty
     e x = Map.singleton x 1
-    aa = cleanString isAlphaNum after
-    bb = cleanString isAlphaNum before
-    ww = cleanString isAlphaNum word
+    aa = cleanString isAlpha after
+    bb = cleanString isAlpha before
+    ww = cleanString isAlpha word
     a = incAfter' (fromJust w) aa
     b = incBefore' (fromJust w) bb
     c = incCount' (fromJust w)
@@ -233,6 +233,9 @@ incAfter m word after = do
 listNeigh :: Map.Map String Int -> [String]
 listNeigh m = concat [[w, show c] | (w, c) <- Map.toList m]
 
+listNeighMax :: Map.Map String Int -> [String]
+listNeighMax m = concat [[w, show c] | (w, c) <- Map.toList m, c == maximum [c | (w, c) <- Map.toList m]]
+
 listWords :: Map.Map String Word -> [String]
 listWords m = map (\x@(Word w _ _ _ _ _) -> w) $ Map.elems m
 
@@ -240,7 +243,8 @@ listWordsWithNeigh :: Map.Map String Word -> [String]
 listWordsWithNeigh m = map (\x@(Word w _ b a _ _) -> (listNeigh' b) ++ " <" ++ w ++ "> " ++ (listNeigh' a) ++ " ; ") $ Map.elems m
   where
     listNeigh' :: Map.Map String Int -> String
-    listNeigh' x = unwords $ filter (\x -> length x > 0) [w | (w, c) <- Map.toList x, c > 0]
+    listNeigh' x = unwords [w | (w, c) <- Map.toList x, (\x -> length x > 0) w, c > 0]
+    -- listNeigh' x = unwords $ filter (\x -> length x > 0) [w | (w, c) <- Map.toList x, (\x -> length x > 0) w, c > 0]
 
 listWordFull :: Map.Map String Word -> String -> String
 listWordFull m word =
