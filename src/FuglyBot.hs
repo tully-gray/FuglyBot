@@ -311,36 +311,33 @@ evalCmd bot _ _ _ = return bot
 -}
 
 
--- maxMsgLen (Parameter _ _ _ _ _ maxchanmsg _) = maxchanmsg
-maxMsgLen = 350
-
 cmdLen :: String -> String -> Int
 cmdLen chan nick = length "PRIVMSG" + length chan + length nick
 
 chanMsg :: Bot -> String -> String -> IO ()
 chanMsg bot@(Bot socket (Parameter _ _ _ _ _ maxchanmsg _) fugly@(dict, wne)) chan msg =
-  if length msg > maxMsgLen then do
-     write socket "PRIVMSG" (chan ++ " :" ++ (take (maxMsgLen - cmdLen chan [] - 3) msg))
-     chanMsg bot chan (drop (maxMsgLen - cmdLen chan [] - 3) msg)
+  if length msg > (maxchanmsg - cmdLen chan [] - 3) then do
+     write socket "PRIVMSG" (chan ++ " :" ++ (take (maxchanmsg - cmdLen chan [] - 3) msg))
+     chanMsg bot chan (drop (maxchanmsg - cmdLen chan [] - 3) msg)
      else
      chanMsg bot chan msg
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
-replyMsg bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan nick msg
-    | chan == nick   = if length msg > maxMsgLen then do
-      write socket "PRIVMSG" (nick ++ " :" ++ (take (maxMsgLen - cmdLen chan nick - 3) msg))
-      replyMsg bot chan nick (drop (maxMsgLen - cmdLen chan nick - 3) msg) else
+replyMsg bot@(Bot socket (Parameter _ _ _ _ _ maxchanmsg _) fugly@(dict, wne)) chan nick msg
+    | chan == nick   = if length msg > (maxchanmsg - cmdLen chan nick - 3) then do
+      write socket "PRIVMSG" (nick ++ " :" ++ (take (maxchanmsg - cmdLen chan nick - 3) msg))
+      replyMsg bot chan nick (drop (maxchanmsg - cmdLen chan nick - 3) msg) else
         write socket "PRIVMSG" (nick ++ " :" ++ msg)
-    | otherwise      = if length msg > maxMsgLen then do
-      write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ (take (maxMsgLen - cmdLen chan nick - 5) msg))
-      replyMsg bot chan nick (drop (maxMsgLen - cmdLen chan nick - 5) msg) else
+    | otherwise      = if length msg > (maxchanmsg - cmdLen chan nick - 5) then do
+      write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ (take (maxchanmsg - cmdLen chan nick - 5) msg))
+      replyMsg bot chan nick (drop (maxchanmsg - cmdLen chan nick - 5) msg) else
         write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ msg)
 
 privMsg :: Bot -> String -> String -> IO ()
-privMsg bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) nick msg =
-  if length msg > maxMsgLen then do
-    write socket "PRIVMSG" (nick ++ " :" ++ (take (maxMsgLen - cmdLen [] nick - 3) msg))
-    privMsg bot nick (drop (maxMsgLen - cmdLen [] nick - 3) msg)
+privMsg bot@(Bot socket (Parameter _ _ _ _ _ maxchanmsg _) fugly@(dict, wne)) nick msg =
+  if length msg > (maxchanmsg - cmdLen [] nick - 3) then do
+    write socket "PRIVMSG" (nick ++ " :" ++ (take (maxchanmsg - cmdLen [] nick - 3) msg))
+    privMsg bot nick (drop (maxchanmsg - cmdLen [] nick - 3) msg)
     else
     write socket "PRIVMSG" (nick ++ " :" ++ msg)
 
