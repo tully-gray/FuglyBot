@@ -293,10 +293,23 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan wh
           case (length xs) of
             1 -> replyMsg bot chan who (listWordFull dict (xs!!0)) >> return bot
             _ -> replyMsg bot chan who "Usage: !word word" >> return bot
+    | x == "!closure" =
+          case (length xs) of
+            3 -> (wnClosure wne (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan who
+                 >> return bot
+            2 -> (wnClosure wne (xs!!0) (xs!!1) []) >>= replyMsg bot chan who >> return bot
+            1 -> (wnClosure wne (xs!!0) [] []) >>= replyMsg bot chan who >> return bot
+            _ -> replyMsg bot chan who "Usage: !closure word [part-of-speech]" >> return bot
+    | x == "!meet" =
+          case (length xs) of
+            3 -> (wnMeet wne (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan who
+                 >> return bot
+            2 -> (wnMeet wne (xs!!0) (xs!!1) []) >>= replyMsg bot chan who >> return bot
+            _ -> replyMsg bot chan who "Usage: !meet word word [part-of-speech]" >> return bot
     | x == "!help" = if who == owner then replyMsg bot chan who
-                       "Commands: !dict !word !words !params !setparam !nick !join !part !quit !load !save"
+                       "Commands: !dict !word !words !closure !meet !params !setparam !nick !join !part !quit !load !save"
                        >> return bot
-                     else replyMsg bot chan who "Commands: !dict !word !words" >> return bot
+                     else replyMsg bot chan who "Commands: !dict !word !words !closure !meet" >> return bot
 evalCmd bot _ _ _ = return bot
 
 {-

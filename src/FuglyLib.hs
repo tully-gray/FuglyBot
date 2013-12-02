@@ -9,14 +9,16 @@ module FuglyLib
          listWords,
          listWordFull,
          cleanString,
+         wnClosure,
          wnGloss,
+         wnMeet,
          Word,
          Fugly
        )
        where
 
 import Control.Exception
-import Data.Char (isAlpha, toLower)
+import Data.Char (isAlphaNum, toLower)
 import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
@@ -357,13 +359,13 @@ wnClosure wne word form pos = do
                                           (getWords . getSynset)
                                           (flatten (fromJust x)))) result
 
-wnMeet :: WordNetEnv -> String -> String -> String -> String -> String -> IO String
-wnMeet _ _ _ [] _ _ = return []
-wnMeet _ _ _ _ [] _ = return []
-wnMeet w a b c d [] = do
+wnMeet :: WordNetEnv -> String -> String -> String -> IO String
+wnMeet _ [] _ _ = return []
+wnMeet _ _ [] _ = return []
+wnMeet w c d [] = do
     wnPos <- wnPartString w (wnFixWord c)
-    wnMeet w a b c d wnPos
-wnMeet w a b c d e  = do
+    wnMeet w c d wnPos
+wnMeet w c d e  = do
     let wnPos = fromEPOS $ readEPOS e
     let r1 = runs w (search (wnFixWord c) wnPos 1)
     let r2 = runs w (search (wnFixWord d) wnPos 1)
