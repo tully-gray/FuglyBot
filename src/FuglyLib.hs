@@ -132,7 +132,6 @@ loadDict fuglydir = do
     f :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
     f h word@(Word w c b a r p) nm = do
       l <- hGetLine h
-      putStrLn l
       let wl = words l
       let l1 = length $ filter (\x -> x /= ' ') l
       let l2 = length wl
@@ -195,6 +194,8 @@ insertWord f@(dict, wne) word before after pos = do
                                           (e (nn aa pa)) rel pp) dict
   where
     w = Map.lookup ww dict
+    wa = (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
+    wb = (\x@(Word _ _ b _ _ _) -> b) (fromJust w)
     e [] = Map.empty
     e x = Map.singleton x 1
     aa = map toLower $ cleanString isAlpha after
@@ -202,10 +203,10 @@ insertWord f@(dict, wne) word before after pos = do
     ww = map toLower $ cleanString isAlpha word
     c = incCount' (fromJust w)
     na x y = if elem x allowedWords then incAfter' (fromJust w) x
-                else if y == UnknownEPos || (length x < 3) then Map.empty
+                else if y == UnknownEPos || (length x < 3) then wa
                      else incAfter' (fromJust w) x
     nb x y = if elem x allowedWords then incBefore' (fromJust w) x
-                else if y == UnknownEPos || (length x < 3) then Map.empty
+                else if y == UnknownEPos || (length x < 3) then wb
                      else incBefore' (fromJust w) x
     nn x y  = if elem x allowedWords then x
                 else if y == UnknownEPos || (length x < 3) then [] else x
