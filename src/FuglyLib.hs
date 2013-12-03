@@ -144,7 +144,7 @@ loadDict fuglydir = do
                            "count:"   -> (Word w (read $ unwords $ ll) b a r p)
                            "before:"  -> (Word w c (getNeigh $ ll) a r p)
                            "after:"   -> (Word w c b (getNeigh $ ll) r p)
-                           "related:" -> (Word w c b a ll p)
+                           "related:" -> (Word w c b a (joinWords '"' ll) p)
                            "pos:"     -> (Word w c b a r
                                           (readEPOS $ unwords $ ll))
                            _          -> (Word w c b a r p)
@@ -216,7 +216,7 @@ allowedWords :: [String]
 allowedWords = ["a", "i", "to", "go", "me", "no", "you", "her", "him", "got", "get",
                 "had", "have", "has", "it", "the", "them", "there", "their", "what",
                 "that", "this", "where", "were", "in", "on", "at", "is", "was",
-                "could", "would", "us", "we", "do", "did"]
+                "could", "would", "for", "us", "we", "do", "did", "if", "anyone"]
 
 incCount' :: Word -> Int
 incCount' w@(Word _ c _ _ _ _) = c + 1
