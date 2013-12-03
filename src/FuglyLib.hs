@@ -79,7 +79,7 @@ initFugly fuglydir wndir = do
 
 stopFugly :: FilePath -> Fugly -> IO ()
 stopFugly fuglydir fugly@(dict, wne) = do
-    saveDict dict fuglydir
+    catchIOError (saveDict dict fuglydir) (const $ return ())
     closeWordNet wne
 
 saveDict :: Map.Map String Word -> FilePath -> IO ()
