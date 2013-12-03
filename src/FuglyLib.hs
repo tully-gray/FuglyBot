@@ -436,9 +436,9 @@ findNextWord1 m word i =
   if isJust ww then
     let neigh = listNeighMax ((\x@(Word _ _ _ a _ _) -> a) (fromJust ww)) in
     if null neigh then []
-      else if length neigh > i then (neigh!!i)
-         else head neigh
-  else []
+    else (neigh!!(mod i (length neigh)))
+      else []
   where
     ww = Map.lookup word m
+    j x y = mod x y
     -- r = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
