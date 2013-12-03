@@ -416,10 +416,10 @@ wnMeet w c d e  = do
     let r1 = runs w (search (wnFixWord c) wnPos 1)
     let r2 = runs w (search (wnFixWord d) wnPos 1)
     if not (null r1) && not (null r2) then do
-        let result = (runs w (meet emptyQueue (head $ r1) (head $ r2)))
-        if (isNothing result) then return [] else
-            return (replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $
-                    getWords $ getSynset (fromJust result))
+        let result = runs w (meet emptyQueue (head $ r1) (head $ r2))
+        if isNothing result then return [] else
+            return $ replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $
+                    getWords $ getSynset $ fromJust result
         else return []
 
 s1 m num runs = take num $ Markov.run runs (listWords m) 0 (Random.mkStdGen 123)
