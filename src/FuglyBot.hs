@@ -259,7 +259,7 @@ evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ _ _ _) fugly@(dict,
     | x == "!save" = if who == owner then saveDict dict fuglydir
                                           >> return bot else return bot
     | x == "!load" = if who == owner then do
-        nd <- loadDict fuglydir
+        nd <- catchIOError (loadDict fuglydir) (const $ return Map.empty)
         return (Bot socket params (nd, wne))
                      else return bot
     | x == "!join" = if who == owner then joinChannel socket "JOIN" xs >>
@@ -269,7 +269,7 @@ evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ _ _ _) fugly@(dict,
     | x == "!nick" = if who == owner then changeNick bot xs else return bot
 evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan who (x:xs)
     | x == "!readfile" = if who == owner then case (length xs) of
-        1 -> insertFromFile bot (xs!!0)
+        1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
         _ -> replyMsg bot chan who "Usage: !readfile file" >>
                                           return bot else return bot
     | x == "!setparam" =

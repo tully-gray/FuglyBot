@@ -29,6 +29,7 @@ import Data.Maybe
 import Data.Tree (flatten)
 import System.Random as Random
 import System.IO
+import System.IO.Error
 
 import qualified Data.MarkovChain as Markov
 
@@ -70,7 +71,7 @@ data Word = Word {
 
 initFugly :: FilePath -> FilePath -> IO Fugly
 initFugly fuglydir wndir = do
-    dict <- loadDict fuglydir
+    dict <- catchIOError (loadDict fuglydir) (const $ return Map.empty)
     wne <- NLP.WordNet.initializeWordNetWithOptions
            (return wndir :: Maybe FilePath)
            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
@@ -438,8 +439,7 @@ findNextWord1 m word i =
     if null neigh then []
     else if isJust ww then
       if elem next nextNeigh then
-        -- nextNeigh!!(mod i (length nextNeigh))
-        []
+        nextNeigh!!(mod i (length nextNeigh))
       else
         next
           else
@@ -452,4 +452,5 @@ findNextWord1 m word i =
     ww = Map.lookup next m
     nextNeigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust ww)
 
--- r = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
+
+    --related = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
