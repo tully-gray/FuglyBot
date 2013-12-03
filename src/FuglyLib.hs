@@ -422,39 +422,41 @@ wnMeet w c d e  = do
                     getWords $ getSynset $ fromJust result
         else return []
 
-markov1 :: Map.Map String Word -> Int -> Int -> Int -> Int -> [String] -> [String]
-markov1 m num runs begin end words = take num $ Markov.run runs ((take end $ take begin $ listWordsCountSort m) ++ words) 0 (Random.mkStdGen 123)
+markov1 :: Int -> Int -> [String] -> [String]
+markov1 num runs words = take num $ Markov.run runs words 0 (Random.mkStdGen 23)
 
 s2 :: Map.Map String Word -> Int -> [String] -> [String]
 s2 _ _ [] = []
-s2 m num words = concat $ map s2a $ markov1 m (length words) 1 2 (length words) (words ++ words)
+s2 dict num words = concat $ map (s2d . s2a) $ markov1 num 1 words
   where
-    s2a = (\y -> filter (\x -> length x > 0) (s2c words : s2b m num 0 ((findNextWord1 m y 1) : [])))
+    s2a = (\y -> filter (\x -> length x > 0) (s2b dict ((12 * length y) `mod` 27) 0 ((findNextWord1 dict y 1) : [])))
     s2b :: Map.Map String Word -> Int -> Int -> [String] -> [String]
-    s2b m _ _ [] = markov1 m 3 2 5 50 []
-    s2b m num i words
-      | i == num  = (init words) ++ (last words ++ ".") : []
-      | otherwise = s2b m num (i + 1) (words ++ [(findNextWord1 m (last words) i)])
-    s2c words = ((toUpper $ head $ head words) : []) ++ (tail $ head words)
+    s2b m _ _ [] = markov1 3 2 (take 70 $ drop 10 $ listWordsCountSort m)
+    s2b m n i words
+      | i == n  = (init words) ++ (last words ++ ".") : []
+      | otherwise = s2b m n (i + 1) (words ++ [(findNextWord1 m (last words) i)])
+    s2c :: [String] -> String
+    s2c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
+    s2d w = (s2c w : [] ) ++ tail w
 
 findNextWord1 :: Map.Map String Word -> String -> Int -> String
 findNextWord1 m word i =
   if isJust w then
-    if null neigh then concat $ markov1 m 3 2 23 23 [word]
+    if null neigh then unwords $ markov1 3 2 (take 70 $ drop 40 $ listWordsCountSort m)
     else if isJust ww then
       if elem next nextNeigh then
-        (nextNeigh!!(mod i (length nextNeigh)) ++ ",")
+        (nextNeigh!!(mod i (length nextNeigh)) ++ ", " ++ r)
       else
         next
           else
             next
-      else concat $ markov1 m 1 1 23 23 [word]
+      else unwords $ markov1 1 3 (take 70 $ drop 80 $ listWordsCountSort m)
   where
     w = Map.lookup word m
     neigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
     next = neigh!!(mod i (length neigh))
     ww = Map.lookup next m
     nextNeigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust ww)
-
-
-    --related = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
+    related = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
+    r = if length related > 0 then related!!(mod i (length related))
+        else unwords $ markov1 1 1 (take 70 $ drop 200 $ listWordsCountSort m)
