@@ -286,9 +286,12 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan wh
             2 -> (wnGloss wne (xs!!0) (xs!!1)) >>= replyMsg bot chan who >> return bot
             1 -> (wnGloss wne (xs!!0) []) >>= replyMsg bot chan who >> return bot
             _ -> replyMsg bot chan who "Usage: !dict word [part-of-speech]" >> return bot
-    | x == "!words" =
-          replyMsg bot chan who (unwords $ listWords dict)
+    | x == "!wordlist" =
+          let num = if read (xs!!0) > 100 then 100 else read (xs!!0) in
+          case (length xs) of
+            1 -> replyMsg bot chan who (unwords $ listWordsCountSort2 dict num)
                                >> return bot
+            _ -> replyMsg bot chan who "Usage: !wordlist [number]" >> return bot
     | x == "!word" =
           case (length xs) of
             1 -> replyMsg bot chan who (listWordFull dict (xs!!0)) >> return bot
@@ -307,9 +310,9 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan wh
             2 -> (wnMeet wne (xs!!0) (xs!!1) []) >>= replyMsg bot chan who >> return bot
             _ -> replyMsg bot chan who "Usage: !meet word word [part-of-speech]" >> return bot
     | x == "!help" = if who == owner then replyMsg bot chan who
-                       "Commands: !dict !word !words !closure !meet !params !setparam !nick !join !part !quit !readfile !load !save"
+                       "Commands: !dict !word !wordlist !closure !meet !params !setparam !nick !join !part !quit !readfile !load !save"
                        >> return bot
-                     else replyMsg bot chan who "Commands: !dict !word !words !closure !meet" >> return bot
+                     else replyMsg bot chan who "Commands: !dict !word !wordlist !closure !meet" >> return bot
 evalCmd bot _ _ _ = return bot
 
 {-

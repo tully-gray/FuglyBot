@@ -7,8 +7,9 @@ module FuglyLib
          insertWord,
          insertWords,
          listWords,
-         listWordsWithNeigh,
          listWordFull,
+         listWordsCountSort,
+         listWordsCountSort2,
          cleanString,
          wnClosure,
          wnGloss,
@@ -267,12 +268,13 @@ listNeighMax2 m = concat [[w, show c] | (w, c) <- Map.toList m, c == maximum [c 
 listWords :: Map.Map String Word -> [String]
 listWords m = map (\x@(Word w _ _ _ _ _) -> w) $ Map.elems m
 
-listWordsWithNeigh :: Map.Map String Word -> [String]
-listWordsWithNeigh m = map (\x@(Word w _ b a _ _) -> (listNeigh' b) ++ " <" ++ w ++ "> " ++ (listNeigh' a) ++ " ; ") $ Map.elems m
-  where
-    listNeigh' :: Map.Map String Int -> String
-    listNeigh' x = unwords [w | (w, c) <- Map.toList x, (\x -> length x > 0) w, c > 0]
-    -- listNeigh' x = unwords $ filter (\x -> length x > 0) [w | (w, c) <- Map.toList x, (\x -> length x > 0) w, c > 0]
+listWordsCountSort :: Map.Map String Word -> [String]
+listWordsCountSort m = reverse $ map snd (sort $ map (\x@(Word w c _ _ _ _) -> (c, w)) $ Map.elems m)
+
+listWordsCountSort2 :: Map.Map String Word -> Int -> [String]
+listWordsCountSort2 m num = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
+                            sort $ map (\x@(Word w c _ _ _ _)
+                                                   -> (c, w)) $ Map.elems m]
 
 listWordFull :: Map.Map String Word -> String -> String
 listWordFull m word =
