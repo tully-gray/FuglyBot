@@ -243,7 +243,7 @@ reply bot@(Bot socket params fugly@(dict, wne)) chan [] msg = do
     n <- insertWords fugly msg
     return (Bot socket params (n, wne))
 reply bot@(Bot socket params fugly@(dict, wne)) chan who msg = do
-    replyMsg bot chan who $ unwords $ s2 dict 35 (head msg)
+    replyMsg bot chan who $ unwords $ s2 dict 135 (head msg)
     n <- insertWords fugly msg
     return (Bot socket params (n, wne))
 

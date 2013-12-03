@@ -180,19 +180,19 @@ insertWord :: Fugly -> String -> String -> String -> String -> IO (Map.Map Strin
 insertWord f@(dict, wne) [] _ _ _ = return dict
 insertWord f@(dict, wne) word before after pos = do
   pp <- (if null pos then wnPartPOS wne ww else return $ readEPOS pos)
-  pa <- (if null pos then wnPartPOS wne aa else return $ readEPOS pos)
-  pb <- (if null pos then wnPartPOS wne bb else return $ readEPOS pos)
+  pa <- wnPartPOS wne aa
+  pb <- wnPartPOS wne bb
   rel <- wnRelated wne ww "Hypernym" pp
   if isJust w then
-    return $ Map.insert ww (Word ww c b a ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
+    return $ Map.insert ww (Word ww c (nb bb pb) (na aa pa) ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
                                    (((\x@(Word _ _ _ _ _ p) -> p)) (fromJust w))) dict
          else if elem ww allowedWords then
-           return $ Map.insert ww (Word ww 1 (e (bbb bb pb)) (e (aaa aa pa)) rel pp) dict
+           return $ Map.insert ww (Word ww 1 (e (nn bb pb)) (e (nn aa pa)) rel pp) dict
            else if pp == UnknownEPos || (length ww < 3) then
                   return dict
                   else
-                  return $ Map.insert ww (Word ww 1 (e (bbb bb pb))
-                                          (e (aaa aa pa)) rel pp) dict
+                  return $ Map.insert ww (Word ww 1 (e (nn bb pb))
+                                          (e (nn aa pa)) rel pp) dict
   where
     w = Map.lookup ww dict
     e [] = Map.empty
@@ -200,15 +200,21 @@ insertWord f@(dict, wne) word before after pos = do
     aa = map toLower $ cleanString isAlpha after
     bb = map toLower $ cleanString isAlpha before
     ww = map toLower $ cleanString isAlpha word
-    a = incAfter' (fromJust w) aa
-    b = incBefore' (fromJust w) bb
     c = incCount' (fromJust w)
-    aaa w x = if x == UnknownEPos || (length w < 3) then [] else w
-    bbb w x = if x == UnknownEPos || (length w < 3) then [] else w
+    na x y = if elem x allowedWords then incAfter' (fromJust w) x
+                else if y == UnknownEPos || (length x < 3) then Map.empty
+                     else incAfter' (fromJust w) x
+    nb x y = if elem x allowedWords then incBefore' (fromJust w) x
+                else if y == UnknownEPos || (length x < 3) then Map.empty
+                     else incBefore' (fromJust w) x
+    nn x y  = if elem x allowedWords then x
+                else if y == UnknownEPos || (length x < 3) then [] else x
 
 allowedWords :: [String]
-allowedWords = ["a", "i", "to", "go", "me", "no", "you", "her", "him", "has", "got",
-                "had", "have", "has", "it", "them", "there", "their"]
+allowedWords = ["a", "i", "to", "go", "me", "no", "you", "her", "him", "got", "get",
+                "had", "have", "has", "it", "the", "them", "there", "their", "what",
+                "that", "this", "where", "were", "in", "on", "at", "is", "was",
+                "could", "would", "us", "we", "do", "did"]
 
 incCount' :: Word -> Int
 incCount' w@(Word _ c _ _ _ _) = c + 1
@@ -252,7 +258,10 @@ listNeigh2 :: Map.Map String Int -> [String]
 listNeigh2 m = concat [[w, show c] | (w, c) <- Map.toList m]
 
 listNeighMax :: Map.Map String Int -> [String]
-listNeighMax m = concat [[w, show c] | (w, c) <- Map.toList m, c == maximum [c | (w, c) <- Map.toList m]]
+listNeighMax m = [w | (w, c) <- Map.toList m, c == maximum [c | (w, c) <- Map.toList m]]
+
+listNeighMax2 :: Map.Map String Int -> [String]
+listNeighMax2 m = concat [[w, show c] | (w, c) <- Map.toList m, c == maximum [c | (w, c) <- Map.toList m]]
 
 listWords :: Map.Map String Word -> [String]
 listWords m = map (\x@(Word w _ _ _ _ _) -> w) $ Map.elems m
@@ -412,7 +421,7 @@ wnMeet w c d e  = do
 s1 m num runs = take num $ Markov.run runs (listWords m) 0 (Random.mkStdGen 123)
 
 s2 :: Map.Map String Word -> Int -> String -> [String]
-s2 m num word = word : (s2' m num 0 ((findNextWord1 m word 1) : []))
+s2 m num word = filter (\x -> length x > 0) (word : (s2' m num 0 ((findNextWord1 m word 1) : [])))
   where
     s2' :: Map.Map String Word -> Int -> Int -> [String] -> [String]
     s2' m num i words
@@ -422,16 +431,11 @@ s2 m num word = word : (s2' m num 0 ((findNextWord1 m word 1) : []))
 findNextWord1 :: Map.Map String Word -> String -> Int -> String
 findNextWord1 m word i =
   if isJust ww then
-    let neigh = listNeigh ((\x@(Word _ _ _ a _ _) -> a) (fromJust ww)) in
-    if null neigh then
-      if length r > 0 then
-        if length r > i then (r!!i)
-        else head r
-          else []
-    else if length neigh > i then (neigh!!i)
+    let neigh = listNeighMax ((\x@(Word _ _ _ a _ _) -> a) (fromJust ww)) in
+    if null neigh then []
+      else if length neigh > i then (neigh!!i)
          else head neigh
-  else
-    []
+  else []
   where
     ww = Map.lookup word m
-    r = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
+    -- r = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
