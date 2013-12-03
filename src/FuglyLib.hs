@@ -22,7 +22,7 @@ module FuglyLib
        where
 
 import Control.Exception
-import Data.Char (isAlpha, isAlphaNum, toLower)
+import Data.Char (isAlpha, isAlphaNum, toLower, toUpper)
 import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
@@ -422,32 +422,33 @@ wnMeet w c d e  = do
                     getWords $ getSynset $ fromJust result
         else return []
 
-markov1 :: Map.Map String Word -> Int -> Int -> Int -> Int -> [String]
-markov1 m num runs begin end = take num $ Markov.run runs (take end $ drop begin $ listWordsCountSort m) 0 (Random.mkStdGen 123)
+markov1 :: Map.Map String Word -> Int -> Int -> Int -> Int -> [String] -> [String]
+markov1 m num runs begin end words = take num $ Markov.run runs ((take end $ take begin $ listWordsCountSort m) ++ words) 0 (Random.mkStdGen 123)
 
 s2 :: Map.Map String Word -> Int -> [String] -> [String]
 s2 _ _ [] = []
-s2 m num words = concat $ map s2a words
+s2 m num words = concat $ map s2a $ markov1 m (length words) 1 2 (length words) (words ++ words)
   where
-    s2a = (\y -> filter (\x -> length x > 0) ((head words) : (s2b m num 0 ((findNextWord1 m y 1) : []))))
+    s2a = (\y -> filter (\x -> length x > 0) (s2c words : s2b m num 0 ((findNextWord1 m y 1) : [])))
     s2b :: Map.Map String Word -> Int -> Int -> [String] -> [String]
-    s2b m _ _ [] = markov1 m 3 1 5 50
+    s2b m _ _ [] = markov1 m 3 2 5 50 []
     s2b m num i words
-      | i == num  = words
+      | i == num  = (init words) ++ (last words ++ ".") : []
       | otherwise = s2b m num (i + 1) (words ++ [(findNextWord1 m (last words) i)])
+    s2c words = ((toUpper $ head $ head words) : []) ++ (tail $ head words)
 
 findNextWord1 :: Map.Map String Word -> String -> Int -> String
 findNextWord1 m word i =
   if isJust w then
-    if null neigh then []
+    if null neigh then concat $ markov1 m 3 2 23 23 [word]
     else if isJust ww then
       if elem next nextNeigh then
-        nextNeigh!!(mod i (length nextNeigh))
+        (nextNeigh!!(mod i (length nextNeigh)) ++ ",")
       else
         next
           else
             next
-      else []
+      else concat $ markov1 m 1 1 23 23 [word]
   where
     w = Map.lookup word m
     neigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
