@@ -14,7 +14,7 @@ module FuglyLib
          wnClosure,
          wnGloss,
          wnMeet,
-         s1,
+         markov1,
          s2,
          Word,
          Fugly
@@ -422,16 +422,19 @@ wnMeet w c d e  = do
                     getWords $ getSynset $ fromJust result
         else return []
 
-s1 m num runs = take num $ Markov.run runs (listWords m) 0 (Random.mkStdGen 123)
+markov1 :: Map.Map String Word -> Int -> Int -> Int -> Int -> [String]
+markov1 m num runs begin end = take num $ Markov.run runs (take end $ drop begin $ listWordsCountSort m) 0 (Random.mkStdGen 123)
 
-s2 :: Map.Map String Word -> Int -> String -> [String]
-s2 m num word = filter (\x -> length x > 0)
-                (word : (s2' m num 0 ((findNextWord1 m word 1) : [])))
+s2 :: Map.Map String Word -> Int -> [String] -> [String]
+s2 _ _ [] = []
+s2 m num words = concat $ map s2a words
   where
-    s2' :: Map.Map String Word -> Int -> Int -> [String] -> [String]
-    s2' m num i words
+    s2a = (\y -> filter (\x -> length x > 0) ((head words) : (s2b m num 0 ((findNextWord1 m y 1) : []))))
+    s2b :: Map.Map String Word -> Int -> Int -> [String] -> [String]
+    s2b m _ _ [] = markov1 m 3 1 5 50
+    s2b m num i words
       | i == num  = words
-      | otherwise = s2' m num (i + 1) (words ++ [(findNextWord1 m (last words) i)])
+      | otherwise = s2b m num (i + 1) (words ++ [(findNextWord1 m (last words) i)])
 
 findNextWord1 :: Map.Map String Word -> String -> Int -> String
 findNextWord1 m word i =
