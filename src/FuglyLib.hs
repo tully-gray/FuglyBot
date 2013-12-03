@@ -424,7 +424,8 @@ wnMeet w c d e  = do
 s1 m num runs = take num $ Markov.run runs (listWords m) 0 (Random.mkStdGen 123)
 
 s2 :: Map.Map String Word -> Int -> String -> [String]
-s2 m num word = filter (\x -> length x > 0) (word : (s2' m num 0 ((findNextWord1 m word 1) : [])))
+s2 m num word = filter (\x -> length x > 0)
+                (word : (s2' m num 0 ((findNextWord1 m word 1) : [])))
   where
     s2' :: Map.Map String Word -> Int -> Int -> [String] -> [String]
     s2' m num i words
@@ -433,12 +434,22 @@ s2 m num word = filter (\x -> length x > 0) (word : (s2' m num 0 ((findNextWord1
 
 findNextWord1 :: Map.Map String Word -> String -> Int -> String
 findNextWord1 m word i =
-  if isJust ww then
-    let neigh = listNeighMax ((\x@(Word _ _ _ a _ _) -> a) (fromJust ww)) in
+  if isJust w then
     if null neigh then []
-    else (neigh!!(mod i (length neigh)))
+    else if isJust ww then
+      if elem next nextNeigh then
+        -- nextNeigh!!(mod i (length nextNeigh))
+        []
+      else
+        next
+          else
+            next
       else []
   where
-    ww = Map.lookup word m
-    j x y = mod x y
-    -- r = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
+    w = Map.lookup word m
+    neigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
+    next = neigh!!(mod i (length neigh))
+    ww = Map.lookup next m
+    nextNeigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust ww)
+
+-- r = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
