@@ -422,10 +422,10 @@ wnMeet w c d e  = do
 
 markov1 :: Int -> Int -> [String] -> [String]
 markov1 num runs words
-  | null words = take num $ Markov.run runs allowedWords 0 (Random.mkStdGen 42)
+  | length words < 2    = take num $ Markov.run runs allowedWords 0 (Random.mkStdGen 42)
   | num >= length words = take num $ Markov.run runs
                           (allowedWords ++ words) 0 (Random.mkStdGen 17)
-  | otherwise  = take num $ Markov.run runs words 0 (Random.mkStdGen 23)
+  | otherwise           = take num $ Markov.run runs words 0 (Random.mkStdGen 23)
 
 sentence :: Map.Map String Word -> [String] -> [String]
 sentence dict msg = replace ".." "." $ case (length (unwords msg) `mod` 5) of
