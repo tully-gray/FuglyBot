@@ -432,14 +432,14 @@ markov1 markov num runs words
 
 sentence :: Fugly -> Int -> Int -> [String] -> [String]
 sentence _ _ _ [] = []
-sentence fugly@(dict, wne, markov) num len words = concat $ map (s1d . s1e . s1a)
+sentence fugly@(dict, wne, markov) num len words = concat $ nub $ map (s1d . s1e . s1a)
                                                    $ markov1 markov num 2 words
   where
     s1a = (\y -> filter (\x -> length x > 0) (s1b fugly len 0 (findNextWord fugly y 1)))
     s1b :: Fugly -> Int -> Int -> [String] -> [String]
     s1b f@(d, w, m) _ _ [] = markov1 m 3 2 []
     s1b f@(d, w, m) n i words
-      | i >= n  = words
+      | i >= n    = nub words
       | otherwise = s1b f n (i + 1) (words ++ findNextWord f (last words) i)
     s1c :: [String] -> String
     s1c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)

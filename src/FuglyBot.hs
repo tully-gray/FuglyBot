@@ -249,14 +249,14 @@ reply :: Bot -> String -> String -> [String] -> IO Bot
 reply bot@(Bot socket params fugly@(dict, wne, markov)) [] who msg = do
     privMsg bot who $ unwords $ sentence fugly 2 8 msg
     n <- insertWords fugly msg
-    return (Bot socket params (n, wne, markov1 markov 223 2 msg))
+    return (Bot socket params (n, wne, markov1 markov 523 3 msg))
 reply bot@(Bot socket params fugly@(dict, wne, markov)) chan [] msg = do
     n <- insertWords fugly msg
     return (Bot socket params (n, wne, markov))
 reply bot@(Bot socket params fugly@(dict, wne, markov)) chan who msg = do
     replyMsg bot chan who $ unwords $ sentence fugly 1 23 msg
     n <- insertWords fugly msg
-    return (Bot socket params (n, wne, markov1 markov 223 2 msg))
+    return (Bot socket params (n, wne, markov1 markov 523 3 msg))
 
 evalCmd :: Bot -> String -> String -> [String] -> IO Bot
 evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ _ _ _)
