@@ -79,7 +79,7 @@ start args = do
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir
-    return (Bot socket (Parameter nick owner fuglydir wndir 10 300 channel) fugly)
+    return (Bot socket (Parameter nick owner fuglydir wndir 10 460 channel) fugly)
 
 run :: [String] -> Bot -> IO ()
 run args bot@(Bot socket (Parameter nick _ _ _ _ _ _) fugly) = do
@@ -237,13 +237,14 @@ processLine bot@(Bot socket (Parameter nick owner fuglydir wndir rejoinkick _ _)
 
 reply :: Bot -> String -> String -> [String] -> IO Bot
 reply bot@(Bot socket params fugly@(dict, wne)) [] who msg = do
+    replyMsg bot chan who $ unwords $ sentence dict msg
     n <- insertWords fugly msg
     return (Bot socket params (n, wne))
 reply bot@(Bot socket params fugly@(dict, wne)) chan [] msg = do
     n <- insertWords fugly msg
     return (Bot socket params (n, wne))
 reply bot@(Bot socket params fugly@(dict, wne)) chan who msg = do
-    replyMsg bot chan who $ unwords $ s2 dict 2 msg
+    replyMsg bot chan who $ unwords $ sentence dict msg
     n <- insertWords fugly msg
     return (Bot socket params (n, wne))
 

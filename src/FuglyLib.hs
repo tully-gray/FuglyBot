@@ -15,7 +15,7 @@ module FuglyLib
          wnGloss,
          wnMeet,
          markov1,
-         s2,
+         sentence,
          Word,
          Fugly
        )
@@ -150,7 +150,7 @@ loadDict fuglydir = do
                                           (readEPOS $ unwords $ ll))
                            _          -> (Word w c b a r p)
                else (Word w c b a r p)
-      if l4 == False then do putStrLn "hmm..." >> return nm
+      if l4 == False then do putStrLn ("Oops: " ++ l) >> return nm
         else if (head wl) == "pos:" then
                f h ww (nm ++ (((\x@(Word w _ _ _ _ _) -> w) ww), ww) : [])
              else if (head wl) == ">END<" then
@@ -320,9 +320,6 @@ fixUnderscore = strip '"' . replace ' ' '_'
 wnLength :: [[a]] -> Int
 wnLength a = (length a) - (length $ elemIndices True (map null a))
 
-wnFixWord :: String -> String
-wnFixWord = strip '"' . replace ' ' '_'
-
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
 wnPartString w a  = do
@@ -364,12 +361,12 @@ wnPartPOS w a  = do
 wnGloss :: WordNetEnv -> String -> String -> IO String
 wnGloss _ [] _ = return "Nothing!  Error!  Abort!"
 wnGloss wne word [] = do
-    wnPos <- wnPartString wne (wnFixWord word)
+    wnPos <- wnPartString wne (fixUnderscore word)
     wnGloss wne word wnPos
 wnGloss wne word pos = do
     let wnPos = fromEPOS $ readEPOS pos
     let result = map (getGloss . getSynset) (runs wne (search
-                     (wnFixWord word) wnPos AllSenses))
+                     (fixUnderscore word) wnPos AllSenses))
     if (null result) then return [] else
       return $ unwords result
 
@@ -379,10 +376,10 @@ wnRelated wne c [] pos  = wnRelated wne c "Hypernym" pos
 wnRelated wne c d pos = do
     let wnForm = readForm d
     let result = if (map toLower d) == "all" then concat $ map (fromMaybe [[]])
-                    (runs wne (relatedByListAllForms (search (wnFixWord c)
+                    (runs wne (relatedByListAllForms (search (fixUnderscore c)
                      (fromEPOS pos) AllSenses)))
                  else fromMaybe [[]] (runs wne (relatedByList wnForm (search
-                      (wnFixWord c) (fromEPOS pos) AllSenses)))
+                      (fixUnderscore c) (fromEPOS pos) AllSenses)))
     if (null result) || (null $ concat result) then return [] else
       return $ map (\x -> replace '_' ' ' $ unwords $ map (++ "\"") $
                     map ('"' :) $ concat $ map (getWords . getSynset) x) result
@@ -391,13 +388,13 @@ wnClosure :: WordNetEnv -> String -> String -> String -> IO String
 wnClosure _ [] _ _         = return []
 wnClosure wne word [] _    = wnClosure wne word "Hypernym" []
 wnClosure wne word form [] = do
-    wnPos <- wnPartString wne (wnFixWord word)
+    wnPos <- wnPartString wne (fixUnderscore word)
     wnClosure wne word form wnPos
 wnClosure wne word form pos = do
     let wnForm = readForm form
     let wnPos = fromEPOS $ readEPOS pos
     let result = runs wne (closureOnList wnForm
-                           (search (wnFixWord word) wnPos AllSenses))
+                           (search (fixUnderscore word) wnPos AllSenses))
     if (null result) then return [] else
       return $ unwords $ map (\x -> if isNothing x then return '?'
                                     else (replace '_' ' ' $ unwords $ map (++ "\"") $
@@ -409,12 +406,12 @@ wnMeet :: WordNetEnv -> String -> String -> String -> IO String
 wnMeet _ [] _ _ = return []
 wnMeet _ _ [] _ = return []
 wnMeet w c d [] = do
-    wnPos <- wnPartString w (wnFixWord c)
+    wnPos <- wnPartString w (fixUnderscore c)
     wnMeet w c d wnPos
 wnMeet w c d e  = do
     let wnPos = fromEPOS $ readEPOS e
-    let r1 = runs w (search (wnFixWord c) wnPos 1)
-    let r2 = runs w (search (wnFixWord d) wnPos 1)
+    let r1 = runs w (search (fixUnderscore c) wnPos 1)
+    let r2 = runs w (search (fixUnderscore d) wnPos 1)
     if not (null r1) && not (null r2) then do
         let result = runs w (meet emptyQueue (head $ r1) (head $ r2))
         if isNothing result then return [] else
@@ -425,38 +422,85 @@ wnMeet w c d e  = do
 markov1 :: Int -> Int -> [String] -> [String]
 markov1 num runs words = take num $ Markov.run runs words 0 (Random.mkStdGen 23)
 
-s2 :: Map.Map String Word -> Int -> [String] -> [String]
-s2 _ _ [] = []
-s2 dict num words = concat $ map (s2d . s2a) $ markov1 num 1 words
+sentence :: Map.Map String Word -> [String] -> [String]
+sentence dict msg = case (length msg `mod` 4) of
+    0 -> s1 dict (((length msg + 1) `mod` 2) + 1) 5 msg
+    1 -> s2 dict (((length msg + 1) `mod` 2) + 1) 9 msg
+    2 -> s1 dict 1 7 msg
+    3 -> s2 dict 1 15 msg
+
+s1 :: Map.Map String Word -> Int -> Int -> [String] -> [String]
+s1 _ _ _ [] = []
+s1 dict num len words = concat $ map (s1d . s1a) $ markov1 num 2 words
   where
-    s2a = (\y -> filter (\x -> length x > 0) (s2b dict ((12 * length y) `mod` 27) 0 ((findNextWord1 dict y 1) : [])))
+    s1a = (\y -> filter (\x -> length x > 0) (s1b dict (((9 * length y) `mod` len) + 1) 0 (findNextWord1 dict y 1)))
+    s1b :: Map.Map String Word -> Int -> Int -> [String] -> [String]
+    s1b m _ _ [] = markov1 2 2 (take 70 $ drop 10 $ listWordsCountSort m)
+    s1b m n i words
+      | i == n  = (init words) ++ (last words ++ ".") : []
+      | otherwise = s1b m n (i + 1) (words ++ findNextWord1 m (last words) i)
+    s1c :: [String] -> String
+    s1c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
+    s1d w = (s1c w : [] ) ++ tail w
+
+findNextWord1 :: Map.Map String Word -> String -> Int -> [String]
+findNextWord1 m word i = replace "a," ("a " ++ word ++ ",") $
+                         replace "i" "I" $ words f
+      where
+        f = if isJust w then
+              if null neigh then unwords $ markov1 1 2 (take 50 $ drop 0 $ listWordsCountSort m)
+              else if isJust ww then
+                     if elem next nextNeigh then
+                       unwords $ findNextWord2 m word (i + 1)
+                     else
+                       s
+                   else
+                     next
+            else unwords $ markov1 1 3 (take 70 $ drop 110 $ listWordsCountSort m)
+        w = Map.lookup word m
+        neigh = listNeighMax $ (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
+        next = neigh!!(mod i (length neigh))
+        ww = Map.lookup next m
+        nextNeigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust ww)
+        related = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
+        r = if length related > 0 then related!!(mod i (length related))
+            else unwords $ markov1 2 1 (take 50 $ drop 100 $ listWordsCountSort m)
+        s = if length next `mod` 3 == 1 then next ++ ", " ++ r else next
+
+s2 :: Map.Map String Word -> Int -> Int -> [String] -> [String]
+s2 _ _ _ [] = []
+s2 dict num len words = concat $ map (s2d . s2a) $ markov1 num 1 words
+  where
+    s2a = (\y -> filter (\x -> length x > 0) (s2b dict (((9 * length y) `mod` len) + 1) 0 (findNextWord2 dict y 1)))
     s2b :: Map.Map String Word -> Int -> Int -> [String] -> [String]
     s2b m _ _ [] = markov1 3 2 (take 70 $ drop 10 $ listWordsCountSort m)
     s2b m n i words
       | i == n  = (init words) ++ (last words ++ ".") : []
-      | otherwise = s2b m n (i + 1) (words ++ [(findNextWord1 m (last words) i)])
+      | otherwise = s2b m n (i + 1) (words ++ findNextWord2 m (last words) i)
     s2c :: [String] -> String
     s2c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
     s2d w = (s2c w : [] ) ++ tail w
 
-findNextWord1 :: Map.Map String Word -> String -> Int -> String
-findNextWord1 m word i =
-  if isJust w then
-    if null neigh then unwords $ markov1 3 2 (take 70 $ drop 40 $ listWordsCountSort m)
-    else if isJust ww then
-      if elem next nextNeigh then
-        (nextNeigh!!(mod i (length nextNeigh)) ++ ", " ++ r)
-      else
-        next
+findNextWord2 :: Map.Map String Word -> String -> Int -> [String]
+findNextWord2 m word i = replace "a," ("a " ++ word ++ ",") $
+                         replace "i" "I" $ words f
+    where
+      f = if isJust w then
+        if null neigh then unwords $ markov1 3 2 (take 70 $ drop 40 $ listWordsCountSort m)
+        else if isJust ww then
+          if elem next nextNeigh then
+            (nextNeigh!!(mod i (length nextNeigh)) ++ ", " ++ r)
           else
-            next
-      else unwords $ markov1 1 3 (take 70 $ drop 80 $ listWordsCountSort m)
-  where
-    w = Map.lookup word m
-    neigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
-    next = neigh!!(mod i (length neigh))
-    ww = Map.lookup next m
-    nextNeigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust ww)
-    related = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
-    r = if length related > 0 then related!!(mod i (length related))
-        else unwords $ markov1 1 1 (take 70 $ drop 200 $ listWordsCountSort m)
+            s
+              else
+                next
+          else unwords $ markov1 1 3 (take 70 $ drop 80 $ listWordsCountSort m)
+      w = Map.lookup word m
+      neigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
+      next = neigh!!(mod i (length neigh))
+      ww = Map.lookup next m
+      nextNeigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust ww)
+      related = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
+      r = if length related > 0 then related!!(mod i (length related))
+          else unwords $ markov1 1 1 (take 70 $ drop 200 $ listWordsCountSort m)
+      s = if length next `mod` 3 == 1 then unwords $ markov1 2 2 (take 30 $ drop 60 $ listWordsCountSort m) else next
