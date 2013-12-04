@@ -237,7 +237,7 @@ processLine bot@(Bot socket (Parameter nick owner fuglydir wndir rejoinkick _ _)
 
 reply :: Bot -> String -> String -> [String] -> IO Bot
 reply bot@(Bot socket params fugly@(dict, wne)) [] who msg = do
-    replyMsg bot chan who $ unwords $ sentence dict msg
+    privMsg bot who $ unwords $ sentence dict msg
     n <- insertWords fugly msg
     return (Bot socket params (n, wne))
 reply bot@(Bot socket params fugly@(dict, wne)) chan [] msg = do

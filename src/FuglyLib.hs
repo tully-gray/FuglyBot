@@ -420,13 +420,15 @@ wnMeet w c d e  = do
         else return []
 
 markov1 :: Int -> Int -> [String] -> [String]
-markov1 num runs words = take num $ Markov.run runs words 0 (Random.mkStdGen 23)
+markov1 num runs words
+  | null words = take num $ Markov.run runs allowedWords 0 (Random.mkStdGen 42)
+  | otherwise  = take num $ Markov.run runs words 0 (Random.mkStdGen 23)
 
 sentence :: Map.Map String Word -> [String] -> [String]
-sentence dict msg = case (length msg `mod` 4) of
-    0 -> s1 dict (((length msg + 1) `mod` 2) + 1) 5 msg
+sentence dict msg = case (length (unwords msg) `mod` 4) of
+    0 -> s1 dict (((length msg + 1) `mod` 2) + 2) 5 msg
     1 -> s2 dict (((length msg + 1) `mod` 2) + 1) 9 msg
-    2 -> s1 dict 1 7 msg
+    2 -> s1 dict 1 11 msg
     3 -> s2 dict 1 15 msg
 
 s1 :: Map.Map String Word -> Int -> Int -> [String] -> [String]
