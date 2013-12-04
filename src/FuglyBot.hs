@@ -179,14 +179,22 @@ changeParam bot@(Bot socket (Parameter nick owner fuglydir wndir
 getMsg :: [String] -> [String]
 getMsg [] = []
 getMsg msg
-    | (head $ drop 1 msg) == "PRIVMSG" = (drop 1 (msg!!3)) : (drop 4 msg)
-    | otherwise                        = []
+    | p == "PRIVMSG" = (drop 1 (msg!!3)) : (drop 4 msg)
+    | otherwise      = []
+  where
+    p = if (length $ drop 1 msg) > 0 then head $ drop 1 msg else "FOO"
 
 getNick :: [String] -> String
-getNick = drop 1 . takeWhile (/= '!') . head
+getNick []  = []
+getNick msg
+    | (length msg) > 0 = drop 1 $ takeWhile (/= '!') $ head msg
+    | otherwise        = []
 
 getChannel :: [String] -> String
-getChannel = head . drop 2
+getChannel [] = []
+getChannel msg
+    | (length $ drop 2 msg) > 0 = head $ drop 2 msg
+    | otherwise                 = []
 
 spokenTo :: String -> [String] -> Bool
 spokenTo n []         = False
@@ -195,7 +203,7 @@ spokenTo n b
     | c == (n ++ ":") = True
     | otherwise       = False
   where
-    c = (head b)
+    c = head b
 
 -- isPM :: String -> [String] -> Bool
 -- isPM [] = False
@@ -221,35 +229,38 @@ processLine bot [] = return bot
 processLine bot@(Bot socket (Parameter nick owner fuglydir wndir rejoinkick _ _) fugly) line
     | (not $ null $ beenKicked nick line) =
       rejoinChannel socket (beenKicked nick line) rejoinkick >> return bot
-    | null msg = return bot
-    | chan == nick = if (head $ head msg) == '!' then evalCmd bot who who msg
-                     else reply bot [] who msg
+    | null msg          = return bot
+    | chan == nick      = prvcmd
     | spokenTo nick msg = if null (tail msg) then return bot
                           else if (head $ head $ tail msg) == '!'
                                then evalCmd bot chan who (tail msg)
                                else reply bot chan who (tail msg)
-    | otherwise = reply bot chan [] msg
-    -- | otherwise           = return bot
+    | otherwise         = reply bot chan [] msg
   where
     msg  = getMsg line
     who  = getNick line
     chan = getChannel line
+    prvcmd = if (length $ head msg) > 0 then
+               if (head $ head msg) == '!' then evalCmd bot who who msg
+               else reply bot [] who msg
+             else reply bot [] who msg
 
 reply :: Bot -> String -> String -> [String] -> IO Bot
-reply bot@(Bot socket params fugly@(dict, wne)) [] who msg = do
-    privMsg bot who $ unwords $ sentence dict msg
+reply bot@(Bot socket params fugly@(dict, wne, markov)) [] who msg = do
+    privMsg bot who $ unwords $ sentence fugly 2 8 msg
     n <- insertWords fugly msg
-    return (Bot socket params (n, wne))
-reply bot@(Bot socket params fugly@(dict, wne)) chan [] msg = do
+    return (Bot socket params (n, wne, markov1 markov 223 2 msg))
+reply bot@(Bot socket params fugly@(dict, wne, markov)) chan [] msg = do
     n <- insertWords fugly msg
-    return (Bot socket params (n, wne))
-reply bot@(Bot socket params fugly@(dict, wne)) chan who msg = do
-    replyMsg bot chan who $ unwords $ sentence dict msg
+    return (Bot socket params (n, wne, markov))
+reply bot@(Bot socket params fugly@(dict, wne, markov)) chan who msg = do
+    replyMsg bot chan who $ unwords $ sentence fugly 1 23 msg
     n <- insertWords fugly msg
-    return (Bot socket params (n, wne))
+    return (Bot socket params (n, wne, markov1 markov 223 2 msg))
 
 evalCmd :: Bot -> String -> String -> [String] -> IO Bot
-evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ _ _ _) fugly@(dict, wne)) _ who (x:xs)
+evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ _ _ _)
+             fugly@(dict, wne, markov)) _ who (x:xs)
     | x == "!quit" =
       if who == owner then case (length xs) of
         0 -> do stopFugly fuglydir fugly >>
@@ -261,14 +272,15 @@ evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ _ _ _) fugly@(dict,
                                        (const $ return ()) >> return bot else return bot
     | x == "!load" = if who == owner then do
         nd <- catchIOError (loadDict fuglydir) (const $ return dict)
-        return (Bot socket params (nd, wne))
+        return (Bot socket params (nd, wne, markov))
                      else return bot
     | x == "!join" = if who == owner then joinChannel socket "JOIN" xs >>
                                           return bot else return bot
     | x == "!part" = if who == owner then joinChannel socket "PART" xs >>
                                           return bot else return bot
     | x == "!nick" = if who == owner then changeNick bot xs else return bot
-evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne)) chan who (x:xs)
+evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _) fugly@(dict, wne, markov))
+                                                           chan who (x:xs)
     | x == "!readfile" = if who == owner then case (length xs) of
         1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
         _ -> replyMsg bot chan who "Usage: !readfile file" >>
@@ -332,7 +344,7 @@ cmdLen :: String -> String -> Int
 cmdLen chan nick = length "PRIVMSG" + length chan + length nick
 
 chanMsg :: Bot -> String -> String -> IO ()
-chanMsg bot@(Bot socket (Parameter _ _ _ _ _ maxchanmsg _) fugly@(dict, wne)) chan msg =
+chanMsg bot@(Bot socket (Parameter _ _ _ _ _ maxchanmsg _) fugly) chan msg =
   if length msg > (maxchanmsg - cmdLen chan [] - 3) then do
      write socket "PRIVMSG" (chan ++ " :" ++ (take (maxchanmsg - cmdLen chan [] - 3) msg))
      chanMsg bot chan (drop (maxchanmsg - cmdLen chan [] - 3) msg)
@@ -340,7 +352,7 @@ chanMsg bot@(Bot socket (Parameter _ _ _ _ _ maxchanmsg _) fugly@(dict, wne)) ch
      chanMsg bot chan msg
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
-replyMsg bot@(Bot socket (Parameter _ _ _ _ _ maxchanmsg _) fugly@(dict, wne)) chan nick msg
+replyMsg bot@(Bot socket (Parameter _ _ _ _ _ maxchanmsg _) fugly) chan nick msg
     | chan == nick   = if length msg > (maxchanmsg - cmdLen chan nick - 3) then do
       write socket "PRIVMSG" (nick ++ " :" ++ (take (maxchanmsg - cmdLen chan nick - 3) msg))
       replyMsg bot chan nick (drop (maxchanmsg - cmdLen chan nick - 3) msg) else
@@ -351,7 +363,7 @@ replyMsg bot@(Bot socket (Parameter _ _ _ _ _ maxchanmsg _) fugly@(dict, wne)) c
         write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ msg)
 
 privMsg :: Bot -> String -> String -> IO ()
-privMsg bot@(Bot socket (Parameter _ _ _ _ _ maxchanmsg _) fugly@(dict, wne)) nick msg =
+privMsg bot@(Bot socket (Parameter _ _ _ _ _ maxchanmsg _) fugly) nick msg =
   if length msg > (maxchanmsg - cmdLen [] nick - 3) then do
     write socket "PRIVMSG" (nick ++ " :" ++ (take (maxchanmsg - cmdLen [] nick - 3) msg))
     privMsg bot nick (drop (maxchanmsg - cmdLen [] nick - 3) msg)
@@ -364,7 +376,7 @@ write socket s msg = do
     printf         "> %s %s\n" s msg
     threadDelay 2000000
 
-insertFromFile bot@(Bot socket params fugly@(dict, wne)) file = do
+insertFromFile bot@(Bot socket params fugly@(dict, wne, markov)) file = do
     f <- readFile file
     n <- insertWords fugly $ words f
-    return (Bot socket params (n, wne))
+    return (Bot socket params (n, wne, markov))

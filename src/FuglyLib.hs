@@ -16,7 +16,6 @@ module FuglyLib
          wnMeet,
          markov1,
          sentence,
-         sentenceDebug,
          Word,
          Fugly
        )
@@ -38,7 +37,7 @@ import NLP.WordNet hiding (Word)
 import NLP.WordNet.Prims (indexLookup, senseCount, getSynset, getWords, getGloss)
 import NLP.WordNet.PrimTypes
 
-type Fugly = (Map.Map String Word, WordNetEnv)
+type Fugly = (Map.Map String Word, WordNetEnv, [String])
 
 data Word = Word {
               word    :: String,
@@ -76,10 +75,10 @@ initFugly fuglydir wndir = do
     wne <- NLP.WordNet.initializeWordNetWithOptions
            (return wndir :: Maybe FilePath)
            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
-    return (dict, wne)
+    return (dict, wne, (take 50 $ drop 30 $ listWordsCountSort dict))
 
 stopFugly :: FilePath -> Fugly -> IO ()
-stopFugly fuglydir fugly@(dict, wne) = do
+stopFugly fuglydir fugly@(dict, wne, markov) = do
     catchIOError (saveDict dict fuglydir) (const $ return ())
     closeWordNet wne
 
@@ -160,27 +159,27 @@ loadDict fuglydir = do
                     f h ww nm
 
 insertWords :: Fugly -> [String] -> IO (Map.Map String Word)
-insertWords f@(dict, wne) [] = return dict
+insertWords f@(dict, wne, markov) [] = return dict
 insertWords f [x] = insertWord f x [] [] []
-insertWords f@(dict, wne) msg@(x:y:xs) =
+insertWords f@(dict, wne, markov) msg@(x:y:xs) =
       case (len) of
-        2 -> do ff <- insertWord f x [] y [] ; insertWord (ff, wne) y x [] []
+        2 -> do ff <- insertWord f x [] y [] ; insertWord (ff, wne, markov) y x [] []
         _ -> insertWords' f 0 len msg
   where
     len = length msg
-    insertWords' f@(d,w) _ _ [] = return d
-    insertWords' f@(d,w) a l msg
+    insertWords' f@(d, w, m) _ _ [] = return d
+    insertWords' f@(d, w, m) a l msg
       | a == 0     = do ff <- insertWord f (msg!!a) [] (msg!!(a+1)) []
-                        insertWords' (ff, wne) (a+1) l msg
+                        insertWords' (ff, wne, markov) (a+1) l msg
       | a > l - 1  = return d
       | a == l - 1 = do ff <- insertWord f (msg!!a) (msg!!(a-1)) [] []
-                        insertWords' (ff, wne) (a+1) l msg
+                        insertWords' (ff, wne, markov) (a+1) l msg
       | otherwise  = do ff <- insertWord f (msg!!a) (msg!!(a-1)) (msg!!(a+1)) []
-                        insertWords' (ff, wne) (a+1) l msg
+                        insertWords' (ff, wne, markov) (a+1) l msg
 
 insertWord :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWord f@(dict, wne) [] _ _ _ = return dict
-insertWord f@(dict, wne) word before after pos = do
+insertWord f@(dict, wne, markov) [] _ _ _ = return dict
+insertWord f@(dict, wne, markov) word before after pos = do
   pp <- (if null pos then wnPartPOS wne ww else return $ readEPOS pos)
   pa <- wnPartPOS wne aa
   pb <- wnPartPOS wne bb
@@ -219,6 +218,10 @@ allowedWords = ["a", "i", "to", "go", "me", "no", "you", "her", "him", "got", "g
                 "had", "have", "has", "it", "the", "them", "there", "their", "what",
                 "that", "this", "where", "were", "in", "on", "at", "is", "was",
                 "could", "would", "for", "us", "we", "do", "did", "if", "anyone"]
+
+niceWords :: [String]
+niceWords = ["peace", "love", "happiness", "sunshine", "gayness", "lovely", "perfect",
+             "serenity"]
 
 incCount' :: Word -> Int
 incCount' w@(Word _ c _ _ _ _) = c + 1
@@ -420,141 +423,50 @@ wnMeet w c d e  = do
                     getWords $ getSynset $ fromJust result
         else return []
 
-markov1 :: Int -> Int -> [String] -> [String]
-markov1 num runs words
-  | length words < 2    = take num $ Markov.run runs allowedWords 0 (Random.mkStdGen 42)
-  | num >= length words = take num $ Markov.run runs
-                          (allowedWords ++ words) 0 (Random.mkStdGen 17)
-  | otherwise           = take num $ Markov.run runs words 0 (Random.mkStdGen 23)
-
-sentence :: Map.Map String Word -> [String] -> [String]
-sentence dict msg = replace ".." "." $ case (length (unwords msg) `mod` 5) of
-    0 -> s1 dict (((length msg + 1) `mod` 2) + 2) 5 msg
-    1 -> s2 dict (((length msg + 1) `mod` 2) + 1) 9 msg
-    2 -> s1 dict 1 11 msg
-    3 -> s2 dict 1 15 msg
-    4 -> s3 dict 2 17 msg
-
-sentenceDebug :: Map.Map String Word -> [String] -> [String]
-sentenceDebug dict msg = replace ".." "." $ case (length (unwords msg) `mod` 5) of
-    0 -> ["case 0"] ++ s1 dict (((length msg + 1) `mod` 2) + 2) 5 msg
-    1 -> ["case 1"] ++ s2 dict (((length msg + 1) `mod` 2) + 1) 9 msg
-    2 -> ["case 2"] ++ s1 dict 1 11 msg
-    3 -> ["case 3"] ++ s2 dict 1 15 msg
-    4 -> ["case 4"] ++ s3 dict 2 17 msg
-
-s1 :: Map.Map String Word -> Int -> Int -> [String] -> [String]
-s1 _ _ _ [] = []
-s1 dict num len words = concat $ map (s1d . s1e . s1a) $ markov1 num 2 words
+markov1 :: [String] -> Int -> Int -> [String] -> [String]
+markov1 markov num runs words
+    | length (markov ++ words) < 3 = take num $ Markov.run runs niceWords 0 (Random.mkStdGen 17)
+    | otherwise = take num $ Markov.run runs (mix markov words) 0 (Random.mkStdGen 17)
   where
-    s1a = (\y -> filter (\x -> length x > 0) (s1b dict (((11 * length y) `mod` len) + 1) 0 (findNextWord1 dict y 1)))
-    s1b :: Map.Map String Word -> Int -> Int -> [String] -> [String]
-    s1b m _ _ [] = markov1 2 2 (take 70 $ drop 10 $ listWordsCountSort m)
-    s1b m n i words
-      | i >= n  = (init words) ++ (last words ++ ".") : []
-      | otherwise = s1b m n (i + 1) (words ++ findNextWord1 m (last words) i)
+    mix a b = if null b then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
+
+sentence :: Fugly -> Int -> Int -> [String] -> [String]
+sentence _ _ _ [] = []
+sentence fugly@(dict, wne, markov) num len words = concat $ map (s1d . s1e . s1a)
+                                                   $ markov1 markov num 2 words
+  where
+    s1a = (\y -> filter (\x -> length x > 0) (s1b fugly len 0 (findNextWord fugly y 1)))
+    s1b :: Fugly -> Int -> Int -> [String] -> [String]
+    s1b f@(d, w, m) _ _ [] = markov1 m 3 2 []
+    s1b f@(d, w, m) n i words
+      | i >= n  = words
+      | otherwise = s1b f n (i + 1) (words ++ findNextWord f (last words) i)
     s1c :: [String] -> String
     s1c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
     s1d w = (init w) ++ ((last w) ++ ".") : []
     s1e w = (s1c w : [] ) ++ tail w
 
-findNextWord1 :: Map.Map String Word -> String -> Int -> [String]
-findNextWord1 m word i = replace "a," ("a " ++ word ++ ",") $
-                         replace "the," (word ++ ",") $
-                         replace "i" "I" $ words f
-      where
-        f = if isJust w then
-              if null neigh then unwords $ markov1 1 2 (take 50 $ drop 0 $ listWordsCountSort m)
-              else if isJust ww then
-                     if elem next nextNeigh then
-                       []
-                     else
-                       s
-                   else
-                     next
-            else unwords $ markov1 2 1 (take 70 $ drop 110 $ listWordsCountSort m)
-        w = Map.lookup word m
-        neigh = listNeighMax $ (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
-        next = neigh!!(mod i (length neigh))
-        ww = Map.lookup next m
-        nextNeigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust ww)
-        related = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
-        r = if length related > 0 then related!!(mod i (length related))
-            else unwords $ markov1 2 1 (take 50 $ drop 100 $ listWordsCountSort m)
-        s = if length next `mod` 3 == 1 then next ++ ", " ++ r else next
-
-s2 :: Map.Map String Word -> Int -> Int -> [String] -> [String]
-s2 _ _ _ [] = []
-s2 dict num len words = concat $ map (s2d . s2e . s2a) $ markov1 num 1 words
-  where
-    s2a = (\y -> filter (\x -> length x > 0) (s2b dict (((9 * length y) `mod` len) + 1) 0 (findNextWord2 dict y 1)))
-    s2b :: Map.Map String Word -> Int -> Int -> [String] -> [String]
-    s2b m _ _ [] = markov1 3 2 (take 70 $ drop 10 $ listWordsCountSort m)
-    s2b m n i words
-      | i >= n  = (init words) ++ (last words ++ ".") : []
-      | otherwise = s2b m n (i + 1) (words ++ findNextWord2 m (last words) i)
-    s2c :: [String] -> String
-    s2c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
-    s2d w = (init w) ++ ((last w) ++ ".") : []
-    s2e w = (s2c w : [] ) ++ tail w
-
-findNextWord2 :: Map.Map String Word -> String -> Int -> [String]
-findNextWord2 m word i = replace "a," ("a " ++ word ++ ",") $
-                         replace "the," ("the " ++ word ++ ",") $
-                         replace "i" "I" $ words f
+findNextWord :: Fugly -> String -> Int -> [String]
+findNextWord fugly@(dict, wne, markov) word i = replace "i" "I" $ words f
     where
       f = if isJust w then
-        if null neigh then unwords $ markov1 3 2 (take 70 $ drop 40 $ listWordsCountSort m)
+        if null neigh then next5
         else if isJust ww then
-          if elem next nextNeigh then
-            (nextNeigh!!(mod i (length nextNeigh)) ++ ", " ++ r)
+          if elem next1 nextNeigh then
+            next3
           else
-            s
+            next1
               else
-                next
-          else unwords $ markov1 1 3 (take 70 $ drop 80 $ listWordsCountSort m)
-      w = Map.lookup word m
+                next2
+          else next4
+      w = Map.lookup word dict
+      ww = Map.lookup next1 dict
       neigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
-      next = neigh!!(mod i (length neigh))
-      ww = Map.lookup next m
       nextNeigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust ww)
-      related = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
-      r = if length related > 0 then related!!(mod i (length related))
-          else unwords $ markov1 1 1 (take 70 $ drop 200 $ listWordsCountSort m)
-      s = if length next `mod` 3 == 1 then unwords $ markov1 2 2 (take 30 $ drop 60 $ listWordsCountSort m) else next
-
-s3 :: Map.Map String Word -> Int -> Int -> [String] -> [String]
-s3 _ _ _ [] = []
-s3 dict num len words = concat $ map (s3d . s3e . s3a) $ take num words
-  where
-    s3a = (\y -> filter (\x -> length x > 0) (s3b dict (((14 * length y) `mod` len) + 1) 0 (findNextWord3 dict y 1)))
-    s3b :: Map.Map String Word -> Int -> Int -> [String] -> [String]
-    s3b m _ _ [] = markov1 3 2 (take 40 $ drop 15 $ listWordsCountSort m)
-    s3b m n i words
-      | i >= n  = (init words) ++ (last words ++ ".") : []
-      | otherwise = s3b m n (i + 1) (words ++ findNextWord3 m (last words) i)
-    s3c :: [String] -> String
-    s3c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
-    s3d w = (init w) ++ ((last w) ++ ".") : []
-    s3e w = (s3c w : [] ) ++ tail w
-
-findNextWord3 :: Map.Map String Word -> String -> Int -> [String]
-findNextWord3 m word i = replace "a," ("a " ++ word ++ ",") $
-                         replace "the," ("a " ++ word ++ ",") $
-                         replace "i" "I" $ words f
-    where
-      f = if isJust w then
-        if null neigh then []
-        else if isJust ww then
-          if elem next nextNeigh then
-            []
-          else
-            next
-              else
-                next
-          else []
-      w = Map.lookup word m
-      neigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
-      next = neigh!!(mod i (length neigh))
-      ww = Map.lookup next m
-      nextNeigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust ww)
+      next1 = neigh!!(mod i (length neigh))
+      next2 = unwords $ markov1 markov 2 2 neigh
+      next3 = unwords $ markov1 markov 3 2 relatedNext
+      next4 = unwords $ markov1 markov 2 1 []
+      next5 = unwords $ markov1 markov 2 1 related
+      related     = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
+      relatedNext = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
