@@ -113,6 +113,13 @@ saveDict fugly@(dict, wne, markov) fuglydir = do
                              ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("pos: " ++ (show p) ++ "\n")]
+    format' m@(Name w c b a r)
+      | null w    = []
+      | otherwise = unwords [("name: " ++ w ++ "\n"),
+                             ("count: " ++ (show c) ++ "\n"),
+                             ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
+                             ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
+                             ("related: " ++ (unwords r) ++ "\n")]
 
 loadDict :: FilePath -> IO (Map.Map String Word, [String])
 loadDict fuglydir = do
