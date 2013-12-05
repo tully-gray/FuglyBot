@@ -361,13 +361,17 @@ chanMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _) fugly) chan msg =
      else
      chanMsg bot chan msg
 
-sentenceReply :: Handle -> Fugly -> Int -> Int -> String -> String -> [String] -> IO ()
+sentenceReply :: Handle -> Fugly -> Int -> Int -> String -> String -> [String] -> IO [()]
 sentenceReply h f n l chan nick m = do
-    hPrintf h "PRIVMSG %s\r\n" (chan ++ " :" ++ nick ++ ": " ++
-                                  (unwords $ sentence f n l m))
-    printf    "> PRIVMSG %s\n" (chan ++ " :" ++ nick ++ ": " ++
-                                  (unwords $ sentence f n l m))
+    let msg = sentence f n l m
     threadDelay 2000000
+    sequence $ map (p h) msg
+    sequence $ map (d h) msg
+  where
+    p :: Handle -> String -> IO ()
+    p h w = hPrintf h "PRIVMSG %s\r\n" (chan ++ " :" ++ nick ++ ": " ++ w)
+    d :: Handle -> String -> IO ()
+    d h w = printf    "> PRIVMSG %s\n" (chan ++ " :" ++ nick ++ ": " ++ w)
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _) fugly) chan nick msg
@@ -380,11 +384,17 @@ replyMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _) fugly) chan nick m
       replyMsg bot chan nick (drop (maxchanmsg - cmdLen chan nick - 5) msg) else
         write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ msg)
 
-sentencePriv :: Handle -> Fugly -> Int -> Int -> String -> [String] -> IO ()
+sentencePriv :: Handle -> Fugly -> Int -> Int -> String -> [String] -> IO [()]
 sentencePriv h f n l nick m = do
-    hPrintf h "PRIVMSG %s\r\n" (nick ++ ": " ++ (unwords $ sentence f n l m))
-    printf    "> PRIVMSG %s\n" (nick ++ ": " ++ (unwords $ sentence f n l m))
+    let msg = sentence f n l m
     threadDelay 2000000
+    sequence $ map (p h) msg
+    sequence $ map (d h) msg
+  where
+    p :: Handle -> String -> IO ()
+    p h w = do hPrintf h "PRIVMSG %s\r\n" (nick ++ " :" ++ w)
+    d :: Handle -> String -> IO ()
+    d h w = do printf    "> PRIVMSG %s\n" (nick ++ " :" ++ w)
 
 privMsg :: Bot -> String -> String -> IO ()
 privMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _) fugly) nick msg =
