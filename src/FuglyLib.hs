@@ -123,8 +123,7 @@ loadDict fuglydir = do
       putStrLn "Loading dict file..."
       ff <- f h w [([], w)]
       g <- hGetLine h
-      eof2 <- hIsEOF h
-      let m = if eof2 || null g then (Map.fromList ff, niceWords)
+      let m = if null g then (Map.fromList ff, niceWords)
               else (Map.fromList ff, words g)
       hClose h
       return m
@@ -455,23 +454,21 @@ findNextWord :: Fugly -> String -> Int -> [String]
 findNextWord fugly@(dict, wne, markov) word i = replace "i" "I" $ words f
     where
       f = if isJust w then
-        if null neigh then next5
+        if null neigh then []
         else if isJust ww then
           if elem next1 nextNeigh then
-            next3
+            next2
           else
             next1
               else
-                next2
-          else next4
+                next1
+          else next3
       w = Map.lookup word dict
       ww = Map.lookup next1 dict
       neigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
       nextNeigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust ww)
       next1 = neigh!!(mod i (length neigh))
-      next2 = unwords $ markov1 dict markov 2 2 neigh
-      next3 = unwords $ markov1 dict markov 3 2 relatedNext
-      next4 = unwords $ markov1 dict markov 2 1 []
-      next5 = unwords $ markov1 dict markov 2 1 related
+      next2 = unwords $ markov1 dict markov 3 2 relatedNext
+      next3 = unwords $ markov1 dict markov 2 1 []
       related     = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
       relatedNext = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
