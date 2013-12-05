@@ -423,21 +423,22 @@ wnMeet w c d e  = do
                     getWords $ getSynset $ fromJust result
         else return []
 
-markov1 :: [String] -> Int -> Int -> [String] -> [String]
-markov1 markov num runs words
+markov1 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
+markov1 dict markov num runs words
     | length (markov ++ words) < 3 = take num $ Markov.run runs niceWords 0 (Random.mkStdGen 17)
-    | otherwise = take num $ Markov.run runs (mix markov words) 0 (Random.mkStdGen 17)
+    | otherwise = take num $ Markov.run runs (mix markov (f words)) 0 (Random.mkStdGen 17)
   where
+    f w = map (map toLower . (cleanString isAlpha)) [x | x <- w, Map.member x dict]
     mix a b = if null b then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
 
 sentence :: Fugly -> Int -> Int -> [String] -> [String]
 sentence _ _ _ [] = []
 sentence fugly@(dict, wne, markov) num len words = map unwords $ nub $ map (s1d . s1e . s1a)
-                                                   $ markov1 markov num 2 words
+                                                   $ markov1 dict markov num 2 words
   where
     s1a = (\y -> filter (\x -> length x > 0) (s1b fugly len 0 (findNextWord fugly y 1)))
     s1b :: Fugly -> Int -> Int -> [String] -> [String]
-    s1b f@(d, w, m) _ _ [] = markov1 m 3 2 []
+    s1b f@(d, w, m) _ _ [] = markov1 d m 3 2 []
     s1b f@(d, w, m) n i words
       | i >= n    = nub words
       | otherwise = s1b f n (i + 1) (words ++ findNextWord f (last words) i)
@@ -464,9 +465,9 @@ findNextWord fugly@(dict, wne, markov) word i = replace "i" "I" $ words f
       neigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
       nextNeigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust ww)
       next1 = neigh!!(mod i (length neigh))
-      next2 = unwords $ markov1 markov 2 2 neigh
-      next3 = unwords $ markov1 markov 3 2 relatedNext
-      next4 = unwords $ markov1 markov 2 1 []
-      next5 = unwords $ markov1 markov 2 1 related
+      next2 = unwords $ markov1 dict markov 2 2 neigh
+      next3 = unwords $ markov1 dict markov 3 2 relatedNext
+      next4 = unwords $ markov1 dict markov 2 1 []
+      next5 = unwords $ markov1 dict markov 2 1 related
       related     = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
       relatedNext = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
