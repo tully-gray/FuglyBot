@@ -446,7 +446,7 @@ markov1 dict markov num runs words
 sentence :: Fugly -> Int -> Int -> [String] -> [String]
 sentence _ _ _ [] = []
 sentence fugly@(dict, wne, markov) num len words = map unwords $ nub $ map (s1d . s1e . s1a)
-                                                   $ markov1 dict markov num 2 words
+                                   $ markov1 dict (s1f markov words) num 2 words
   where
     s1a = (\y -> filter (\x -> length x > 0) (s1b fugly len 0 (findNextWord fugly y 1)))
     s1b :: Fugly -> Int -> Int -> [String] -> [String]
@@ -458,6 +458,7 @@ sentence fugly@(dict, wne, markov) num len words = map unwords $ nub $ map (s1d 
     s1c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
     s1d w = (init w) ++ ((last w) ++ ".") : []
     s1e w = (s1c w : [] ) ++ tail w
+    s1f m w = (take (length w) m) ++ w
 
 findNextWord :: Fugly -> String -> Int -> [String]
 findNextWord fugly@(dict, wne, markov) word i = replace "i" "I" $ words f

@@ -315,7 +315,7 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
             1 -> replyMsg bot chan nick (unwords $ listWordsCountSort2 dict num)
                                >> return bot
             _ -> replyMsg bot chan nick "Usage: !wordlist [number]" >> return bot
-    | x == "!word" = if nick == owner then do
+    | x == "!word" = if nick == owner then
           case (length xs) of
             2 -> do ww <- insertWordRaw fugly (xs!!0) [] [] (xs!!1)
                     return (Bot socket params (ww, wne, markov))
@@ -325,6 +325,12 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
                      else case (length xs) of
                        1 -> replyMsg bot chan nick (listWordFull dict (xs!!0)) >> return bot
                        _ -> replyMsg bot chan nick "Usage: !word word" >> return bot
+    | x == "!dropword" = if nick == owner then
+          case (length xs) of
+            1 -> return (Bot socket params (Map.delete (xs!!0) dict, wne, markov))
+            _ -> replyMsg bot chan nick "Usage: !dropword word"
+                 >> return bot
+                         else return bot
     | x == "!closure" =
           case (length xs) of
             3 -> (wnClosure wne (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan nick
@@ -339,7 +345,7 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
             2 -> (wnMeet wne (xs!!0) (xs!!1) []) >>= replyMsg bot chan nick >> return bot
             _ -> replyMsg bot chan nick "Usage: !meet word word [part-of-speech]" >> return bot
     | x == "!help" = if nick == owner then replyMsg bot chan nick
-                       "Commands: !dict !word !wordlist !closure !meet !params !setparam !nick !join !part !quit !readfile !load !save"
+                       "Commands: !dict !word !wordlist !dropword !closure !meet !params !setparam !nick !join !part !quit !readfile !load !save"
                        >> return bot
                      else replyMsg bot chan nick "Commands: !dict !word !wordlist !closure !meet" >> return bot
 evalCmd bot _ _ _ = return bot
