@@ -71,19 +71,19 @@ data Word = Word {
 
 initFugly :: FilePath -> FilePath -> IO Fugly
 initFugly fuglydir wndir = do
-    dict <- catchIOError (loadDict fuglydir) (const $ return Map.empty)
+    (dict, markov) <- catchIOError (loadDict fuglydir) (const $ return (Map.empty, []))
     wne <- NLP.WordNet.initializeWordNetWithOptions
            (return wndir :: Maybe FilePath)
            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
-    return (dict, wne, (take 50 $ drop 30 $ listWordsCountSort dict))
+    return (dict, wne, markov)
 
 stopFugly :: FilePath -> Fugly -> IO ()
 stopFugly fuglydir fugly@(dict, wne, markov) = do
-    catchIOError (saveDict dict fuglydir) (const $ return ())
+    catchIOError (saveDict fugly fuglydir) (const $ return ())
     closeWordNet wne
 
-saveDict :: Map.Map String Word -> FilePath -> IO ()
-saveDict dict fuglydir = do
+saveDict :: Fugly -> FilePath -> IO ()
+saveDict fugly@(dict, wne, markov) fuglydir = do
     let d = Map.toList dict
     if null d then putStrLn "Empty dict!"
       else do
@@ -92,6 +92,7 @@ saveDict dict fuglydir = do
         putStrLn "Saving dict file..."
         saveDict' h d
         hPutStrLn h ">END<"
+        hPutStrLn h $ unwords markov
         hFlush h
         hClose h
   where
@@ -110,18 +111,21 @@ saveDict dict fuglydir = do
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("pos: " ++ (show p) ++ "\n")]
 
-loadDict :: FilePath -> IO (Map.Map String Word)
+loadDict :: FilePath -> IO (Map.Map String Word, [String])
 loadDict fuglydir = do
     let w = (Word [] 0 Map.empty Map.empty [] UnknownEPos)
     h <- openFile (fuglydir ++ "/dict.txt") ReadMode
     eof <- hIsEOF h
     if eof then
-      return Map.empty
+      return (Map.empty, [])
       else do
       hSetBuffering h LineBuffering
       putStrLn "Loading dict file..."
       ff <- f h w [([], w)]
-      let m = Map.fromList ff
+      g <- hGetLine h
+      eof2 <- hIsEOF h
+      let m = if eof2 || null g then (Map.fromList ff, niceWords)
+              else (Map.fromList ff, words g)
       hClose h
       return m
   where

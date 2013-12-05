@@ -278,11 +278,11 @@ evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ usercmd _ _ _)
         _ -> do stopFugly fuglydir fugly >>
                   write socket "QUIT" (":" ++ unwords xs) >> return bot
       else return bot
-    | x == "!save" = if nick == owner then catchIOError (saveDict dict fuglydir)
+    | x == "!save" = if nick == owner then catchIOError (saveDict fugly fuglydir)
                                        (const $ return ()) >> return bot else return bot
     | x == "!load" = if nick == owner then do
-        nd <- catchIOError (loadDict fuglydir) (const $ return dict)
-        return (Bot socket params (nd, wne, markov))
+        (nd, nm) <- catchIOError (loadDict fuglydir) (const $ return (dict, []))
+        return (Bot socket params (nd, wne, nm))
                      else return bot
     | x == "!join" = if nick == owner then joinChannel socket "JOIN" xs >>
                                           return bot else return bot
