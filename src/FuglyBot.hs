@@ -289,8 +289,8 @@ evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ usercmd _ _ _)
     | x == "!part" = if nick == owner then joinChannel socket "PART" xs >>
                                           return bot else return bot
     | x == "!nick" = if nick == owner then changeNick bot xs else return bot
-evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _ _) fugly@(dict, wne, markov))
-                                                           chan nick (x:xs)
+evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
+             fugly@(dict, wne, markov)) chan nick (x:xs)
     | x == "!readfile" = if nick == owner then case (length xs) of
         1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
         _ -> replyMsg bot chan nick "Usage: !readfile file" >>
@@ -315,10 +315,16 @@ evalCmd bot@(Bot socket (Parameter _ owner _ _ _ _ _ _) fugly@(dict, wne, markov
             1 -> replyMsg bot chan nick (unwords $ listWordsCountSort2 dict num)
                                >> return bot
             _ -> replyMsg bot chan nick "Usage: !wordlist [number]" >> return bot
-    | x == "!word" =
+    | x == "!word" = if nick == owner then do
           case (length xs) of
+            2 -> do ww <- insertWordRaw fugly (xs!!0) [] [] (xs!!1)
+                    return (Bot socket params (ww, wne, markov))
             1 -> replyMsg bot chan nick (listWordFull dict (xs!!0)) >> return bot
-            _ -> replyMsg bot chan nick "Usage: !word word" >> return bot
+            _ -> replyMsg bot chan nick "Usage: !word word (or) !word word EPOS"
+                 >> return bot
+                     else case (length xs) of
+                       1 -> replyMsg bot chan nick (listWordFull dict (xs!!0)) >> return bot
+                       _ -> replyMsg bot chan nick "Usage: !word word" >> return bot
     | x == "!closure" =
           case (length xs) of
             3 -> (wnClosure wne (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan nick

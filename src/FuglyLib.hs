@@ -5,6 +5,7 @@ module FuglyLib
          loadDict,
          saveDict,
          insertWord,
+         insertWordRaw,
          insertWords,
          listWords,
          listWordFull,
@@ -182,30 +183,37 @@ insertWords f@(dict, wne, markov) msg@(x:y:xs) =
 
 insertWord :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWord f@(dict, wne, markov) [] _ _ _ = return dict
-insertWord f@(dict, wne, markov) word before after pos = do
-  pp <- (if null pos then wnPartPOS wne ww else return $ readEPOS pos)
-  pa <- wnPartPOS wne aa
-  pb <- wnPartPOS wne bb
-  rel <- wnRelated wne ww "Hypernym" pp
+insertWord f word before after pos = insertWordRaw f ww bb aa pos
+  where
+    aa = map toLower $ cleanString isAlpha after
+    bb = map toLower $ cleanString isAlpha before
+    ww = map toLower $ cleanString isAlpha word
+
+insertWordRaw :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
+insertWordRaw f@(dict, wne, markov) [] _ _ _ = return dict
+insertWordRaw f@(dict, wne, markov) word before after pos = do
+  pp <- (if null pos then wnPartPOS wne word else return $ readEPOS pos)
+  pa <- wnPartPOS wne after
+  pb <- wnPartPOS wne before
+  rel <- wnRelated wne word "Hypernym" pp
   if isJust w then
-    return $ Map.insert ww (Word ww c (nb bb pb) (na aa pa) ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
-                                   (((\x@(Word _ _ _ _ _ p) -> p)) (fromJust w))) dict
-         else if elem ww allowedWords then
-           return $ Map.insert ww (Word ww 1 (e (nn bb pb)) (e (nn aa pa)) rel pp) dict
-           else if pp == UnknownEPos || (length ww < 3) then
+    return $ Map.insert word (Word word c (nb before pb) (na after pa)
+                            ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
+                            (((\x@(Word _ _ _ _ _ p) -> p)) (fromJust w))) dict
+         else if elem word allowedWords then
+           return $ Map.insert word (Word word 1 (e (nn before pb))
+                                     (e (nn after pa)) rel pp) dict
+           else if pp == UnknownEPos || (length word < 3) then
                   return dict
                   else
-                  return $ Map.insert ww (Word ww 1 (e (nn bb pb))
-                                          (e (nn aa pa)) rel pp) dict
+                  return $ Map.insert word (Word word 1 (e (nn before pb))
+                                          (e (nn after pa)) rel pp) dict
   where
-    w = Map.lookup ww dict
+    w = Map.lookup word dict
     wa = (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
     wb = (\x@(Word _ _ b _ _ _) -> b) (fromJust w)
     e [] = Map.empty
     e x = Map.singleton x 1
-    aa = map toLower $ cleanString isAlpha after
-    bb = map toLower $ cleanString isAlpha before
-    ww = map toLower $ cleanString isAlpha word
     c = incCount' (fromJust w)
     na x y = if elem x allowedWords then incAfter' (fromJust w) x
                 else if y == UnknownEPos || (length x < 3) then wa
@@ -374,7 +382,7 @@ wnGloss wne word pos = do
     let wnPos = fromEPOS $ readEPOS pos
     let result = map (getGloss . getSynset) (runs wne (search
                      (fixUnderscore word) wnPos AllSenses))
-    if (null result) then return [] else
+    if (null result) then return "Nothing!" else
       return $ unwords result
 
 wnRelated :: WordNetEnv -> String -> String -> EPOS -> IO [String]
