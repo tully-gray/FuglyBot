@@ -8,7 +8,6 @@ module FuglyLib
          insertWord,
          insertWordRaw,
          insertWords,
-         listName,
          listWords,
          listWordFull,
          listWordsCountSort,
@@ -51,7 +50,7 @@ data Word = Word {
               pos     :: EPOS
               } |
             Name {
-              word    :: String,
+              name    :: String,
               count   :: Int,
               before  :: Map.Map String Int,
               after   :: Map.Map String Int,
@@ -119,7 +118,8 @@ saveDict fugly@(dict, wne, markov) fuglydir = do
                              ("count: " ++ (show c) ++ "\n"),
                              ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
                              ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
-                             ("related: " ++ (unwords r) ++ "\n")]
+                             ("related: " ++ (unwords r) ++ "\n"),
+                             ("pos: name\n")]
 
 loadDict :: FilePath -> IO (Map.Map String Word, [String])
 loadDict fuglydir = do
@@ -145,6 +145,7 @@ loadDict fuglydir = do
     getNeigh' (x:y:xs) [] = getNeigh' xs [(x, read y)]
     getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, read y) : [])
     f :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
+    f h word@(Name n c b a r) nm = f h (Word n c b a r (POS Noun)) nm
     f h word@(Word w c b a r p) nm = do
       l <- hGetLine h
       let wl = words l
@@ -155,6 +156,7 @@ loadDict fuglydir = do
       let ll = if l4 == True then tail wl else ["BAD BAD BAD"]
       let ww = if l4 == True then case (head wl) of
                            "word:"    -> (Word (unwords ll) c b a r p)
+                           "name:"    -> (Name (unwords ll) c b a r)
                            "count:"   -> (Word w (read $ unwords $ ll) b a r p)
                            "before:"  -> (Word w c (getNeigh $ ll) a r p)
                            "after:"   -> (Word w c b (getNeigh $ ll) r p)
@@ -165,11 +167,22 @@ loadDict fuglydir = do
                else (Word w c b a r p)
       if l4 == False then do putStrLn ("Oops: " ++ l) >> return nm
         else if (head wl) == "pos:" then
-               f h ww (nm ++ (((\x@(Word w _ _ _ _ _) -> w) ww), ww) : [])
+               f h ww (nm ++ ((wordGetWord ww), ww) : [])
              else if (head wl) == ">END<" then
                     return nm
                   else
                     f h ww nm
+
+wordGetWord    (Word w c b a r p) = w
+wordGetWord    (Name n c b a r)   = n
+wordGetAfter   (Word w c b a r p) = a
+wordGetAfter   (Name n c b a r)   = a
+wordGetBefore  (Word w c b a r p) = b
+wordGetBefore  (Name n c b a r)   = b
+wordGetRelated (Word w c b a r p) = r
+wordGetRelated (Name n c b a r)   = r
+wordGetwc      (Word w c _ _ _ _) = (c, w)
+wordGetwc      (Name w c _ _ _)   = (c, w)
 
 insertWords :: Fugly -> [String] -> IO (Map.Map String Word)
 insertWords f@(dict, wne, markov) [] = return dict
@@ -270,17 +283,20 @@ niceWords = ["peace", "love", "happiness", "sunshine", "gayness", "lovely", "per
              "serenity"]
 
 incCount' :: Word -> Int
-incCount' w@(Word _ c _ _ _ _) = c + 1
+incCount' (Word _ c _ _ _ _) = c + 1
+incCount' (Name _ c _ _ _) = c + 1
 
 incBefore' :: Word -> String -> Map.Map String Int
-incBefore' word@(Word _ _ b _ _ _) []     = b
-incBefore' word@(Word _ _ b _ _ _) before =
+incBefore' (Word _ _ b _ _ _) []     = b
+incBefore' (Word _ _ b _ _ _) before =
   if isJust w then
     Map.insert before ((fromJust w) + 1) b
     else
     Map.insert before 1 b
   where
     w = Map.lookup before b
+incBefore' (Name _ _ b _ _)   []     = b
+incBefore' (Name w c b a r) before   = incBefore' (Word w c b a r (POS Noun)) before
 
 incBefore :: Map.Map String Word -> String -> String -> Map.Map String Int
 incBefore m word before = do
@@ -289,14 +305,16 @@ incBefore m word before = do
     else Map.empty
 
 incAfter' :: Word -> String -> Map.Map String Int
-incAfter' word@(Word _ _ _ a _ _) []     = a
-incAfter' word@(Word _ _ _ a _ _) after  =
+incAfter' (Word _ _ _ a _ _) []     = a
+incAfter' (Word _ _ _ a _ _) after  =
   if isJust w then
     Map.insert after ((fromJust w) + 1) a
     else
     Map.insert after 1 a
   where
     w = Map.lookup after a
+incAfter' (Name _ _ _ a _)   []     = a
+incAfter' (Name w c b a r) after    = incAfter' (Word w c b a r (POS Noun)) after
 
 incAfter :: Map.Map String Word -> String -> String -> Map.Map String Int
 incAfter m word after = do
@@ -314,42 +332,33 @@ listNeighMax :: Map.Map String Int -> [String]
 listNeighMax m = [w | (w, c) <- Map.toList m, c == maximum [c | (w, c) <- Map.toList m]]
 
 listNeighMax2 :: Map.Map String Int -> [String]
-listNeighMax2 m = concat [[w, show c] | (w, c) <- Map.toList m, c == maximum [c | (w, c) <- Map.toList m]]
+listNeighMax2 m = concat [[w, show c] | (w, c) <- Map.toList m,
+                          c == maximum [c | (w, c) <- Map.toList m]]
 
 listWords :: Map.Map String Word -> [String]
-listWords m = map (\x@(Word w _ _ _ _ _) -> w) $ Map.elems m
+listWords m = map wordGetWord $ Map.elems m
 
 listWordsCountSort :: Map.Map String Word -> [String]
-listWordsCountSort m = reverse $ map snd (sort $ map (\x@(Word w c _ _ _ _) -> (c, w)) $ Map.elems m)
+listWordsCountSort m = reverse $ map snd (sort $ map wordGetwc $ Map.elems m)
 
 listWordsCountSort2 :: Map.Map String Word -> Int -> [String]
 listWordsCountSort2 m num = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
-                            sort $ map (\x@(Word w c _ _ _ _)
-                                                   -> (c, w)) $ Map.elems m]
+                            sort $ map wordGetwc $ Map.elems m]
 
 listWordFull :: Map.Map String Word -> String -> String
 listWordFull m word =
   if isJust ww then
-    unwords $ (\x@(Word w c b a r p) ->
-                ["word:", w, "count:", show c, " before:", unwords $ listNeigh2 b,
-                 " after:", unwords $ listNeigh2 a, " pos:", (show p),
-                 " related:", unwords r]) (fromJust ww)
+    unwords $ f (fromJust ww)
   else
     "Nothing!"
   where
     ww = Map.lookup word m
-
-listName :: Map.Map String Word -> String -> String
-listName m name =
-  if isJust ww then
-    unwords $ (\x@(Name w c b a r) ->
-                ["name:", w, "count:", show c, " before:", unwords $ listNeigh2 b,
-                 " after:", unwords $ listNeigh2 a,
-                 " related:", unwords r]) (fromJust ww)
-  else
-    "Nothing!"
-  where
-    ww = Map.lookup name m
+    f (Word w c b a r p) = ["word:", w, "count:", show c, " before:",
+                 unwords $ listNeigh2 b, " after:", unwords $ listNeigh2 a,
+                 " pos:", (show p), " related:", unwords r]
+    f (Name w c b a r) = ["name:", w, "count:", show c, " before:",
+                 unwords $ listNeigh2 b, " after:", unwords $ listNeigh2 a,
+                 " related:", unwords r]
 
 cleanString :: (Char -> Bool) -> String -> String
 cleanString _ [] = []
@@ -522,10 +531,10 @@ findNextWord fugly@(dict, wne, markov) word i = replace "i" "I" $ words f
           else next3
       w = Map.lookup word dict
       ww = Map.lookup next1 dict
-      neigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
-      nextNeigh = listNeigh $ (\x@(Word _ _ _ a _ _) -> a) (fromJust ww)
+      neigh = listNeigh $ wordGetAfter (fromJust w)
+      nextNeigh = listNeigh $ wordGetAfter (fromJust ww)
       next1 = neigh!!(mod i (length neigh))
       next2 = unwords $ markov1 dict markov 3 2 relatedNext
       next3 = unwords $ markov1 dict markov 2 1 []
-      related     = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
-      relatedNext = map (strip '"') ((\x@(Word _ _ _ _ r _) -> r) (fromJust ww))
+      related     = map (strip '"') $ wordGetRelated (fromJust w)
+      relatedNext = map (strip '"') $ wordGetRelated (fromJust ww)
