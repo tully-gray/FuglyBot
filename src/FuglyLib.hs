@@ -436,10 +436,11 @@ wnMeet w c d e  = do
 
 markov1 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
 markov1 dict markov num runs words
-    | length (markov ++ words) < 3 = take num $ Markov.run runs niceWords 0 (Random.mkStdGen 17)
-    | otherwise = take num $ Markov.run runs (mix markov (f words)) 0 (Random.mkStdGen 17)
+    | length (markov ++ words) < 3 = take num $ Markov.run runs niceWords 0
+                                     (Random.mkStdGen 17)
+    | otherwise = take num $ Markov.run runs (mix markov
+                            [x | x <- words, Map.member x dict]) 0 (Random.mkStdGen 17)
   where
-    f w = map (map toLower . (cleanString isAlpha)) [x | x <- w, Map.member x dict]
     mix a b = if null b then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
 
 sentence :: Fugly -> Int -> Int -> [String] -> [String]
