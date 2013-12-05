@@ -4,9 +4,11 @@ module FuglyLib
          stopFugly,
          loadDict,
          saveDict,
+         insertName,
          insertWord,
          insertWordRaw,
          insertWords,
+         listName,
          listWords,
          listWordFull,
          listWordsCountSort,
@@ -196,22 +198,48 @@ insertWordRaw f@(dict, wne, markov) word before after pos = do
   pa <- wnPartPOS wne after
   pb <- wnPartPOS wne before
   rel <- wnRelated wne word "Hypernym" pp
+  let nn x y  = if elem x allowedWords then x
+                else if y == UnknownEPos || (length x < 3) then [] else x
+  let i = Map.insert word (Word word 1 (e (nn before pb)) (e (nn after pa)) rel pp) dict
   if isJust w then
     return $ Map.insert word (Word word c (nb before pb) (na after pa)
                             ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
                             (((\x@(Word _ _ _ _ _ p) -> p)) (fromJust w))) dict
          else if elem word allowedWords then
-           return $ Map.insert word (Word word 1 (e (nn before pb))
-                                     (e (nn after pa)) rel pp) dict
+           return i
            else if pp == UnknownEPos || (length word < 3) then
                   return dict
                   else
-                  return $ Map.insert word (Word word 1 (e (nn before pb))
-                                          (e (nn after pa)) rel pp) dict
+                  return i
   where
     w = Map.lookup word dict
     wa = (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
     wb = (\x@(Word _ _ b _ _ _) -> b) (fromJust w)
+    e [] = Map.empty
+    e x = Map.singleton x 1
+    c = incCount' (fromJust w)
+    na x y = if elem x allowedWords then incAfter' (fromJust w) x
+                else if y == UnknownEPos || (length x < 3) then wa
+                     else incAfter' (fromJust w) x
+    nb x y = if elem x allowedWords then incBefore' (fromJust w) x
+                else if y == UnknownEPos || (length x < 3) then wb
+                     else incBefore' (fromJust w) x
+
+insertName :: Fugly -> String -> String -> String -> IO (Map.Map String Word)
+insertName f@(dict, wne, markov) [] _ _ = return dict
+insertName f@(dict, wne, markov) name before after = do
+  pa <- wnPartPOS wne after
+  pb <- wnPartPOS wne before
+  rel <- wnRelated wne name "Hypernym" (POS Noun)
+  if isJust w then
+    return $ Map.insert name (Name name c (nb before pb) (na after pa)
+                              ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))) dict
+    else
+    return $ Map.insert name (Name name 1 (e (nn before pb)) (e (nn after pa)) rel) dict
+  where
+    w = Map.lookup name dict
+    wa = (\x@(Name _ _ _ a _) -> a) (fromJust w)
+    wb = (\x@(Name _ _ b _ _) -> b) (fromJust w)
     e [] = Map.empty
     e x = Map.singleton x 1
     c = incCount' (fromJust w)
@@ -303,6 +331,18 @@ listWordFull m word =
     "Nothing!"
   where
     ww = Map.lookup word m
+
+listName :: Map.Map String Word -> String -> String
+listName m name =
+  if isJust ww then
+    unwords $ (\x@(Name w c b a r) ->
+                ["name:", w, "count:", show c, " before:", unwords $ listNeigh2 b,
+                 " after:", unwords $ listNeigh2 a,
+                 " related:", unwords r]) (fromJust ww)
+  else
+    "Nothing!"
+  where
+    ww = Map.lookup name m
 
 cleanString :: (Char -> Bool) -> String -> String
 cleanString _ [] = []

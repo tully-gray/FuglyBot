@@ -325,6 +325,16 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
                      else case (length xs) of
                        1 -> replyMsg bot chan nick (listWordFull dict (xs!!0)) >> return bot
                        _ -> replyMsg bot chan nick "Usage: !word word" >> return bot
+    | x == "!name" = if nick == owner then
+          case (length xs) of
+            2 -> do ww <- insertName fugly (unwords xs) [] []
+                    return (Bot socket params (ww, wne, markov))
+            1 -> replyMsg bot chan nick (listWordFull dict (xs!!0)) >> return bot
+            _ -> replyMsg bot chan nick "Usage: !name name"
+                 >> return bot
+                     else case (length xs) of
+                       1 -> replyMsg bot chan nick (listName dict (xs!!0)) >> return bot
+                       _ -> replyMsg bot chan nick "Usage: !name name" >> return bot
     | x == "!dropword" = if nick == owner then
           case (length xs) of
             1 -> return (Bot socket params (Map.delete (xs!!0) dict, wne, markov))
