@@ -501,30 +501,21 @@ wnMeet w c d e  = do
                     getWords $ getSynset $ fromJust result
         else return []
 
-markov2 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
-markov2 dict markov num runs words
-    | length (markov ++ words) < 3 = take num $ Markov.run runs niceWords 0
-                                     (Random.mkStdGen 17)
-    | otherwise = take num $ Markov.run runs (mix markov
-                            [x | x <- words, Map.member x dict]) 0 (Random.mkStdGen 17)
-  where
-    mix a b = if null b then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
-
 markov1 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
 markov1 dict markov num runs words
     | length (markov ++ words) < 3 = take num $ Markov.run runs niceWords 0
                                      (Random.mkStdGen 17)
-    | otherwise = take num $ Markov.run runs (mix markov
+    | otherwise = take num $ Markov.run runs (nub $ mix markov
                             [x | x <- words, Map.member x dict]) 0 (Random.mkStdGen 17)
   where
-    mix a b = if null b then a
-              else if ((length b) - 2) < 2 then b
-              else concat [[b, a] | (a, b) <- zip (take ((length b) - 2) a) b]
+    mix a b = if null b then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
 
 sentence :: Fugly -> Int -> Int -> [String] -> [String]
 sentence _ _ _ [] = []
+-- sentence fugly@(dict, wne, markov) num len words = map unwords $ map (s1e . s1d . s1f . s1a)
+--                                    $ markov1 dict markov num 1 words
 sentence fugly@(dict, wne, markov) num len words = map unwords $ map (s1e . s1d . s1f . s1a)
-                                   $ markov1 dict markov num 1 words
+                                   words
   where
     s1a = (\y -> nub $ filter (\x -> length x > 0) (s1b fugly len 0 (findNextWord fugly y 1)))
     s1b :: Fugly -> Int -> Int -> [String] -> [String]
