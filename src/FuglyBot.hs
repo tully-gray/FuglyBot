@@ -347,9 +347,9 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
     | x == "!name" = case (length xs) of
             0 -> replyMsg bot chan nick "Usage: !name <name>" >> return bot
             _ -> replyMsg bot chan nick (listWordFull dict (unwords xs)) >> return bot
-    | x == "!nameinsert" = if nick == owner then
+    | x == "!insertname" = if nick == owner then
         case (length xs) of
-            0 -> replyMsg bot chan nick "Usage: !nameinsert <name>" >> return bot
+            0 -> replyMsg bot chan nick "Usage: !insertname <name>" >> return bot
             _ -> do ww <- insertName fugly (unwords xs) [] []
                     return (Bot socket params (ww, wne, markov, ban))
                            else return bot
@@ -369,7 +369,7 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
             _ -> replyMsg bot chan nick "Usage: !meet <word> <word> [part-of-speech]"
                  >> return bot
     | x == "!help" = if nick == owner then replyMsg bot chan nick
-                       "Commands: !dict !wordlist !word !insertword !dropword !banword !unbanword !name !nameinsert !closure !meet !params !setparam !nick !join !part !quit !readfile !load !save"
+                       "Commands: !dict !wordlist !word !insertword !dropword !banword !unbanword !name !insertname !closure !meet !params !setparam !nick !join !part !quit !readfile !load !save"
                        >> return bot
                      else replyMsg bot chan nick "Commands: !dict !word !wordlist !name !closure !meet" >> return bot
 evalCmd bot _ _ _ = return bot
