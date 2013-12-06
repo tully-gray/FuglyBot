@@ -255,21 +255,21 @@ processLine bot@(Bot socket (Parameter nick owner fuglydir wndir
              else reply bot [] who msg
 
 reply :: Bot -> String -> String -> [String] -> IO Bot
-reply bot@(Bot socket params fugly@(dict, wne, markov)) [] nick msg = do
+reply bot@(Bot socket params fugly@(dict, wne, markov, ban)) [] nick msg = do
     sentencePriv socket fugly 1 43 nick msg
     n <- insertWords fugly msg
-    return (Bot socket params (n, wne, markov1 n markov 123 2 msg))
-reply bot@(Bot socket params fugly@(dict, wne, markov)) chan [] msg = do
+    return (Bot socket params (n, wne, markov1 n markov 123 2 msg, ban))
+reply bot@(Bot socket params fugly@(dict, wne, markov, ban)) chan [] msg = do
     n <- insertWords fugly msg
-    return (Bot socket params (n, wne, markov1 n markov 123 1 msg))
-reply bot@(Bot socket params fugly@(dict, wne, markov)) chan nick msg = do
+    return (Bot socket params (n, wne, markov1 n markov 123 1 msg, ban))
+reply bot@(Bot socket params fugly@(dict, wne, markov, ban)) chan nick msg = do
     sentenceReply socket fugly 3 23 chan nick msg
     n <- insertWords fugly msg
-    return (Bot socket params (n, wne, markov1 n markov 123 1 msg))
+    return (Bot socket params (n, wne, markov1 n markov 123 1 msg, ban))
 
 evalCmd :: Bot -> String -> String -> [String] -> IO Bot
 evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ usercmd _ _ _)
-             fugly@(dict, wne, markov)) _ nick (x:xs)
+             fugly@(dict, wne, markov, ban)) _ nick (x:xs)
     | usercmd == False && nick /= owner = return bot
     | x == "!quit" =
       if nick == owner then case (length xs) of
@@ -281,8 +281,8 @@ evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ usercmd _ _ _)
     | x == "!save" = if nick == owner then catchIOError (saveDict fugly fuglydir)
                                        (const $ return ()) >> return bot else return bot
     | x == "!load" = if nick == owner then do
-        (nd, nm) <- catchIOError (loadDict fuglydir) (const $ return (dict, []))
-        return (Bot socket params (nd, wne, nm))
+        (nd, nm, nb) <- catchIOError (loadDict fuglydir) (const $ return (dict, [], []))
+        return (Bot socket params (nd, wne, nm, nb))
                      else return bot
     | x == "!join" = if nick == owner then joinChannel socket "JOIN" xs >>
                                           return bot else return bot
@@ -290,7 +290,7 @@ evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ usercmd _ _ _)
                                           return bot else return bot
     | x == "!nick" = if nick == owner then changeNick bot xs else return bot
 evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
-             fugly@(dict, wne, markov)) chan nick (x:xs)
+             fugly@(dict, wne, markov, ban)) chan nick (x:xs)
     | x == "!readfile" = if nick == owner then case (length xs) of
         1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
         _ -> replyMsg bot chan nick "Usage: !readfile <file>" >>
@@ -323,12 +323,25 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
             1 -> replyMsg bot chan nick "Usage: !insertword <pos> <word>" >> return bot
             0 -> replyMsg bot chan nick "Usage: !insertword <pos> <word>" >> return bot
             _ -> do ww <- insertWordRaw fugly (unwords $ tail xs) [] [] (xs!!0)
-                    return (Bot socket params (ww, wne, markov))
+                    return (Bot socket params (ww, wne, markov, ban))
                          else return bot
     | x == "!dropword" = if nick == owner then
           case (length xs) of
-            1 -> return (Bot socket params (Map.delete (xs!!0) dict, wne, markov))
+            1 -> return (Bot socket params (dropWord dict (xs!!0), wne, markov, ban))
             _ -> replyMsg bot chan nick "Usage: !dropword <word>"
+                 >> return bot
+                         else return bot
+    | x == "!banword" = if nick == owner then
+          case (length xs) of
+            1 -> return (Bot socket params (dropWord dict (xs!!0), wne, markov,
+                                            nub $ ban ++ [(xs!!0)]))
+            _ -> replyMsg bot chan nick "Usage: !banword <word>"
+                 >> return bot
+                         else return bot
+    | x == "!unbanword" = if nick == owner then
+          case (length xs) of
+            1 -> return (Bot socket params (dict, wne, markov, nub $ delete (xs!!0) ban))
+            _ -> replyMsg bot chan nick "Usage: !unbanword <word>"
                  >> return bot
                          else return bot
     | x == "!name" = case (length xs) of
@@ -338,7 +351,7 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
         case (length xs) of
             0 -> replyMsg bot chan nick "Usage: !nameinsert <name>" >> return bot
             _ -> do ww <- insertName fugly (unwords xs) [] []
-                    return (Bot socket params (ww, wne, markov))
+                    return (Bot socket params (ww, wne, markov, ban))
                            else return bot
     | x == "!closure" =
           case (length xs) of
@@ -356,7 +369,7 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
             _ -> replyMsg bot chan nick "Usage: !meet <word> <word> [part-of-speech]"
                  >> return bot
     | x == "!help" = if nick == owner then replyMsg bot chan nick
-                       "Commands: !dict !wordlist !word !insertword !dropword !name !nameinsert !closure !meet !params !setparam !nick !join !part !quit !readfile !load !save"
+                       "Commands: !dict !wordlist !word !insertword !dropword !banword !name !nameinsert !closure !meet !params !setparam !nick !join !part !quit !readfile !load !save"
                        >> return bot
                      else replyMsg bot chan nick "Commands: !dict !word !wordlist !name !closure !meet" >> return bot
 evalCmd bot _ _ _ = return bot
@@ -433,7 +446,7 @@ write socket s msg = do
     printf         "> %s %s\n" s msg
     threadDelay 2000000
 
-insertFromFile bot@(Bot socket params fugly@(dict, wne, markov)) file = do
+insertFromFile bot@(Bot socket params fugly@(dict, wne, markov, ban)) file = do
     f <- readFile file
     n <- insertWords fugly $ words f
-    return (Bot socket params (n, wne, markov))
+    return (Bot socket params (n, wne, markov, ban))
