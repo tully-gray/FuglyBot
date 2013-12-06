@@ -523,10 +523,10 @@ markov1 dict markov num runs words
 
 sentence :: Fugly -> Int -> Int -> [String] -> [String]
 sentence _ _ _ [] = []
--- sentence fugly@(dict, wne, markov) num len words = map unwords $ map (s1e . s1d . s1f . s1a)
---                                    $ markov1 dict markov num 1 words
 sentence fugly@(dict, wne, markov, _) num len words = map unwords $ map (s1e . s1d . s1f . s1a)
-                                   words
+                                   $ markov1 dict markov num 1 words
+-- sentence fugly@(dict, wne, markov, _) num len words = map unwords $ map (s1e . s1d . s1f . s1a)
+--                                    words
   where
     s1a = (\y -> nub $ filter (\x -> length x > 0) (s1b fugly len 0 (findNextWord fugly y 1)))
     s1b :: Fugly -> Int -> Int -> [String] -> [String]
