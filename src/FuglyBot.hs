@@ -318,14 +318,12 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
     | x == "!word" = case (length xs) of
             0 -> replyMsg bot chan nick "Usage: !word <word>" >> return bot
             _ -> replyMsg bot chan nick (listWordFull dict (unwords xs)) >> return bot
-    | x == "!insertword" = if nick == owner then do
-        ww <- insertWordRaw fugly (unwords $ tail xs) [] [] (xs!!0)
-        wx <- insertWordRaw fugly (unwords $ tail xs) [] [] "Noun"
+    | x == "!insertword" = if nick == owner then
         case (length xs) of
-            1 -> return (Bot socket params (wx, wne, markov))
-            0 -> replyMsg bot chan nick "Usage: !insertword <pos> <words>"
-                 >> return bot
-            _ -> return (Bot socket params (ww, wne, markov))
+            1 -> replyMsg bot chan nick "Usage: !insertword <pos> <word>" >> return bot
+            0 -> replyMsg bot chan nick "Usage: !insertword <pos> <word>" >> return bot
+            _ -> do ww <- insertWordRaw fugly (unwords $ tail xs) [] [] (xs!!0)
+                    return (Bot socket params (ww, wne, markov))
                          else return bot
     | x == "!dropword" = if nick == owner then
           case (length xs) of
@@ -336,11 +334,11 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
     | x == "!name" = case (length xs) of
             0 -> replyMsg bot chan nick "Usage: !name <name>" >> return bot
             _ -> replyMsg bot chan nick (listWordFull dict (unwords xs)) >> return bot
-    | x == "!nameinsert" = if nick == owner then do
-        ww <- insertName fugly (unwords xs) [] []
+    | x == "!nameinsert" = if nick == owner then
         case (length xs) of
             0 -> replyMsg bot chan nick "Usage: !nameinsert <name>" >> return bot
-            _ -> return (Bot socket params (ww, wne, markov))
+            _ -> do ww <- insertName fugly (unwords xs) [] []
+                    return (Bot socket params (ww, wne, markov))
                            else return bot
     | x == "!closure" =
           case (length xs) of

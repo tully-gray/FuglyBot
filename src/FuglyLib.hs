@@ -204,16 +204,31 @@ insertWords f@(dict, wne, markov) msg@(x:y:xs) =
                         insertWords' (ff, wne, markov) (a+1) l msg
 
 insertWord :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWord f@(dict, wne, markov) [] _ _ _ = return dict
-insertWord f word before after pos = insertWordRaw f ww bb aa pos
+insertWord fugly@(dict, wne, markov) [] _ _ _ = return dict
+insertWord fugly@(dict, wne, markov) word before after pos =
+    if isJust w then f $ fromJust w
+    else insertWordRaw' fugly w ww bb aa pos
   where
+    w = Map.lookup word dict
+    a = Map.lookup after dict
+    b = Map.lookup before dict
+    f (Word _ _ _ _ _ _) = insertWordRaw' fugly w ww bi ai pos
+    f (Name _ _ _ _ _)   = insertName'    fugly w word bi ai
+    an (Word _ _ _ _ _ _) = aa
+    an (Name _ _ _ _ _)   = after
+    bn (Word _ _ _ _ _ _) = bb
+    bn (Name _ _ _ _ _)   = before
+    ai = if isJust a then an $ fromJust a else aa
+    bi = if isJust b then bn $ fromJust b else bb
     aa = map toLower $ cleanString isAlpha after
     bb = map toLower $ cleanString isAlpha before
     ww = map toLower $ cleanString isAlpha word
 
-insertWordRaw :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWordRaw f@(dict, wne, markov) [] _ _ _ = return dict
-insertWordRaw f@(dict, wne, markov) word before after pos = do
+insertWordRaw f@(d, _, _) w b a p = insertWordRaw' f (Map.lookup w d) w b a p
+insertWordRaw' :: Fugly -> Maybe Word -> String -> String
+                 -> String -> String -> IO (Map.Map String Word)
+insertWordRaw' (dict, wne, markov) _ [] _ _ _ = return dict
+insertWordRaw' (dict, wne, markov) w word before after pos = do
   pp <- (if null pos then wnPartPOS wne word else return $ readEPOS pos)
   pa <- wnPartPOS wne after
   pb <- wnPartPOS wne before
@@ -223,7 +238,7 @@ insertWordRaw f@(dict, wne, markov) word before after pos = do
   let i = Map.insert word (Word word 1 (e (nn before pb)) (e (nn after pa)) rel pp) dict
   if isJust w then
     return $ Map.insert word (Word word c (nb before pb) (na after pa)
-                            ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))
+                            (wordGetRelated (fromJust w))
                             (((\x@(Word _ _ _ _ _ p) -> p)) (fromJust w))) dict
          else if elem word allowedWords then
            return i
@@ -232,42 +247,38 @@ insertWordRaw f@(dict, wne, markov) word before after pos = do
                   else
                   return i
   where
-    w = Map.lookup word dict
-    wa = (\x@(Word _ _ _ a _ _) -> a) (fromJust w)
-    wb = (\x@(Word _ _ b _ _ _) -> b) (fromJust w)
     e [] = Map.empty
     e x = Map.singleton x 1
     c = incCount' (fromJust w)
     na x y = if elem x allowedWords then incAfter' (fromJust w) x
-                else if y == UnknownEPos || (length x < 3) then wa
+                else if y == UnknownEPos || (length x < 3) then wordGetAfter (fromJust w)
                      else incAfter' (fromJust w) x
     nb x y = if elem x allowedWords then incBefore' (fromJust w) x
-                else if y == UnknownEPos || (length x < 3) then wb
+                else if y == UnknownEPos || (length x < 3) then wordGetBefore (fromJust w)
                      else incBefore' (fromJust w) x
 
-insertName :: Fugly -> String -> String -> String -> IO (Map.Map String Word)
-insertName f@(dict, wne, markov) [] _ _ = return dict
-insertName f@(dict, wne, markov) name before after = do
+insertName f@(d, _, _) w b a = insertName' f (Map.lookup w d) w b a
+insertName' :: Fugly -> Maybe Word -> String -> String
+              -> String -> IO (Map.Map String Word)
+insertName' (dict, wne, markov) _ [] _ _ = return dict
+insertName' (dict, wne, markov) w name before after = do
   pa <- wnPartPOS wne after
   pb <- wnPartPOS wne before
   rel <- wnRelated wne name "Hypernym" (POS Noun)
   if isJust w then
     return $ Map.insert name (Name name c (nb before pb) (na after pa)
-                              ((\x@(Word _ _ _ _ r _) -> r) (fromJust w))) dict
+                              (wordGetRelated (fromJust w))) dict
     else
     return $ Map.insert name (Name name 1 (e (nn before pb)) (e (nn after pa)) rel) dict
   where
-    w = Map.lookup name dict
-    wa = (\x@(Name _ _ _ a _) -> a) (fromJust w)
-    wb = (\x@(Name _ _ b _ _) -> b) (fromJust w)
     e [] = Map.empty
     e x = Map.singleton x 1
     c = incCount' (fromJust w)
     na x y = if elem x allowedWords then incAfter' (fromJust w) x
-                else if y == UnknownEPos || (length x < 3) then wa
+                else if y == UnknownEPos || (length x < 3) then wordGetAfter (fromJust w)
                      else incAfter' (fromJust w) x
     nb x y = if elem x allowedWords then incBefore' (fromJust w) x
-                else if y == UnknownEPos || (length x < 3) then wb
+                else if y == UnknownEPos || (length x < 3) then wordGetBefore (fromJust w)
                      else incBefore' (fromJust w) x
     nn x y  = if elem x allowedWords then x
                 else if y == UnknownEPos || (length x < 3) then [] else x
