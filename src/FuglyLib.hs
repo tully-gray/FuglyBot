@@ -501,8 +501,8 @@ wnMeet w c d e  = do
                     getWords $ getSynset $ fromJust result
         else return []
 
-markov1 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
-markov1 dict markov num runs words
+markov2 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
+markov2 dict markov num runs words
     | length (markov ++ words) < 3 = take num $ Markov.run runs niceWords 0
                                      (Random.mkStdGen 17)
     | otherwise = take num $ Markov.run runs (mix markov
@@ -510,12 +510,23 @@ markov1 dict markov num runs words
   where
     mix a b = if null b then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
 
+markov1 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
+markov1 dict markov num runs words
+    | length (markov ++ words) < 3 = take num $ Markov.run runs niceWords 0
+                                     (Random.mkStdGen 17)
+    | otherwise = take num $ Markov.run runs (mix markov
+                            [x | x <- words, Map.member x dict]) 0 (Random.mkStdGen 17)
+  where
+    mix a b = if null b then a
+              else if ((length b) - 2) < 2 then b
+              else concat [[b, a] | (a, b) <- zip (take ((length b) - 2) a) b]
+
 sentence :: Fugly -> Int -> Int -> [String] -> [String]
 sentence _ _ _ [] = []
-sentence fugly@(dict, wne, markov) num len words = map unwords $ nub $ map (s1d . s1e . s1a)
-                                   $ markov1 dict (s1f markov words) num 2 words
+sentence fugly@(dict, wne, markov) num len words = map unwords $ map (s1e . s1d . s1f . s1a)
+                                   $ markov1 dict markov num 1 words
   where
-    s1a = (\y -> filter (\x -> length x > 0) (s1b fugly len 0 (findNextWord fugly y 1)))
+    s1a = (\y -> nub $ filter (\x -> length x > 0) (s1b fugly len 0 (findNextWord fugly y 1)))
     s1b :: Fugly -> Int -> Int -> [String] -> [String]
     s1b f@(d, w, m) _ _ [] = markov1 d m 3 2 []
     s1b f@(d, w, m) n i words
@@ -523,9 +534,14 @@ sentence fugly@(dict, wne, markov) num len words = map unwords $ nub $ map (s1d 
       | otherwise = s1b f n (i + 1) (words ++ findNextWord f (last words) i)
     s1c :: [String] -> String
     s1c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
-    s1d w = (init w) ++ ((last w) ++ ".") : []
+    s1d w = (init w) ++ ((last w) ++ e) : []
+      where
+         e = if elem (head w) l then "?" else "."
+         l = ["is", "are", "what", "when", "who", "where"]
     s1e w = (s1c w : [] ) ++ tail w
-    s1f m w = (take (length w) m) ++ w
+    s1f w = if elem (last w) l then init w else w
+      where
+        l = ["a", "the", "is", "are", "and", "i"]
 
 findNextWord :: Fugly -> String -> Int -> [String]
 findNextWord fugly@(dict, wne, markov) word i = replace "i" "I" $ words f
