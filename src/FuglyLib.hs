@@ -519,7 +519,7 @@ markov1 dict markov num runs words
     | otherwise = take num $ Markov.run runs (nub $ mix markov
                             [x | x <- words, Map.member x dict]) 0 (Random.mkStdGen 17)
   where
-    mix a b = if null b then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
+    mix a b = if (length b) < 2 then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
 
 sentence :: Fugly -> Int -> Int -> [String] -> [String]
 sentence _ _ _ [] = []
