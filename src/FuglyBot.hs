@@ -58,6 +58,7 @@ readParam :: String -> Parameter
 readParam a | (map toLower a) == "nick"            = Nick
 readParam a | (map toLower a) == "owner"           = Owner
 readParam a | (map toLower a) == "usercmd"         = UserCommands
+readParam a | (map toLower a) == "usercommands"    = UserCommands
 readParam a | (map toLower a) == "rejoinkick"      = RejoinKick
 readParam a | (map toLower a) == "maxchanmsg"      = MaxChanMsg
 readParam a | (map toLower a) == "chatchannel"     = ChatChannel
@@ -174,7 +175,8 @@ changeParam bot@(Bot socket (Parameter nick owner fuglydir wndir usercmd
       Nick         -> changeNick bot (value : "" : [])
       Owner        -> return (Bot socket (Parameter nick value fuglydir wndir usercmd
                                           rejoinkick maxchanmsg chatchan) fugly)
-      UserCommands -> return (Bot socket (Parameter nick owner fuglydir wndir (read value)
+      UserCommands -> return (Bot socket (Parameter nick owner fuglydir wndir
+                                          (readBool value)
                                           rejoinkick maxchanmsg chatchan) fugly)
       RejoinKick   -> return (Bot socket (Parameter nick owner fuglydir wndir usercmd
                                           (read value) maxchanmsg chatchan) fugly)
@@ -183,6 +185,15 @@ changeParam bot@(Bot socket (Parameter nick owner fuglydir wndir usercmd
       ChatChannel  -> return (Bot socket (Parameter nick owner fuglydir wndir usercmd
                                           rejoinkick maxchanmsg value) fugly)
       _            -> return bot
+  where
+    readBool a
+      | a == "true"    = True
+      | a == "yes"     = True
+      | a == "on"      = True
+      | a == "false"   = False
+      | a == "no"      = False
+      | a == "off"     = False
+      | otherwise      = True
 
 getMsg :: [String] -> [String]
 getMsg [] = []

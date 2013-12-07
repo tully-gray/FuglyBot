@@ -239,7 +239,7 @@ insertWordRaw' (dict, wne, markov, _) w word before after pos = do
   pb <- wnPartPOS wne before
   rel <- wnRelated wne word "Hypernym" pp
   let nn x y  = if elem x allowedWords then x
-                else if y == UnknownEPos || (length x < 3) then [] else x
+                else if y == UnknownEPos then [] else x
   let i = Map.insert word (Word word 1 (e (nn before pb)) (e (nn after pa)) rel pp) dict
   if isJust w then
     return $ Map.insert word (Word word c (nb before pb) (na after pa)
@@ -247,7 +247,7 @@ insertWordRaw' (dict, wne, markov, _) w word before after pos = do
                             (((\x@(Word _ _ _ _ _ p) -> p)) (fromJust w))) dict
          else if elem word allowedWords then
            return i
-           else if pp == UnknownEPos || (length word < 3) then
+           else if pp == UnknownEPos then
                   return dict
                   else
                   return i
@@ -256,10 +256,10 @@ insertWordRaw' (dict, wne, markov, _) w word before after pos = do
     e x = Map.singleton x 1
     c = incCount' (fromJust w)
     na x y = if elem x allowedWords then incAfter' (fromJust w) x
-                else if y == UnknownEPos || (length x < 3) then wordGetAfter (fromJust w)
+                else if y == UnknownEPos then wordGetAfter (fromJust w)
                      else incAfter' (fromJust w) x
     nb x y = if elem x allowedWords then incBefore' (fromJust w) x
-                else if y == UnknownEPos || (length x < 3) then wordGetBefore (fromJust w)
+                else if y == UnknownEPos then wordGetBefore (fromJust w)
                      else incBefore' (fromJust w) x
 
 insertName f@(d, _, _, _) w b a = insertName' f (Map.lookup w d) w b a
@@ -280,13 +280,13 @@ insertName' (dict, wne, markov, _) w name before after = do
     e x = Map.singleton x 1
     c = incCount' (fromJust w)
     na x y = if elem x allowedWords then incAfter' (fromJust w) x
-                else if y == UnknownEPos || (length x < 3) then wordGetAfter (fromJust w)
+                else if y == UnknownEPos then wordGetAfter (fromJust w)
                      else incAfter' (fromJust w) x
     nb x y = if elem x allowedWords then incBefore' (fromJust w) x
-                else if y == UnknownEPos || (length x < 3) then wordGetBefore (fromJust w)
+                else if y == UnknownEPos then wordGetBefore (fromJust w)
                      else incBefore' (fromJust w) x
     nn x y  = if elem x allowedWords then x
-                else if y == UnknownEPos || (length x < 3) then [] else x
+                else if y == UnknownEPos then [] else x
 
 dropWord :: Map.Map String Word -> String -> Map.Map String Word
 dropWord m word = Map.map del' (Map.delete word m)
@@ -539,7 +539,7 @@ sentence fugly@(dict, wne, markov, _) num len words = map unwords $ map (s1e . s
     s1d w = (init w) ++ ((last w) ++ e) : []
       where
          e = if elem (head w) l then "?" else "."
-         l = ["is", "are", "what", "when", "who", "where"]
+         l = ["is", "are", "what", "when", "who", "where", "am"]
     s1e w = (s1c w : [] ) ++ tail w
     s1f w = if elem (last w) l then init w else w
       where
