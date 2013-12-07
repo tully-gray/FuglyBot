@@ -372,12 +372,17 @@ evalCmd bot@(Bot socket params@(Parameter botnick owner _ _ usercmd
             1 -> replyMsg bot chan nick (listWordFull dict (xs!!0)) >> return bot
             _ -> replyMsg bot chan nick "Usage: !name <name>" >> return bot
     | x == "!insertname" = if nick == owner then
-        case (length xs) of
+          case (length xs) of
             1 -> do ww <- insertName fugly (xs!!0) [] []
                     replyMsg bot chan nick ("Inserted name " ++ (xs!!0))
                     return (Bot socket params (ww, wne, markov, ban))
             _ -> replyMsg bot chan nick "Usage: !insertname <name>" >> return bot
                            else return bot
+    | x == "!talk" = if nick == owner then
+          if (length xs) > 2 then sentenceReply socket fugly 1 43 (xs!!0) (xs!!1) (tail xs)
+                                  >> return bot
+          else replyMsg bot chan nick "Usage: !talk <channel> <nick> <msg>" >> return bot
+                     else return bot
     | x == "!closure" =
           case (length xs) of
             3 -> (wnClosure wne (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan nick
@@ -394,7 +399,7 @@ evalCmd bot@(Bot socket params@(Parameter botnick owner _ _ usercmd
             _ -> replyMsg bot chan nick "Usage: !meet <word> <word> [part-of-speech]"
                  >> return bot
     | x == "!help" = if nick == owner then replyMsg bot chan nick
-                       "Commands: !dict !wordlist !word !insertword !dropword !banword !unbanword !name !insertname !closure !meet !params !setparam !showparams !nick !join !part !quit !readfile !load !save" >> return bot
+                       "Commands: !dict !wordlist !word !insertword !dropword !banword !unbanword !name !insertname !closure !meet !params !setparam !showparams !nick !join !part !talk !quit !readfile !load !save" >> return bot
                      else replyMsg bot chan nick "Commands: !dict !word !wordlist !name !closure !meet" >> return bot
 evalCmd bot _ _ _ = return bot
 
@@ -425,9 +430,11 @@ sentenceReply h f n l chan nick m = do
     sequence $ map (d h) msg
   where
     p :: Handle -> String -> IO ()
-    p h w = hPrintf h "PRIVMSG %s\r\n" (chan ++ " :" ++ nick ++ ": " ++ w)
+    p h w = if nick == chan then hPrintf h "PRIVMSG %s\r\n" (chan ++ " :" ++ w)
+            else hPrintf h "PRIVMSG %s\r\n" (chan ++ " :" ++ nick ++ ": " ++ w)
     d :: Handle -> String -> IO ()
-    d h w = printf    "> PRIVMSG %s\n" (chan ++ " :" ++ nick ++ ": " ++ w)
+    d h w = if nick == chan then printf "> PRIVMSG %s\n" (chan ++ " :" ++ w)
+            else printf "> PRIVMSG %s\n" (chan ++ " :" ++ nick ++ ": " ++ w)
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _) fugly) chan nick msg
