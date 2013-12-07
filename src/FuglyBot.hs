@@ -396,15 +396,11 @@ evalCmd bot _ _ _ = return bot
    https://tools.ietf.org/html/rfc2812
 -}
 
-
-cmdLen :: String -> String -> Int
-cmdLen chan nick = length "PRIVMSG" + length chan + length nick
-
 chanMsg :: Bot -> String -> String -> IO ()
 chanMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _) fugly) chan msg =
-  if length msg > (maxchanmsg - cmdLen chan [] - 3) then do
-     write socket "PRIVMSG" (chan ++ " :" ++ (take (maxchanmsg - cmdLen chan [] - 3) msg))
-     chanMsg bot chan (drop (maxchanmsg - cmdLen chan [] - 3) msg)
+  if length msg > maxchanmsg then do
+     write socket "PRIVMSG" (chan ++ " :" ++ (take maxchanmsg msg))
+     chanMsg bot chan (drop maxchanmsg msg)
      else
      chanMsg bot chan msg
 
@@ -422,13 +418,13 @@ sentenceReply h f n l chan nick m = do
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _) fugly) chan nick msg
-    | chan == nick   = if length msg > (maxchanmsg - cmdLen chan nick - 3) then do
-      write socket "PRIVMSG" (nick ++ " :" ++ (take (maxchanmsg - cmdLen chan nick - 3) msg))
-      replyMsg bot chan nick (drop (maxchanmsg - cmdLen chan nick - 3) msg) else
+    | chan == nick   = if length msg > maxchanmsg then do
+      write socket "PRIVMSG" (nick ++ " :" ++ (take maxchanmsg msg))
+      replyMsg bot chan nick (drop maxchanmsg msg) else
         write socket "PRIVMSG" (nick ++ " :" ++ msg)
-    | otherwise      = if length msg > (maxchanmsg - cmdLen chan nick - 5) then do
-      write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ (take (maxchanmsg - cmdLen chan nick - 5) msg))
-      replyMsg bot chan nick (drop (maxchanmsg - cmdLen chan nick - 5) msg) else
+    | otherwise      = if length msg > maxchanmsg then do
+      write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ (take maxchanmsg msg))
+      replyMsg bot chan nick (drop maxchanmsg msg) else
         write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ msg)
 
 sentencePriv :: Handle -> Fugly -> Int -> Int -> String -> [String] -> IO [()]
@@ -445,9 +441,9 @@ sentencePriv h f n l nick m = do
 
 privMsg :: Bot -> String -> String -> IO ()
 privMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _) fugly) nick msg =
-  if length msg > (maxchanmsg - cmdLen [] nick - 3) then do
-    write socket "PRIVMSG" (nick ++ " :" ++ (take (maxchanmsg - cmdLen [] nick - 3) msg))
-    privMsg bot nick (drop (maxchanmsg - cmdLen [] nick - 3) msg)
+  if length msg > maxchanmsg then do
+    write socket "PRIVMSG" (nick ++ " :" ++ (take maxchanmsg msg))
+    privMsg bot nick (drop maxchanmsg msg)
     else
     write socket "PRIVMSG" (nick ++ " :" ++ msg)
 
