@@ -227,7 +227,7 @@ insertWord fugly@(dict, wne, markov, ban) word before after pos =
     bi = if isJust b then bn $ fromJust b else bb
     aa = map toLower $ cleanString isAlpha after
     bb = map toLower $ cleanString isAlpha before
-    ww = map toLower $ cleanString isAlpha word
+    ww = if isJust w then word else map toLower $ cleanString isAlpha word
 
 insertWordRaw f@(d, _, _, _) w b a p = insertWordRaw' f (Map.lookup w d) w b a p
 insertWordRaw' :: Fugly -> Maybe Word -> String -> String
