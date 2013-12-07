@@ -300,12 +300,22 @@ evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ usercmd _ _ _)
     | x == "!part" = if nick == owner then joinChannel socket "PART" xs >>
                                           return bot else return bot
     | x == "!nick" = if nick == owner then changeNick bot xs else return bot
-evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
+evalCmd bot@(Bot socket params@(Parameter botnick owner _ _ usercmd
+                                rejoinkick maxchanmsg chatchannel)
              fugly@(dict, wne, markov, ban)) chan nick (x:xs)
     | x == "!readfile" = if nick == owner then case (length xs) of
         1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
         _ -> replyMsg bot chan nick "Usage: !readfile <file>" >>
                                           return bot else return bot
+    | x == "!showparams" =
+        if nick == owner then case (length xs) of
+          0 -> replyMsg bot chan nick ("nick: " ++ botnick ++ "  owner: " ++ owner ++
+                                      "  usercommands: " ++ show usercmd ++ "  rejoinkick: "
+                                      ++ show rejoinkick ++ "  maxchanmsg: " ++
+                                      show maxchanmsg
+                                      ++ "  chatchannel: " ++ chatchannel) >> return bot
+          _ -> replyMsg bot chan nick "Usage: !showparams" >> return bot
+        else return bot
     | x == "!setparam" =
         if nick == owner then case (length xs) of
           2 -> changeParam bot (xs!!0) (xs!!1)
@@ -383,7 +393,7 @@ evalCmd bot@(Bot socket params@(Parameter _ owner _ _ _ _ _ _)
             _ -> replyMsg bot chan nick "Usage: !meet <word> <word> [part-of-speech]"
                  >> return bot
     | x == "!help" = if nick == owner then replyMsg bot chan nick
-                       "Commands: !dict !wordlist !word !insertword !dropword !banword !unbanword !name !insertname !closure !meet !params !setparam !nick !join !part !quit !readfile !load !save" >> return bot
+                       "Commands: !dict !wordlist !word !insertword !dropword !banword !unbanword !name !insertname !closure !meet !params !setparam !showparams !nick !join !part !quit !readfile !load !save" >> return bot
                      else replyMsg bot chan nick "Commands: !dict !word !wordlist !name !closure !meet" >> return bot
 evalCmd bot _ _ _ = return bot
 
