@@ -137,7 +137,7 @@ loadDict fuglydir = do
       dict <- f h w [([], w)]
       markov <- hGetLine h
       ban <- hGetLine h
-      let markov' = if null markov then niceWords else words markov
+      let markov' = if null markov then startWords else words markov
       let out = (Map.fromList dict, markov', words ban)
       hClose h
       return out
@@ -300,9 +300,8 @@ allowedWords = ["a", "i", "to", "go", "me", "no", "you", "her", "him", "got", "g
                 "that", "this", "where", "were", "in", "on", "at", "is", "was",
                 "could", "would", "for", "us", "we", "do", "did", "if", "anyone"]
 
-niceWords :: [String]
-niceWords = ["peace", "love", "happiness", "sunshine", "gayness", "lovely", "perfect",
-             "serenity"]
+startWords :: [String]
+startWords = ["me", "you"]
 
 incCount' :: Word -> Int
 incCount' (Word _ c _ _ _ _) = c + 1
@@ -514,7 +513,7 @@ wnMeet w c d e  = do
 
 markov1 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
 markov1 dict markov num runs words
-    | length (markov ++ words) < 3 = take num $ Markov.run runs niceWords 0
+    | length (markov ++ words) < 3 = take num $ Markov.run runs startWords 0
                                      (Random.mkStdGen 17)
     | otherwise = take num $ Markov.run runs (nub $ mix markov
                             [x | x <- words, Map.member x dict]) 0 (Random.mkStdGen 17)
