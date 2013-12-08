@@ -265,18 +265,26 @@ processLine bot@(Bot socket (Parameter nick owner fuglydir wndir
                else reply bot [] who msg
              else reply bot [] who msg
 
+-- reply :: Bot -> String -> String -> [String] -> IO Bot
+-- reply bot@(Bot socket params fugly@(dict, wne, markov, ban)) [] nick msg = do
+--     sentencePriv socket fugly 1 43 nick msg
+--     n <- insertWords fugly msg
+--     return (Bot socket params (n, wne, markov1 n markov 123 2 msg, ban))
+-- reply bot@(Bot socket params fugly@(dict, wne, markov, ban)) chan [] msg = do
+--     n <- insertWords fugly msg
+--     return (Bot socket params (n, wne, markov1 n markov 123 1 msg, ban))
+-- reply bot@(Bot socket params fugly@(dict, wne, markov, ban)) chan nick msg = do
+--     sentenceReply socket fugly 1 43 chan nick msg
+--     n <- insertWords fugly msg
+--     return (Bot socket params (n, wne, markov1 n markov 123 1 msg, ban))
+
 reply :: Bot -> String -> String -> [String] -> IO Bot
-reply bot@(Bot socket params fugly@(dict, wne, markov, ban)) [] nick msg = do
-    sentencePriv socket fugly 1 43 nick msg
+reply bot@(Bot socket params fugly@(dict, wne, markov, ban)) chan nick msg = do
+    if null chan then sentencePriv socket fugly 1 43 nick msg
+      else if null nick then return [()]
+           else sentenceReply socket fugly 1 43 chan nick msg
     n <- insertWords fugly msg
     return (Bot socket params (n, wne, markov1 n markov 123 2 msg, ban))
-reply bot@(Bot socket params fugly@(dict, wne, markov, ban)) chan [] msg = do
-    n <- insertWords fugly msg
-    return (Bot socket params (n, wne, markov1 n markov 123 1 msg, ban))
-reply bot@(Bot socket params fugly@(dict, wne, markov, ban)) chan nick msg = do
-    sentenceReply socket fugly 1 43 chan nick msg
-    n <- insertWords fugly msg
-    return (Bot socket params (n, wne, markov1 n markov 123 1 msg, ban))
 
 evalCmd :: Bot -> String -> String -> [String] -> IO Bot
 evalCmd bot@(Bot socket params@(Parameter _ owner fuglydir _ usercmd _ _ _)
@@ -473,6 +481,7 @@ write socket s msg = do
     printf         "> %s %s\n" s msg
     threadDelay 2000000
 
+insertFromFile :: Bot -> FilePath -> IO Bot
 insertFromFile bot@(Bot socket params fugly@(dict, wne, markov, ban)) file = do
     f <- readFile file
     n <- insertWords fugly $ words f
