@@ -16,7 +16,6 @@ module FuglyLib
          listWordsCountSort2,
          cleanString,
          wnClosure,
-         wnGloss,
          wnMeet,
          markov1,
          sentence,
@@ -80,7 +79,7 @@ data Word = Word {
 initFugly :: FilePath -> FilePath -> IO Fugly
 initFugly fuglydir wndir = do
     (dict, markov, allow, ban) <- catchIOError (loadDict fuglydir)
-                           (const $ return (Map.empty, [], [], []))
+                           (const $ return (Map.empty, startWords, [], []))
     wne <- NLP.WordNet.initializeWordNetWithOptions
            (return wndir :: Maybe FilePath)
            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
@@ -138,7 +137,7 @@ loadDict fuglydir = do
     h <- openFile (fuglydir ++ "/dict.txt") ReadMode
     eof <- hIsEOF h
     if eof then
-      return (Map.empty, [], [], [])
+      return (Map.empty, startWords, [], [])
       else do
       hSetBuffering h LineBuffering
       putStrLn "Loading dict file..."
@@ -248,19 +247,22 @@ insertWordRaw' (dict, wne, aspell, markov, allow, _) w word before after pos = d
   pa <- wnPartPOS wne after
   pb <- wnPartPOS wne before
   rel <- wnRelated wne word "Hypernym" pp
+  as <- asSuggest aspell word
+  let asw = words as
   let nn x y  = if elem x allow then x
                 else if y == UnknownEPos then [] else x
-  let i = Map.insert word (Word word 1 (e (nn before pb)) (e (nn after pa)) rel pp) dict
+  let i x = Map.insert x (Word x 1 (e (nn before pb)) (e (nn after pa)) rel pp) dict
   if isJust w then
     return $ Map.insert word (Word word c (nb before pb) (na after pa)
                             (wordGetRelated (fromJust w))
                             (((\x@(Word _ _ _ _ _ p) -> p)) (fromJust w))) dict
          else if elem word allow then
-           return i
+           return $ i word
            else if pp /= UnknownEPos || Aspell.check aspell (ByteString.pack word) then
-                  return i
-                  else
-                  return dict
+                  return $ i word
+                  else if (length asw) > 0 then return $ i (head asw)
+                       else
+                         return dict
   where
     e [] = Map.empty
     e x = Map.singleton x 1
@@ -515,6 +517,11 @@ wnMeet w c d e  = do
                     getWords $ getSynset $ fromJust result
         else return []
 
+
+asSuggest :: Aspell.SpellChecker -> String -> IO String
+asSuggest aspell word = do w <- Aspell.suggest aspell (ByteString.pack word)
+                           return $ unwords $ map ByteString.unpack w
+
 markov1 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
 markov1 dict markov num runs words
     | length (markov ++ words) < 3 = take num $ Markov.run runs startWords 0
@@ -574,8 +581,6 @@ findNextWord fugly@(dict, wne, aspell, markov, _, _) word i = replace "i" "I" $ 
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup fugly@(_, wne, aspell, _, _, _) word pos = do
     gloss <- wnGloss wne word pos
-    if gloss == "Nothing!" then do a <- as ; return (gloss ++ " Perhaps you meant: " ++ a)
+    if gloss == "Nothing!" then do a <- asSuggest aspell word
+                                   return (gloss ++ " Perhaps you meant: " ++ a)
       else return gloss
-  where
-    as = do w <- Aspell.suggest aspell (ByteString.pack word)
-            return $ unwords $ map ByteString.unpack w
