@@ -1,3 +1,5 @@
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.State.Lazy
 import Data.Char (isDigit, isAscii, toLower)
 import Data.List
 import qualified Data.Map as Map
@@ -18,6 +20,8 @@ data Bot = Bot {
     params :: Parameter,
     fugly :: Fugly
     }
+
+type Net = StateT Bot IO
 
 data Parameter = Nick | Owner | UserCommands | RejoinKick | MaxChanMsg
                | ChatChannel | Topic | UnknownParam
@@ -71,9 +75,6 @@ main :: IO ()
 main = do
     args <- cmdLine
     bracket (start args) stop (loop args)
-  where
-    stop         = do hClose . socket
-    loop st args = catchIOError (run st args) (const $ return ())
 
 start :: [String] -> IO Bot
 start args = do
@@ -89,16 +90,25 @@ start args = do
     fugly <- initFugly fuglydir wndir
     return (Bot socket (Parameter nick owner fuglydir wndir False 10 460 channel []) fugly)
 
-run :: [String] -> Bot -> IO ()
-run args bot@(Bot socket (Parameter nick _ _ _ _ _ _ _ _) fugly) = do
+stop :: Bot -> IO ()
+stop = hClose . socket
+
+loop :: [String] -> Bot -> IO ()
+loop args bot = catchIOError (runStateT (run args) bot) (const $ return ((), bot))
+                 >> return ()
+
+run :: [String] -> Net ()
+run args = do
     let channel = args !! 4
     let passwd  = args !! 7
-    write socket "NICK" nick
-    write socket "USER" (nick ++ " 0 * :user")
-    privMsg bot "nickserv" ("IDENTIFY " ++ passwd)
-    joinChannel socket "JOIN" [channel]
-    listenIRC bot
-    return () :: IO ()
+    bot <- get
+    let nick = (\x@(Bot _ (Parameter n _ _ _ _ _ _ _ _) _) -> n) bot
+    let socket = (\x@(Bot s _ _) -> s) bot
+    lift $ write socket "NICK" nick
+    lift $ write socket "USER" (nick ++ " 0 * :user")
+    lift $ privMsg bot "nickserv" ("IDENTIFY " ++ passwd)
+    lift $ joinChannel socket "JOIN" [channel]
+    lift $ listenIRC bot
 
 listenIRC :: Bot -> IO ()
 listenIRC bot@(Bot socket params fugly) = do
