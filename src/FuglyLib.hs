@@ -561,9 +561,11 @@ sentence fugly@(dict, wne, aspell, _, _) num len msg strict = do
     s1c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
 
 findNextWord :: Fugly -> String -> Int -> IO [String]
-findNextWord fugly@(dict, wne, aspell, _, _) word i = do
+findNextWord fugly@(dict, wne, aspell, _, ban) word i = do
   a <- asSuggest aspell word
-  let next3 = if null $ words a then [] else head $ words a
+  let next3 = if null $ words a then []
+              else if elem (head $ words a) ban then []
+                   else head $ words a
   let f = if isJust w then
         if null neigh then next3
         else if isJust ww then
