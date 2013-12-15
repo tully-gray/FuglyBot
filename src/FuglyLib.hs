@@ -17,7 +17,6 @@ module FuglyLib
          cleanString,
          wnClosure,
          wnMeet,
-         markov1,
          sentence,
          Word,
          Fugly
@@ -248,7 +247,7 @@ insertWordRaw' (dict, wne, aspell, allow, _) w word before after pos = do
   as <- asSuggest aspell word
   let asw = words as
   let nn x y  = if elem x allow then x
-                else if y /= UnknownEPos && Aspell.check aspell (ByteString.pack x) == False then [] else x
+                else if y == UnknownEPos && Aspell.check aspell (ByteString.pack x) == False then [] else x
   let i x = Map.insert x (Word x 1 (e (nn before pb)) (e (nn after pa)) rel pp) dict
   if isJust w then
     return $ Map.insert word (Word word c (nb before pb) (na after pa)
@@ -519,44 +518,53 @@ asSuggest :: Aspell.SpellChecker -> String -> IO String
 asSuggest aspell word = do w <- Aspell.suggest aspell (ByteString.pack word)
                            return $ unwords $ map ByteString.unpack w
 
-markov1 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
-markov1 dict markov num runs words
-    | length (markov ++ words) < 3 = take num $ Markov.run runs startWords 0 (Random.mkStdGen 17)
-    | otherwise = take num $ Markov.run runs (nub $ mix markov
-                            [x | x <- words, Map.member x dict]) 0 (Random.mkStdGen 17)
-  where
-    mix a b = if (length b) < 2 then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
+-- markov1 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
+-- markov1 dict markov num runs words
+--     | length (markov ++ words) < 3 = take num $ Markov.run runs startWords 0 (Random.mkStdGen 17)
+--     | otherwise = take num $ Markov.run runs (nub $ mix markov
+--                             [x | x <- words, Map.member x dict]) 0 (Random.mkStdGen 17)
+--   where
+--     mix a b = if (length b) < 2 then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
 
-sentence :: Fugly -> Int -> Int -> [String] -> [String]
-sentence _ _ _ [] = []
-sentence fugly@(dict, wne, aspell, _, _) num len msg = map unwords $ map (s1e . s1d . s1f . s1a) msg
+sentence :: Fugly -> Int -> Int -> [String] -> [IO String]
+sentence _ _ _ [] = [return []] :: [IO String]
+sentence fugly@(dict, wne, aspell, _, _) num len msg = do
+  let l = ["a", "the", "is", "are", "and", "i", "I"]
+  let r = ["is", "are", "what", "when", "who", "where", "am"]
+  let s1a x = do
+      w <- s1b fugly len 0 (findNextWord fugly x 1)
+      return $ nub $ filter (\x -> length x > 0) w
+  let s1d x = do
+      w <- x
+      if null w then return []
+        else return ((init w) ++ ((last w) ++ if elem (head w) r then "?" else ".") : [])
+  let s1e x = do
+      w <- x
+      if null w then return []
+        else return ((s1c w : [] ) ++ tail w)
+  let s1f x = do
+      w <- x
+      if null w then return []
+        else if elem (last w) l then return $ init w else return w
+  map (\x -> do y <-x ; return $ unwords y) (map (s1e . s1d . s1f . s1a) msg)
   where
-    s1a = (\y -> nub $ filter (\x -> length x > 0) (s1b fugly len 0 (findNextWord fugly y 1)))
-    s1b :: Fugly -> Int -> Int -> [String] -> [String]
-    s1b f@(d, w, s, a, b) _ _ [] = []
-    s1b f@(d, w, s, a, b) n i words
-      | i >= n    = nub words
-      | otherwise = s1b f n (i + 1) (words ++ findNextWord f (last words) i)
+    s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
+    s1b f@(d, w, s, a, b) n i words = do
+      ww <- words
+      www <- findNextWord f (last ww) i
+      if null ww then return []
+        else if i >= n then return $ nub ww else
+               s1b f n (i + 1) (return $ ww ++ www)
     s1c :: [String] -> String
     s1c [] = []
     s1c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
-    s1d [] = []
-    s1d w = (init w) ++ ((last w) ++ e) : []
-      where
-         e = if elem (head w) l then "?" else "."
-         l = ["is", "are", "what", "when", "who", "where", "am"]
-    s1e [] = []
-    s1e w = (s1c w : [] ) ++ tail w
-    s1f [] = []
-    s1f w = if elem (last w) l then init w else w
-      where
-        l = ["a", "the", "is", "are", "and", "i"]
 
-findNextWord :: Fugly -> String -> Int -> [String]
-findNextWord fugly@(dict, wne, aspell, _, _) word i = replace "i" "I" $ words f
-    where
-      f = if isJust w then
-        if null neigh then []
+findNextWord :: Fugly -> String -> Int -> IO [String]
+findNextWord fugly@(dict, wne, aspell, _, _) word i = do
+  a <- asSuggest aspell word
+  let next3 = if null $ words a then [] else head $ words a
+  let f = if isJust w then
+        if null neigh then next3
         else if isJust ww then
           if elem next1 nextNeigh then
             next2
@@ -564,7 +572,9 @@ findNextWord fugly@(dict, wne, aspell, _, _) word i = replace "i" "I" $ words f
             next1
               else
                 next1
-          else []
+          else next3
+  return $ replace "i" "I" $ words f
+    where
       w = Map.lookup word dict
       ww = Map.lookup next1 dict
       neigh = listNeigh $ wordGetAfter (fromJust w)

@@ -451,12 +451,16 @@ sentenceReply h f n l chan nick m = do
     sequence $ map (p h) msg
     sequence $ map (d h) msg
   where
-    p :: Handle -> String -> IO ()
-    p h w = if nick == chan then hPrintf h "PRIVMSG %s\r\n" (chan ++ " :" ++ w)
-            else hPrintf h "PRIVMSG %s\r\n" (chan ++ " :" ++ nick ++ ": " ++ w)
-    d :: Handle -> String -> IO ()
-    d h w = if nick == chan then printf "> PRIVMSG %s\n" (chan ++ " :" ++ w)
-            else printf "> PRIVMSG %s\n" (chan ++ " :" ++ nick ++ ": " ++ w)
+    p :: Handle -> IO String -> IO ()
+    p h w = do
+      ww <- w
+      if nick == chan then hPrintf h "PRIVMSG %s\r\n" (chan ++ " :" ++ ww)
+        else hPrintf h "PRIVMSG %s\r\n" (chan ++ " :" ++ nick ++ ": " ++ ww)
+    d :: Handle -> IO String -> IO ()
+    d h w = do
+      ww <- w
+      if nick == chan then printf "> PRIVMSG %s\n" (chan ++ " :" ++ ww)
+        else printf "> PRIVMSG %s\n" (chan ++ " :" ++ nick ++ ": " ++ ww)
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _) fugly) chan nick msg
@@ -476,10 +480,14 @@ sentencePriv h f n l nick m = do
     sequence $ map (p h) msg
     sequence $ map (d h) msg
   where
-    p :: Handle -> String -> IO ()
-    p h w = do hPrintf h "PRIVMSG %s\r\n" (nick ++ " :" ++ w)
-    d :: Handle -> String -> IO ()
-    d h w = do printf    "> PRIVMSG %s\n" (nick ++ " :" ++ w)
+    p :: Handle -> IO String -> IO ()
+    p h w = do
+            ww <- w
+            hPrintf h "PRIVMSG %s\r\n" (nick ++ " :" ++ ww)
+    d :: Handle -> IO String -> IO ()
+    d h w = do
+            ww <- w
+            printf    "> PRIVMSG %s\n" (nick ++ " :" ++ ww)
 
 privMsg :: Bot -> String -> String -> IO ()
 privMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _) fugly) nick msg =
