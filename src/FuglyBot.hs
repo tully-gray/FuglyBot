@@ -160,12 +160,10 @@ changeNick bot@(Bot socket (Parameter nick owner _ _ _ _ _ _ _) fugly) (x:xs) = 
       else return "Something went wrong!" >>= privMsg bot owner >> return bot
   where
     testNick' :: Bot -> String -> [String] -> IO Bot
-    testNick' bot@(Bot socket (Parameter nick owner fuglydir wndir usercmd
-                               rejoinkick maxchanmsg chatchan topic) fugly)
+    testNick' bot@(Bot socket params fugly)
       new line
         | (x == "NICK") && (drop 1 y) == new =
-          return (Bot socket (Parameter new owner fuglydir wndir usercmd
-                              rejoinkick maxchanmsg chatchan topic) fugly)
+          return (Bot socket params{nick=new} fugly)
         | otherwise                          =
             return "Nick change failed!" >>= privMsg bot owner >> return bot
       where
