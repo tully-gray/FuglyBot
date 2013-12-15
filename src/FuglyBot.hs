@@ -75,6 +75,11 @@ main :: IO ()
 main = do
     args <- cmdLine
     bracket (start args) stop (loop args)
+  where
+    stop :: Bot -> IO ()
+    stop = hClose . socket
+    loop :: [String] -> Bot -> IO ()
+    loop args bot = catchIOError (evalStateT (run args) bot) (const $ return ())
 
 start :: [String] -> IO Bot
 start args = do
@@ -89,12 +94,6 @@ start args = do
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir
     return (Bot socket (Parameter nick owner fuglydir wndir False 10 460 channel []) fugly)
-
-stop :: Bot -> IO ()
-stop = hClose . socket
-
-loop :: [String] -> Bot -> IO ()
-loop args bot = catchIOError (evalStateT (run args) bot) (const $ return ())
 
 run :: [String] -> Net ()
 run args = do
