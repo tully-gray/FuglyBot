@@ -282,8 +282,7 @@ reply chan nick msg = do
 
 execCmd :: String -> String -> [String] -> Net Bot
 execCmd chan nick (x:xs) = do
-    bot@(Bot socket params@(Parameter botnick owner fuglydir wndir usercmd rejoinkick
-       maxchanmsg chatchan topic) fugly@(dict, wne, aspell, allow, ban)) <- get
+    bot <- get
     lift $ execCmd' bot
   where
     execCmd' bot@(Bot socket params@(Parameter botnick owner fuglydir wndir usercmd rejoinkick
