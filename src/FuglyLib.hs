@@ -27,7 +27,6 @@ import Control.Exception
 import qualified Data.ByteString.Char8 as ByteString
 import Data.Char (isAlpha, isAlphaNum, toLower, toUpper)
 import Data.Either
-import Data.IORef
 import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
