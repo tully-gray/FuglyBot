@@ -108,16 +108,28 @@ run args = do
     lift $ write socket "USER" (nick ++ " 0 * :user")
     lift $ privMsg bot "nickserv" ("IDENTIFY " ++ passwd)
     lift $ joinChannel socket "JOIN" [channel]
-    lift $ listenIRC bot
+    --lift $ listenIRC bot
+    listenIRC1
 
 listenIRC :: Bot -> IO ()
 listenIRC bot@(Bot socket params fugly) = do
     s <- hGetLine socket
     putStrLn s
-    if ping s then pong s else do a <- processLine bot (words s) ; listenIRC a
+    if ping s then pong s else do processLine bot (words s) >>= listenIRC
   where
     ping x    = "PING :" `isPrefixOf` x
     pong x    = write socket "PONG" (':' : drop 6 x) >> listenIRC bot
+
+listenIRC1 :: Net ()
+listenIRC1 = do
+    bot <- get
+    let socket = (\x@(Bot s _ _) -> s) bot
+    let pong x = lift (write socket "PONG" (':' : drop 6 x)) >> listenIRC1
+    s <- lift $ hGetLine socket
+    lift $ putStrLn s
+    if ping s then pong s else do processLine1 (words s) ; listenIRC1
+  where
+    ping x     = "PING :" `isPrefixOf` x
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -281,6 +293,34 @@ processLine bot@(Bot socket (Parameter nick owner fuglydir wndir
                else reply bot [] who msg
              else reply bot [] who msg
 
+processLine1 :: [String] -> Net ()
+processLine1 [] = return () :: Net ()
+processLine1 line = do
+    bot <- get
+    process' bot line
+  where
+    process' bot line
+      | (not $ null $ beenKicked nick line) =
+         lift (rejoinChannel socket (beenKicked nick line) rejoinkick) >> return () :: Net ()
+      | null msg          = return () :: Net ()
+      | chan == nick      = lift (prvcmd bot) >>= put
+      | spokenTo nick msg = if null (tail msg) then return () :: Net ()
+                            else if (head $ head $ tail msg) == '!'
+                                 then lift (evalCmd bot chan who (tail msg)) >>= put
+                                 else lift (reply bot chan who (tail msg)) >>= put
+      | otherwise         = lift (reply bot chan [] msg) >>= put
+      where
+        socket = (\x@(Bot s _ _) -> s) bot
+        nick = (\x@(Bot _ (Parameter n _ _ _ _ _ _ _ _) _) -> n) bot
+        rejoinkick = (\x@(Bot _ (Parameter _ _ _ _ _ rk _ _ _) _) -> rk) bot
+    msg  = getMsg line
+    who  = getNick line
+    chan = getChannel line
+    prvcmd bot = if (length $ head msg) > 0 then
+                   if (head $ head msg) == '!' then evalCmd bot who who msg
+                   else reply bot [] who msg
+                 else reply bot [] who msg
+
 reply :: Bot -> String -> String -> [String] -> IO Bot
 reply bot@(Bot socket params fugly@(dict, wne, aspell, allow, ban)) chan nick msg = do
     if null chan then sentencePriv socket fugly 1 43 nick msg
@@ -315,7 +355,8 @@ evalCmd bot@(Bot socket params@(Parameter botnick owner _ _ usercmd
                                 rejoinkick maxchanmsg chatchannel topic)
              fugly@(dict, wne, aspell, allow, ban)) chan nick (x:xs)
     | x == "!readfile" = if nick == owner then case (length xs) of
-        1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
+--        1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
+        1 -> (catchIOError (execStateT (insertFromFile1 bot (xs!!0)) bot) (const $ return (bot)))
         _ -> replyMsg bot chan nick "Usage: !readfile <file>" >>
                                           return bot else return bot
     | x == "!showparams" =
@@ -523,3 +564,9 @@ insertFromFile bot@(Bot socket params fugly@(dict, wne, aspell, allow, ban)) fil
     f <- readFile file
     n <- insertWords fugly $ words f
     return (Bot socket params (n, wne, aspell, allow, ban))
+
+insertFromFile1 :: Bot -> FilePath -> Net ()
+insertFromFile1 bot@(Bot socket params fugly@(dict, wne, aspell, allow, ban)) file = do
+    f <- lift $ readFile file
+    n <- lift $ insertWords fugly $ words f
+    put (Bot socket params (n, wne, aspell, allow, ban))
