@@ -122,8 +122,7 @@ listenIRC bot@(Bot socket params fugly) = do
 
 listenIRC1 :: Net ()
 listenIRC1 = do
-    bot <- get
-    let socket = (\x@(Bot s _ _) -> s) bot
+    socket <- gets (\x@(Bot s _ _) -> s)
     let pong x = lift (write socket "PONG" (':' : drop 6 x)) >> listenIRC1
     s <- lift $ hGetLine socket
     lift $ putStrLn s
@@ -311,8 +310,8 @@ processLine1 line = do
       | otherwise         = lift (reply bot chan [] msg) >>= put
       where
         socket = (\x@(Bot s _ _) -> s) bot
-        nick = (\x@(Bot _ (Parameter n _ _ _ _ _ _ _ _) _) -> n) bot
-        rejoinkick = (\x@(Bot _ (Parameter _ _ _ _ _ rk _ _ _) _) -> rk) bot
+        nick = (\x@(Bot _ (Parameter {nick = _}) _) -> nick) bot
+        rejoinkick = (\x@(Bot _ (Parameter {rejoinkick = _}) _) -> rejoinkick) bot
     msg  = getMsg line
     who  = getNick line
     chan = getChannel line
@@ -356,7 +355,7 @@ evalCmd bot@(Bot socket params@(Parameter botnick owner _ _ usercmd
              fugly@(dict, wne, aspell, allow, ban)) chan nick (x:xs)
     | x == "!readfile" = if nick == owner then case (length xs) of
 --        1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
-        1 -> (catchIOError (execStateT (insertFromFile1 bot (xs!!0)) bot) (const $ return (bot)))
+        1 -> catchIOError (execStateT (insertFromFile2 (xs!!0)) bot) (const $ return (bot))
         _ -> replyMsg bot chan nick "Usage: !readfile <file>" >>
                                           return bot else return bot
     | x == "!showparams" =
@@ -568,5 +567,15 @@ insertFromFile bot@(Bot socket params fugly@(dict, wne, aspell, allow, ban)) fil
 insertFromFile1 :: Bot -> FilePath -> Net ()
 insertFromFile1 bot@(Bot socket params fugly@(dict, wne, aspell, allow, ban)) file = do
     f <- lift $ readFile file
+    n <- lift $ insertWords fugly $ words f
+    put (Bot socket params (n, wne, aspell, allow, ban))
+
+insertFromFile2 :: FilePath -> Net ()
+insertFromFile2 file = do
+    f <- lift $ readFile file
+    bot <- get
+    socket <- gets (\x@(Bot s _ _) -> s)
+    params <- gets (\x@(Bot _ p _) -> p)
+    fugly@(dict, wne, aspell, allow, ban) <- gets (\x@(Bot _ _ f) -> f)
     n <- lift $ insertWords fugly $ words f
     put (Bot socket params (n, wne, aspell, allow, ban))
