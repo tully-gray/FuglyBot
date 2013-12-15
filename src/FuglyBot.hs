@@ -94,8 +94,7 @@ stop :: Bot -> IO ()
 stop = hClose . socket
 
 loop :: [String] -> Bot -> IO ()
-loop args bot = catchIOError (runStateT (run args) bot) (const $ return ((), bot))
-                 >> return ()
+loop args bot = catchIOError (evalStateT (run args) bot) (const $ return ())
 
 run :: [String] -> Net ()
 run args = do
@@ -310,17 +309,16 @@ execCmd chan nick (x:xs) = do
                                              return bot else return bot
       | x == "!nick" = if nick == owner then changeNick bot xs else return bot
       | x == "!readfile" = if nick == owner then case (length xs) of
-          1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
---        1 -> catchIOError (execStateT (insertFromFile2 (xs!!0)) bot) (const $ return bot)
+--        1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
+          1 -> catchIOError (execStateT (insertFromFile2 (xs!!0)) bot) (const $ return bot)
           _ -> replyMsg bot chan nick "Usage: !readfile <file>" >>
                return bot else return bot
       | x == "!showparams" =
           if nick == owner then case (length xs) of
             0 -> replyMsg bot chan nick ("nick: " ++ botnick ++ "  owner: " ++ owner ++
-                                         "  usercommands: " ++ show usercmd ++ "  rejoinkick: "
-                                         ++ show rejoinkick ++ "  maxchanmsg: " ++
-                                         show maxchanmsg
-                                         ++ "  chatchannel: " ++ chatchan) >> return bot
+                   "  usercommands: " ++ show usercmd ++ "  rejoinkick: "
+                   ++ show rejoinkick ++ "  maxchanmsg: " ++ show maxchanmsg
+                   ++ "  chatchannel: " ++ chatchan) >> return bot
             _ -> replyMsg bot chan nick "Usage: !showparams" >> return bot
           else return bot
       | x == "!setparam" =
