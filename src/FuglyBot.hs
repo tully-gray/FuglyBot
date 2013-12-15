@@ -77,7 +77,7 @@ main = do
     bracket (start args) stop (loop args)
   where
     stop :: Bot -> IO ()
-    stop = hClose . socket
+    stop bot@(Bot s p@(Parameter {fuglydir=fd}) f) = do stopFugly fd f ; hClose s
     loop :: [String] -> Bot -> IO ()
     loop args bot = catchIOError (evalStateT (run args) bot) (const $ return ())
 
