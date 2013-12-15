@@ -443,10 +443,10 @@ execCmd chan nick (x:xs) = do
 -}
 
 chanMsg :: Bot -> String -> String -> IO ()
-chanMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _ _) fugly) chan msg =
-  if length msg > maxchanmsg then do
-     write socket "PRIVMSG" (chan ++ " :" ++ (take maxchanmsg msg))
-     chanMsg bot chan (drop maxchanmsg msg)
+chanMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) fugly) chan msg =
+  if length msg > mcm then do
+     write socket "PRIVMSG" (chan ++ " :" ++ (take mcm msg))
+     chanMsg bot chan (drop mcm msg)
      else
      chanMsg bot chan msg
 
@@ -469,14 +469,14 @@ sentenceReply h f n l chan nick m = do
         else hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\n")
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
-replyMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _ _) fugly) chan nick msg
-    | chan == nick   = if length msg > maxchanmsg then do
-      write socket "PRIVMSG" (nick ++ " :" ++ (take maxchanmsg msg))
-      replyMsg bot chan nick (drop maxchanmsg msg) else
+replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) fugly) chan nick msg
+    | chan == nick   = if length msg > mcm then do
+      write socket "PRIVMSG" (nick ++ " :" ++ (take mcm msg))
+      replyMsg bot chan nick (drop mcm msg) else
         write socket "PRIVMSG" (nick ++ " :" ++ msg)
-    | otherwise      = if length msg > maxchanmsg then do
-      write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ (take maxchanmsg msg))
-      replyMsg bot chan nick (drop maxchanmsg msg) else
+    | otherwise      = if length msg > mcm then do
+      write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ (take mcm msg))
+      replyMsg bot chan nick (drop mcm msg) else
         write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ msg)
 
 sentencePriv :: Handle -> Fugly -> Int -> Int -> String -> [String] -> IO [()]
@@ -496,10 +496,10 @@ sentencePriv h f n l nick m = do
             hPutStr stdout ("> PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\n")
 
 privMsg :: Bot -> String -> String -> IO ()
-privMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _ _) fugly) nick msg =
-  if length msg > maxchanmsg then do
-    write socket "PRIVMSG" (nick ++ " :" ++ (take maxchanmsg msg))
-    privMsg bot nick (drop maxchanmsg msg)
+privMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) fugly) nick msg =
+  if length msg > mcm then do
+    write socket "PRIVMSG" (nick ++ " :" ++ (take mcm msg))
+    privMsg bot nick (drop mcm msg)
     else
     write socket "PRIVMSG" (nick ++ " :" ++ msg)
 
