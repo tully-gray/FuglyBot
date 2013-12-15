@@ -192,24 +192,17 @@ joinChannel h a (x:xs) = do
         else return ()
 
 changeParam :: Bot -> String -> String -> IO Bot
-changeParam bot@(Bot socket (Parameter nick owner fuglydir wndir usercmd
+changeParam bot@(Bot socket params@(Parameter nick owner fuglydir wndir usercmd
                              rejoinkick maxchanmsg chatchan topic) fugly)
   param value = do
     case (readParam param) of
       Nick         -> changeNick bot (value : "" : [])
-      Owner        -> return (Bot socket (Parameter nick value fuglydir wndir usercmd
-                                          rejoinkick maxchanmsg chatchan topic) fugly)
-      UserCommands -> return (Bot socket (Parameter nick owner fuglydir wndir
-                                          (readBool value) rejoinkick maxchanmsg
-                                          chatchan topic) fugly)
-      RejoinKick   -> return (Bot socket (Parameter nick owner fuglydir wndir usercmd
-                                          (read value) maxchanmsg chatchan topic) fugly)
-      MaxChanMsg   -> return (Bot socket (Parameter nick owner fuglydir wndir usercmd
-                                          rejoinkick (read value) chatchan topic) fugly)
-      ChatChannel  -> return (Bot socket (Parameter nick owner fuglydir wndir usercmd
-                                          rejoinkick maxchanmsg value topic) fugly)
-      Topic        -> return (Bot socket (Parameter nick owner fuglydir wndir usercmd
-                                          rejoinkick maxchanmsg chatchan value) fugly)
+      Owner        -> return (Bot socket params{owner=value} fugly)
+      UserCommands -> return (Bot socket params{usercmd=readBool value} fugly)
+      RejoinKick   -> return (Bot socket params{rejoinkick=read value} fugly)
+      MaxChanMsg   -> return (Bot socket params{maxchanmsg=read value} fugly)
+      ChatChannel  -> return (Bot socket params{chatchannel=value} fugly)
+      Topic        -> return (Bot socket params{topic=value} fugly)
       _            -> return bot
   where
     readBool a
@@ -300,7 +293,7 @@ processLine1 line = do
   where
     process' bot line
       | (not $ null $ beenKicked nick line) =
-         lift (rejoinChannel socket (beenKicked nick line) rejoinkick) >> return () :: Net ()
+         lift (rejoinChannel socket (beenKicked nick line) rejoinkick)
       | null msg          = return () :: Net ()
       | chan == nick      = lift (prvcmd bot) >>= put
       | spokenTo nick msg = if null (tail msg) then return () :: Net ()
@@ -310,8 +303,8 @@ processLine1 line = do
       | otherwise         = lift (reply bot chan [] msg) >>= put
       where
         socket = (\x@(Bot s _ _) -> s) bot
-        nick = (\x@(Bot _ (Parameter {nick = _}) _) -> nick) bot
-        rejoinkick = (\x@(Bot _ (Parameter {rejoinkick = _}) _) -> rejoinkick) bot
+        nick = (\x@(Bot _ (Parameter {nick = n}) _) -> n) bot
+        rejoinkick = (\x@(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
     msg  = getMsg line
     who  = getNick line
     chan = getChannel line
@@ -354,8 +347,8 @@ evalCmd bot@(Bot socket params@(Parameter botnick owner _ _ usercmd
                                 rejoinkick maxchanmsg chatchannel topic)
              fugly@(dict, wne, aspell, allow, ban)) chan nick (x:xs)
     | x == "!readfile" = if nick == owner then case (length xs) of
---        1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
-        1 -> catchIOError (execStateT (insertFromFile2 (xs!!0)) bot) (const $ return (bot))
+        1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
+--        1 -> catchIOError (execStateT (insertFromFile2 (xs!!0)) bot) (const $ return bot)
         _ -> replyMsg bot chan nick "Usage: !readfile <file>" >>
                                           return bot else return bot
     | x == "!showparams" =
