@@ -526,13 +526,13 @@ asSuggest aspell word = do w <- Aspell.suggest aspell (ByteString.pack word)
 --   where
 --     mix a b = if (length b) < 2 then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
 
-sentence :: Fugly -> Int -> Int -> [String] -> [IO String]
-sentence _ _ _ [] = [return []] :: [IO String]
-sentence fugly@(dict, wne, aspell, _, _) num len msg = do
+sentence :: Fugly -> Int -> Int -> [String] -> Bool -> [IO String]
+sentence _ _ _ [] _ = [return []] :: [IO String]
+sentence fugly@(dict, wne, aspell, _, _) num len msg strict = do
   let l = ["a", "the", "is", "are", "and", "i", "I"]
   let r = ["is", "are", "what", "when", "who", "where", "am"]
   let s1a x = do
-      w <- s1b fugly len 0 (findNextWord fugly x 1)
+      w <- s1b fugly len 0 (findNext' fugly x 1)
       return $ nub $ filter (\x -> length x > 0) w
   let s1d x = do
       w <- x
@@ -548,12 +548,13 @@ sentence fugly@(dict, wne, aspell, _, _) num len msg = do
         else if elem (last w) l then return $ init w else return w
   map (\x -> do y <-x ; return $ unwords y) (map (s1e . s1d . s1f . s1a) msg)
   where
+    findNext' = if strict then findNextWordStrict else findNextWord
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(d, w, s, a, b) n i words = do
       ww <- words
-      www <- findNextWord f (last ww) i
       if null ww then return []
-        else if i >= n then return $ nub ww else
+        else if i >= n then return $ nub ww else do
+               www <- findNext' f (last ww) i
                s1b f n (i + 1) (return $ ww ++ www)
     s1c :: [String] -> String
     s1c [] = []
@@ -579,6 +580,31 @@ findNextWord fugly@(dict, wne, aspell, _, _) word i = do
       ww = Map.lookup next1 dict
       neigh = listNeigh $ wordGetAfter (fromJust w)
       nextNeigh = listNeigh $ wordGetAfter (fromJust ww)
+      next1 = neigh!!(mod i (length neigh))
+      next2 = nextNeigh!!(mod i (length nextNeigh))
+      related     = map (strip '"') $ wordGetRelated (fromJust w)
+      relatedNext = map (strip '"') $ wordGetRelated (fromJust ww)
+
+findNextWordStrict :: Fugly -> String -> Int -> IO [String]
+findNextWordStrict fugly@(dict, wne, aspell, _, _) word i = do
+  a <- asSuggest aspell word
+  let next3 = if null $ words a then [] else head $ words a
+  let f = if isJust w then
+        if null neigh then []
+        else if isJust ww then
+          if elem next1 nextNeigh then
+            next2
+          else
+            next1
+              else
+                next1
+          else []
+  return $ replace "i" "I" $ words f
+    where
+      w = Map.lookup word dict
+      ww = Map.lookup next1 dict
+      neigh = listNeighMax $ wordGetAfter (fromJust w)
+      nextNeigh = listNeighMax $ wordGetAfter (fromJust ww)
       next1 = neigh!!(mod i (length neigh))
       next2 = nextNeigh!!(mod i (length nextNeigh))
       related     = map (strip '"') $ wordGetRelated (fromJust w)

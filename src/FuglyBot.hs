@@ -446,7 +446,7 @@ chanMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _) fugly) chan msg =
 
 sentenceReply :: Handle -> Fugly -> Int -> Int -> String -> String -> [String] -> IO [()]
 sentenceReply h f n l chan nick m = do
-    let msg = sentence f n l m
+    let msg = sentence f n l m False
     threadDelay 2000000
     sequence $ map (p h) msg
     sequence $ map (d h) msg
@@ -475,7 +475,7 @@ replyMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _) fugly) chan nick m
 
 sentencePriv :: Handle -> Fugly -> Int -> Int -> String -> [String] -> IO [()]
 sentencePriv h f n l nick m = do
-    let msg = sentence f n l m
+    let msg = sentence f n l m True
     threadDelay 2000000
     sequence $ map (p h) msg
     sequence $ map (d h) msg
