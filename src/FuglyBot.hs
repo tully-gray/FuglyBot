@@ -9,7 +9,6 @@ import System.IO
 import System.IO.Error
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Exception
-import Text.Printf
 import Prelude
 
 import FuglyLib
@@ -247,7 +246,8 @@ rejoinChannel h []   _  = return () :: IO ()
 rejoinChannel h chan rk = do
     if rk == 0 then return () else rejoin' rk chan h >> return ()
   where
-    rejoin' rk chan h = forkIO (threadDelay (rk * 1000000) >> hPrintf h "JOIN %s\r\n" chan)
+    rejoin' rk chan h = forkIO (threadDelay (rk * 1000000) >>
+                                hPutStr h ("JOIN " ++ chan ++ "\r\n"))
 
 processLine :: Bot -> [String] -> IO Bot
 processLine bot [] = return bot
@@ -459,13 +459,13 @@ sentenceReply h f n l chan nick m = do
     p :: Handle -> IO String -> IO ()
     p h w = do
       ww <- w
-      if nick == chan then hPrintf h "PRIVMSG %s\r\n" (chan ++ " :" ++ ww)
-        else hPrintf h "PRIVMSG %s\r\n" (chan ++ " :" ++ nick ++ ": " ++ ww)
+      if nick == chan then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n")
+        else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\r\n")
     d :: Handle -> IO String -> IO ()
     d h w = do
       ww <- w
-      if nick == chan then printf "> PRIVMSG %s\n" (chan ++ " :" ++ ww)
-        else printf "> PRIVMSG %s\n" (chan ++ " :" ++ nick ++ ": " ++ ww)
+      if nick == chan then hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
+        else hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\n")
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _ _) fugly) chan nick msg
@@ -488,11 +488,11 @@ sentencePriv h f n l nick m = do
     p :: Handle -> IO String -> IO ()
     p h w = do
             ww <- w
-            hPrintf h "PRIVMSG %s\r\n" (nick ++ " :" ++ ww)
+            hPutStr h ("PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\r\n")
     d :: Handle -> IO String -> IO ()
     d h w = do
             ww <- w
-            printf    "> PRIVMSG %s\n" (nick ++ " :" ++ ww)
+            hPutStr stdout ("> PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\n")
 
 privMsg :: Bot -> String -> String -> IO ()
 privMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _ _) fugly) nick msg =
@@ -504,8 +504,8 @@ privMsg bot@(Bot socket (Parameter _ _ _ _ _ _ maxchanmsg _ _) fugly) nick msg =
 
 write :: Handle -> String -> String -> IO ()
 write socket s msg = do
-    hPrintf socket "%s %s\r\n" s msg
-    printf         "> %s %s\n" s msg
+    hPutStr socket (s ++ " " ++ msg ++ "\r\n")
+    hPutStr stdout ("> " ++ s ++ " " ++ msg ++ "\n")
     threadDelay 2000000
 
 insertFromFile :: Bot -> FilePath -> IO Bot
