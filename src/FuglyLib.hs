@@ -199,24 +199,24 @@ wordGetwc      (Word w c _ _ _ _) = (c, w)
 wordGetwc      (Name w c _ _ _)   = (c, w)
 
 insertWords :: Fugly -> [String] -> IO (Map.Map String Word)
-insertWords f@(Fugly dict _ _ _ _) [] = return dict
-insertWords f [x] = insertWord f x [] [] []
-insertWords f@(Fugly dict wne aspell allow ban) msg@(x:y:xs) =
+insertWords (Fugly dict _ _ _ _) [] = return dict
+insertWords fugly [x] = insertWord fugly x [] [] []
+insertWords fugly msg@(x:y:xs) =
       case (len) of
-        2 -> do ff <- insertWord f x [] y []
-                insertWord (Fugly ff wne aspell allow ban) y x [] []
-        _ -> insertWords' f 0 len msg
+        2 -> do ff <- insertWord fugly x [] y []
+                insertWord fugly{dict=ff} y x [] []
+        _ -> insertWords' fugly 0 len msg
   where
     len = length msg
-    insertWords' f@(Fugly d w s a b) _ _ [] = return d
-    insertWords' f@(Fugly d w s a b) i l msg
+    insertWords' (Fugly d _ _ _ _) _ _ [] = return d
+    insertWords' f@(Fugly d _ _ _ _) i l msg
       | i == 0     = do ff <- insertWord f (msg!!i) [] (msg!!(i+1)) []
-                        insertWords' (Fugly ff w s a b) (i+1) l msg
+                        insertWords' f{dict=ff} (i+1) l msg
       | i > l - 1  = return d
       | i == l - 1 = do ff <- insertWord f (msg!!i) (msg!!(i-1)) [] []
-                        insertWords' (Fugly ff w s a b) (i+1) l msg
+                        insertWords' f{dict=ff} (i+1) l msg
       | otherwise  = do ff <- insertWord f (msg!!i) (msg!!(i-1)) (msg!!(i+1)) []
-                        insertWords' (Fugly ff w s a b) (i+1) l msg
+                        insertWords' f{dict=ff} (i+1) l msg
 
 insertWord :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWord fugly@(Fugly dict wne aspell allow ban) [] _ _ _ = return dict
