@@ -18,8 +18,8 @@ module FuglyLib
          wnClosure,
          wnMeet,
          sentence,
-         Word,
-         Fugly
+         Word (..),
+         Fugly (..)
        )
        where
 
@@ -43,7 +43,13 @@ import NLP.WordNet hiding (Word)
 import NLP.WordNet.Prims (indexLookup, senseCount, getSynset, getWords, getGloss)
 import NLP.WordNet.PrimTypes
 
-type Fugly = (Map.Map String Word, WordNetEnv, Aspell.SpellChecker, [String], [String])
+data Fugly = Fugly {
+              dict    :: Map.Map String Word,
+              wne     :: WordNetEnv,
+              aspell  :: Aspell.SpellChecker,
+              allow   :: [String],
+              ban     :: [String]
+              }
 
 data Word = Word {
               word    :: String,
@@ -84,15 +90,15 @@ initFugly fuglydir wndir = do
            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
     a <- Aspell.spellChecker
     let aspell = head $ rights [a]
-    return (dict, wne, aspell, allow, ban)
+    return (Fugly dict wne aspell allow ban)
 
 stopFugly :: FilePath -> Fugly -> IO ()
-stopFugly fuglydir fugly@(_, wne, _, _, _) = do
+stopFugly fuglydir fugly@(Fugly _ wne _ _ _) = do
     catchIOError (saveDict fugly fuglydir) (const $ return ())
     closeWordNet wne
 
 saveDict :: Fugly -> FilePath -> IO ()
-saveDict fugly@(dict, _, _, allow, ban) fuglydir = do
+saveDict fugly@(Fugly dict _ _ allow ban) fuglydir = do
     let d = Map.toList dict
     if null d then putStrLn "Empty dict!"
       else do
@@ -193,28 +199,28 @@ wordGetwc      (Word w c _ _ _ _) = (c, w)
 wordGetwc      (Name w c _ _ _)   = (c, w)
 
 insertWords :: Fugly -> [String] -> IO (Map.Map String Word)
-insertWords f@(dict, _, _, _, _) [] = return dict
+insertWords f@(Fugly dict _ _ _ _) [] = return dict
 insertWords f [x] = insertWord f x [] [] []
-insertWords f@(dict, wne, aspell, allow, ban) msg@(x:y:xs) =
+insertWords f@(Fugly dict wne aspell allow ban) msg@(x:y:xs) =
       case (len) of
         2 -> do ff <- insertWord f x [] y []
-                insertWord (ff, wne, aspell, allow, ban) y x [] []
+                insertWord (Fugly ff wne aspell allow ban) y x [] []
         _ -> insertWords' f 0 len msg
   where
     len = length msg
-    insertWords' f@(d, w, s, a, b) _ _ [] = return d
-    insertWords' f@(d, w, s, a, b) i l msg
+    insertWords' f@(Fugly d w s a b) _ _ [] = return d
+    insertWords' f@(Fugly d w s a b) i l msg
       | i == 0     = do ff <- insertWord f (msg!!i) [] (msg!!(i+1)) []
-                        insertWords' (ff, w, s, a, b) (i+1) l msg
+                        insertWords' (Fugly ff w s a b) (i+1) l msg
       | i > l - 1  = return d
       | i == l - 1 = do ff <- insertWord f (msg!!i) (msg!!(i-1)) [] []
-                        insertWords' (ff, w, s, a, b) (i+1) l msg
+                        insertWords' (Fugly ff w s a b) (i+1) l msg
       | otherwise  = do ff <- insertWord f (msg!!i) (msg!!(i-1)) (msg!!(i+1)) []
-                        insertWords' (ff, w, s, a, b) (i+1) l msg
+                        insertWords' (Fugly ff w s a b) (i+1) l msg
 
 insertWord :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWord fugly@(dict, wne, aspell, allow, ban) [] _ _ _ = return dict
-insertWord fugly@(dict, wne, aspell, allow, ban) word before after pos =
+insertWord fugly@(Fugly dict wne aspell allow ban) [] _ _ _ = return dict
+insertWord fugly@(Fugly dict wne aspell allow ban) word before after pos =
     if elem word ban || elem before ban || elem after ban then return dict
     else if isJust w then f $ fromJust w
          else insertWordRaw' fugly w ww bb aa pos
@@ -234,11 +240,11 @@ insertWord fugly@(dict, wne, aspell, allow, ban) word before after pos =
     bb = map toLower $ cleanString isAlpha before
     ww = if isJust w then word else map toLower $ cleanString isAlpha word
 
-insertWordRaw f@(d, _, _, _, _) w b a p = insertWordRaw' f (Map.lookup w d) w b a p
+insertWordRaw f@(Fugly d _ _ _ _) w b a p = insertWordRaw' f (Map.lookup w d) w b a p
 insertWordRaw' :: Fugly -> Maybe Word -> String -> String
                  -> String -> String -> IO (Map.Map String Word)
-insertWordRaw' (dict, wne, aspell, _, _) _ [] _ _ _ = return dict
-insertWordRaw' (dict, wne, aspell, allow, _) w word before after pos = do
+insertWordRaw' (Fugly dict wne aspell _ _) _ [] _ _ _ = return dict
+insertWordRaw' (Fugly dict wne aspell allow _) w word before after pos = do
   pp <- (if null pos then wnPartPOS wne word else return $ readEPOS pos)
   pa <- wnPartPOS wne after
   pb <- wnPartPOS wne before
@@ -270,11 +276,11 @@ insertWordRaw' (dict, wne, aspell, allow, _) w word before after pos = do
                 else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incBefore' (fromJust w) x
                      else wordGetBefore (fromJust w)
 
-insertName f@(d, _, _, _, _) w b a = insertName' f (Map.lookup w d) w b a
+insertName f@(Fugly d _ _ _ _) w b a = insertName' f (Map.lookup w d) w b a
 insertName' :: Fugly -> Maybe Word -> String -> String
               -> String -> IO (Map.Map String Word)
-insertName' (dict, wne, aspell,  _, _) _ [] _ _ = return dict
-insertName' (dict, wne, aspell, allow, _) w name before after = do
+insertName' (Fugly dict wne aspell  _ _) _ [] _ _ = return dict
+insertName' (Fugly dict wne aspell allow _) w name before after = do
   pa <- wnPartPOS wne after
   pb <- wnPartPOS wne before
   rel <- wnRelated wne name "Hypernym" (POS Noun)
@@ -527,7 +533,7 @@ asSuggest aspell word = do w <- Aspell.suggest aspell (ByteString.pack word)
 
 sentence :: Fugly -> Int -> Int -> [String] -> Bool -> [IO String]
 sentence _ _ _ [] _ = [return []] :: [IO String]
-sentence fugly@(dict, wne, aspell, _, _) num len msg strict = do
+sentence fugly@(Fugly dict wne aspell _ _) num len msg strict = do
   let l = ["a", "the", "is", "are", "and", "i", "I"]
   let r = ["is", "are", "what", "when", "who", "where", "am"]
   let s1a x = do
@@ -549,7 +555,7 @@ sentence fugly@(dict, wne, aspell, _, _) num len msg strict = do
   where
     findNext' = if strict then findNextWordStrict else findNextWord
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
-    s1b f@(d, w, s, a, b) n i words = do
+    s1b f@(Fugly d w s a b) n i words = do
       ww <- words
       if null ww then return []
         else if i >= n then return $ nub ww else do
@@ -560,7 +566,7 @@ sentence fugly@(dict, wne, aspell, _, _) num len msg strict = do
     s1c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
 
 findNextWord :: Fugly -> String -> Int -> IO [String]
-findNextWord fugly@(dict, wne, aspell, _, ban) word i = do
+findNextWord fugly@(Fugly dict wne aspell _ ban) word i = do
   a <- asSuggest aspell word
   let next3 = if null $ words a then []
               else if elem (head $ words a) ban then []
@@ -587,7 +593,7 @@ findNextWord fugly@(dict, wne, aspell, _, ban) word i = do
       relatedNext = map (strip '"') $ wordGetRelated (fromJust ww)
 
 findNextWordStrict :: Fugly -> String -> Int -> IO [String]
-findNextWordStrict fugly@(dict, wne, aspell, _, _) word i = do
+findNextWordStrict fugly@(Fugly dict wne aspell _ _) word i = do
   a <- asSuggest aspell word
   let next3 = if null $ words a then [] else head $ words a
   let f = if isJust w then
@@ -612,7 +618,7 @@ findNextWordStrict fugly@(dict, wne, aspell, _, _) word i = do
       relatedNext = map (strip '"') $ wordGetRelated (fromJust ww)
 
 dictLookup :: Fugly -> String -> String -> IO String
-dictLookup fugly@(_, wne, aspell, _, _) word pos = do
+dictLookup fugly@(Fugly _ wne aspell _ _) word pos = do
     gloss <- wnGloss wne word pos
     if gloss == "Nothing!" then do a <- asSuggest aspell word
                                    return (gloss ++ " Perhaps you meant: " ++ a)
