@@ -38,6 +38,7 @@ import System.IO.Error
 import qualified Data.MarkovChain as Markov
 
 import qualified Language.Aspell as Aspell
+import qualified Language.Aspell.Options as Aspell.Options
 
 import NLP.WordNet hiding (Word)
 import NLP.WordNet.Prims (indexLookup, senseCount, getSynset, getWords, getGloss)
@@ -88,7 +89,7 @@ initFugly fuglydir wndir = do
     wne <- NLP.WordNet.initializeWordNetWithOptions
            (return wndir :: Maybe FilePath)
            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
-    a <- Aspell.spellChecker
+    a <- Aspell.spellCheckerWithOptions [Aspell.Options.Lang (ByteString.pack "en_US"), Aspell.Options.IgnoreCase False]
     let aspell = head $ rights [a]
     return (Fugly dict wne aspell allow ban)
 
@@ -243,7 +244,7 @@ insertWord fugly@(Fugly dict wne aspell allow ban) word before after pos =
 insertWordRaw f@(Fugly d _ _ _ _) w b a p = insertWordRaw' f (Map.lookup w d) w b a p
 insertWordRaw' :: Fugly -> Maybe Word -> String -> String
                  -> String -> String -> IO (Map.Map String Word)
-insertWordRaw' (Fugly dict wne aspell _ _) _ [] _ _ _ = return dict
+insertWordRaw' (Fugly dict _ _ _ _) _ [] _ _ _ = return dict
 insertWordRaw' (Fugly dict wne aspell allow _) w word before after pos = do
   pp <- (if null pos then wnPartPOS wne word else return $ readEPOS pos)
   pa <- wnPartPOS wne after
