@@ -17,11 +17,15 @@ module FuglyLib
          cleanString,
          wnClosure,
          wnMeet,
+         gfAll,
          gfRandom,
          gfParseBool,
          gfParseC,
          gfTranslate,
          sentence,
+         toUpperSentence,
+         endSentence,
+         dePlenk,
          Word (..),
          Fugly (..)
        )
@@ -29,7 +33,7 @@ module FuglyLib
 
 import Control.Exception
 import qualified Data.ByteString.Char8 as ByteString
-import Data.Char (isAlpha, isAlphaNum, toLower, toUpper)
+import Data.Char
 import Data.Either
 import Data.List
 import qualified Data.Map as Map
@@ -211,7 +215,7 @@ insertWords :: Fugly -> [String] -> IO (Map.Map String Word)
 insertWords (Fugly {dict=d}) [] = return d
 insertWords fugly [x] = insertWord fugly x [] [] []
 insertWords fugly@(Fugly dict pgf _ _ _ _) msg@(x:y:xs)
-  | gfParseBool pgf (unwords $ take 20 msg) = case (len) of
+  | gfParseBool pgf (unwords $ take 10 msg) = case (len) of
         2 -> do ff <- insertWord fugly x [] y []
                 insertWord fugly{dict=ff} y x [] []
         _ -> insertWords' fugly 0 len msg
@@ -405,6 +409,17 @@ cleanString f (x:xs)
         | not $ f x = cleanString f xs
         | otherwise = x : cleanString f xs
 
+dePlenk :: String -> String
+dePlenk (x:xs) = dePlenk' (x:xs) []
+  where
+    dePlenk' [] l  = l
+    dePlenk' a@(x:xs) l
+      | length a == 1                             = l ++ x:[]
+      | x == ' ' && (h == ' ' || isPunctuation h) = dePlenk' (tail xs) (l ++ h:[])
+      | otherwise                                 = dePlenk' xs (l ++ x:[])
+      where
+        h = head xs
+
 strip :: Eq a => a -> [a] -> [a]
 strip _ [] = []
 strip a (x:xs)
@@ -534,7 +549,13 @@ asSuggest aspell word = do w <- Aspell.suggest aspell (ByteString.pack word)
                            return $ unwords $ map ByteString.unpack w
 
 gfRandom :: PGF -> Int -> String
-gfRandom pgf num = linearize pgf (head $ languages pgf) $ head $ generateRandom (Random.mkStdGen num) pgf (startCat pgf)
+gfRandom pgf num = unwords $ toUpperSentence $ endSentence $ take 15 $ words $ gfRandom' pgf num
+
+gfRandom' :: PGF -> Int -> String
+gfRandom' pgf num = linearize pgf (head $ languages pgf) $ head $ generateRandomDepth (Random.mkStdGen num) pgf (startCat pgf) (Just 3)
+
+gfAll :: PGF -> Int -> String
+gfAll pgf num = unwords $ toUpperSentence $ endSentence $ take 15 $ words $ linearize pgf (head $ languages pgf) ((generateAllDepth pgf (startCat pgf) (Just 3))!!num)
 
 gfTranslate :: PGF -> String -> String
 gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
@@ -567,6 +588,18 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
 --   where
 --     mix a b = if (length b) < 2 then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
 
+toUpperSentence :: [String] -> [String]
+toUpperSentence []  = []
+toUpperSentence msg = (up' msg : [] ) ++ tail msg
+  where
+    up' w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
+
+endSentence :: [String] -> [String]
+endSentence []  = []
+endSentence msg = (init msg) ++ ((last msg) ++ if elem (head msg) r then "?" else ".") : []
+  where
+    r = ["is", "are", "what", "when", "who", "where", "am"]
+
 sentence :: Fugly -> Int -> Int -> [String] -> Bool -> [IO String]
 sentence _ _ _ [] _ = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
@@ -574,7 +607,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
   let r = ["is", "are", "what", "when", "who", "where", "am"]
   let s1a x = do
       w <- s1b fugly len 0 (findNext' fugly x 1)
-      return $ nub $ filter (\x -> length x > 0) w
+      return $ nub $ filter (\x -> length x > 0 && gfParseBool pgf x) $ map dePlenk w
   let s1d x = do
       w <- x
       if null w then return []
@@ -591,9 +624,9 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
   where
     findNext' = if strict then findNextWordStrict else findNextWord
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
-    s1b f@(Fugly d p w s a b) n i words = do
-      ww <- words
-      if null ww then return ["FNORD"]
+    s1b f@(Fugly d p w s a b) n i msg = do
+      ww <- msg
+      if null ww then return $ words $ gfRandom' pgf i
         else if i >= n then return $ nub ww else do
                www <- findNext' f (last ww) i
                s1b f n (i + 1) (return $ ww ++ www)
@@ -604,7 +637,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
 findNextWord :: Fugly -> String -> Int -> IO [String]
 findNextWord fugly@(Fugly dict pgf wne aspell _ ban) word i = do
   a <- asSuggest aspell word
-  let next3 = if null $ words a then []
+  let next3 = if null $ words a then gfRandom' pgf i
               else if elem (head $ words a) ban then []
                    else head $ words a
   let f = if isJust w then

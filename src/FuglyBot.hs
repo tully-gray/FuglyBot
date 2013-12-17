@@ -430,15 +430,15 @@ execCmd chan nick (x:xs) = do
       | x == "!parse" = case (length xs) of
             0 -> replyMsg bot chan nick "Usage: !parse <sentence>" >> return bot
             _ -> (sequence $ map (replyMsg bot chan nick) (gfParseC pgf (unwords xs))) >> return bot
-      | x == "!random" = case (length xs) of
-            1 -> replyMsg bot chan nick (gfRandom pgf (read (xs!!0))) >> return bot
-            _ -> replyMsg bot chan nick "Usage: !random <number>" >> return bot
+      -- | x == "!random" = case (length xs) of
+      --       1 -> replyMsg bot chan nick (gfAll pgf (read (xs!!0))) >> return bot
+      --       _ -> replyMsg bot chan nick "Usage: !random <number>" >> return bot
       | x == "!help" = if nick == owner then replyMsg bot chan nick
-                       ("Commands: !random !dict !wordlist !word !insertword !dropword "
+                       ("Commands: !dict !wordlist !word !insertword !dropword "
                        ++ "!banword !allowword !name !insertname !closure !meet !parse "
                        ++ "!params !setparam !showparams !nick !join !part !talk !quit "
                        ++ "!readfile !load !save") >> return bot
-                     else replyMsg bot chan nick "Commands: !random !dict !word !wordlist !name !closure !meet !parse" >> return bot
+                     else replyMsg bot chan nick "Commands: !dict !word !wordlist !name !closure !meet !parse" >> return bot
 
 {-
    IRC messages are always lines of characters terminated with a CR-LF
