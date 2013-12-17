@@ -273,9 +273,10 @@ processLine line = do
 
 reply :: String -> String -> [String] -> Net Bot
 reply chan nick msg = do
-    bot@(Bot socket params fugly@(Fugly _ wne _ _ _)) <- get
+    bot@(Bot socket params fugly@(Fugly _ pgf wne _ _ _)) <- get
     if null chan then lift $ sentencePriv socket fugly 1 43 nick msg
-      else if null nick then return [()]
+      -- else if null nick then lift (sequence $ map (replyMsg bot chan nick) (gfParseB pgf (unwords msg))) >> return [()]
+      else if null nick then lift (replyMsg bot chan nick (gfParseB pgf (unwords msg))) >> return [()]
            else lift $ sentenceReply socket fugly 1 43 chan nick msg
     n <- lift $ insertWords fugly msg
     return (Bot socket params fugly{dict=n})
@@ -286,7 +287,7 @@ execCmd chan nick (x:xs) = do
     lift $ execCmd' bot
   where
     execCmd' bot@(Bot socket params@(Parameter botnick owner fuglydir wndir usercmd rejoinkick
-       maxchanmsg chatchan topic) fugly@(Fugly dict wne aspell allow ban))
+       maxchanmsg chatchan topic) fugly@(Fugly dict pgf wne aspell allow ban))
       | usercmd == False && nick /= owner = return bot
       | x == "!quit" =
         if nick == owner then case (length xs) of
@@ -299,7 +300,7 @@ execCmd chan nick (x:xs) = do
                                        (const $ return ()) >> return bot else return bot
       | x == "!load" = if nick == owner then do
            (nd, na, nb) <- catchIOError (loadDict fuglydir) (const $ return (dict, [], []))
-           return (Bot socket params (Fugly nd wne aspell na nb))
+           return (Bot socket params (Fugly nd pgf wne aspell na nb))
                        else return bot
       | x == "!join" = if nick == owner then joinChannel socket "JOIN" xs >>
                                              return bot else return bot
@@ -344,7 +345,7 @@ execCmd chan nick (x:xs) = do
             1 -> replyMsg bot chan nick (listWordFull dict (xs!!0)) >> return bot
             _ -> replyMsg bot chan nick "Usage: !word <word>" >> return bot
       | x == "!insertword" = if nick == owner then
-        case (length xs) of
+          case (length xs) of
             2 -> do ww <- insertWordRaw fugly (xs!!1) [] [] (xs!!0)
                     replyMsg bot chan nick ("Inserted word " ++ (xs!!1))
                     return (Bot socket params fugly{dict=ww})
@@ -361,11 +362,11 @@ execCmd chan nick (x:xs) = do
           case (length xs) of
             2 -> if (xs!!0) == "add" then
                     replyMsg bot chan nick ("Banned word " ++ (xs!!1)) >>
-                    return (Bot socket params (Fugly (dropWord dict (xs!!1)) wne aspell
+                    return (Bot socket params (Fugly (dropWord dict (xs!!1)) pgf wne aspell
                                                allow (nub $ ban ++ [(xs!!1)])))
                  else if (xs!!0) == "delete" then
                     replyMsg bot chan nick ("Unbanned word " ++ (xs!!1)) >>
-                    return (Bot socket params (Fugly dict wne aspell allow
+                    return (Bot socket params (Fugly dict pgf wne aspell allow
                                                (nub $ delete (xs!!1) ban)))
                  else replyMsg bot chan nick "Usage: !banword <list|add|delete> <word>"
                       >> return bot
@@ -381,11 +382,11 @@ execCmd chan nick (x:xs) = do
           case (length xs) of
             2 -> if (xs!!0) == "add" then
                     replyMsg bot chan nick ("Allowed word " ++ (xs!!1)) >>
-                    return (Bot socket params (Fugly dict wne aspell
+                    return (Bot socket params (Fugly dict pgf wne aspell
                                                (nub $ allow ++ [(xs!!1)]) ban))
                  else if (xs!!0) == "delete" then
                     replyMsg bot chan nick ("Unallowed word " ++ (xs!!1)) >>
-                    return (Bot socket params (Fugly dict wne aspell
+                    return (Bot socket params (Fugly dict pgf wne aspell
                                                (nub $ delete (xs!!1) allow) ban))
                  else replyMsg bot chan nick "Usage: !allowword <list|add|delete> <word>"
                       >> return bot
@@ -527,6 +528,6 @@ insertFromFile2 file = do
     bot <- get
     socket <- gets (\x@(Bot s _ _) -> s)
     params <- gets (\x@(Bot _ p _) -> p)
-    fugly@(Fugly dict _ _ _ _) <- gets (\x@(Bot _ _ f) -> f)
+    fugly@(Fugly dict _ _ _ _ _) <- gets (\x@(Bot _ _ f) -> f)
     n <- lift $ insertWords fugly $ words f
     put (Bot socket params fugly{dict=n})

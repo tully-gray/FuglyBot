@@ -2,4 +2,5 @@
 *.o
 *.hi
 dist
+gf
 TODO.txt

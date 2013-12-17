@@ -11,7 +11,7 @@ Build-type:      Simple
 Cabal-version:   >= 1.8
 
 Library
-    Build-depends:   base == 4.*, array, bytestring, containers, filepath, haspell, random, transformers
+    Build-depends:   base == 4.*, array, binary, bytestring, containers, filepath, gf, haspell, pretty, random, transformers
     Hs-source-dirs:  src
     Exposed-Modules: FuglyLib Data.MarkovChain NLP.WordNet
     Other-Modules:
@@ -24,5 +24,5 @@ Library
 
 Executable fuglybot
     Main-is:         FuglyBot.hs
-    Build-depends:   base == 4.*, array, bytestring, containers, filepath, haspell, network, random, transformers
+    Build-depends:   base == 4.*, array, bytestring, containers, filepath, gf, haspell, network, random, transformers
     Hs-source-dirs:  src
