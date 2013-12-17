@@ -545,7 +545,8 @@ gfParseA pgf msg = map (linearize pgf lang) (parse pgf lang (startCat pgf) msg)
 gfParseB :: PGF -> String -> String
 gfParseB pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
   where
-    lin pgf lang (a@(ParseOk tl), b) = (showBracketedString b)
+    lin pgf lang (a@(ParseOk tl), b) = showBracketedString b
+    lin pgf lang _                   = "No parse!"
     lang = head $ languages pgf
 
 -- markov1 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
