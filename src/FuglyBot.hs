@@ -275,7 +275,9 @@ reply :: String -> String -> [String] -> Net Bot
 reply chan nick msg = do
     bot@(Bot socket params fugly@(Fugly _ pgf wne _ _ _)) <- get
     if null chan then lift $ sentencePriv socket fugly 1 43 nick msg
-      else if null nick then lift (sequence $ map (chanMsg bot chan) (gfParseA pgf $ unwords msg)) >> return [()]
+      -- else if null nick then lift (forkIO ((sequence $ map (chanMsg bot chan) (gfParseA pgf $ unwords msg)) >> return () :: IO ())) >> return [()]
+      -- else if null nick then lift (sequence $ map (chanMsg bot chan) (gfParseA pgf $ unwords msg)) >> return [()]
+      else if null nick then return [()]
            else lift $ sentenceReply socket fugly 1 43 chan nick msg
     n <- lift $ insertWords fugly msg
     return (Bot socket params fugly{dict=n})
@@ -412,30 +414,31 @@ execCmd chan nick (x:xs) = do
                                   >> return bot
           else replyMsg bot chan nick "Usage: !talk <channel> <nick> <msg>" >> return bot
                      else return bot
-      | x == "!closure" =
-          case (length xs) of
+      | x == "!closure" = case (length xs) of
             3 -> (wnClosure wne (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan nick
                  >> return bot
             2 -> (wnClosure wne (xs!!0) (xs!!1) []) >>= replyMsg bot chan nick >> return bot
             1 -> (wnClosure wne (xs!!0) [] []) >>= replyMsg bot chan nick >> return bot
             _ -> replyMsg bot chan nick "Usage: !closure <word> [part-of-speech]"
                  >> return bot
-      | x == "!meet" =
-          case (length xs) of
+      | x == "!meet" = case (length xs) of
             3 -> (wnMeet wne (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan nick
                  >> return bot
             2 -> (wnMeet wne (xs!!0) (xs!!1) []) >>= replyMsg bot chan nick >> return bot
             _ -> replyMsg bot chan nick "Usage: !meet <word> <word> [part-of-speech]"
                  >> return bot
-      -- | x == "!parse" = case (length xs) of
-      --       0 -> replyMsg bot chan nick "Usage: !parse <sentence>" >> return bot
-      --       _ -> replyMsg bot chan nick (gfParseB pgf (unwords xs)) >> return bot
       | x == "!parse" = case (length xs) of
             0 -> replyMsg bot chan nick "Usage: !parse <sentence>" >> return bot
             _ -> (sequence $ map (replyMsg bot chan nick) (gfParseC pgf (unwords xs))) >> return bot
+      | x == "!random" = case (length xs) of
+            1 -> replyMsg bot chan nick (gfRandom pgf (read (xs!!0))) >> return bot
+            _ -> replyMsg bot chan nick "Usage: !random <number>" >> return bot
       | x == "!help" = if nick == owner then replyMsg bot chan nick
-                       "Commands: !dict !wordlist !word !insertword !dropword !banword !allowword !name !insertname !closure !meet !parse !params !setparam !showparams !nick !join !part !talk !quit !readfile !load !save" >> return bot
-                     else replyMsg bot chan nick "Commands: !dict !word !wordlist !name !closure !meet !parse" >> return bot
+                       ("Commands: !random !dict !wordlist !word !insertword !dropword "
+                       ++ "!banword !allowword !name !insertname !closure !meet !parse "
+                       ++ "!params !setparam !showparams !nick !join !part !talk !quit "
+                       ++ "!readfile !load !save") >> return bot
+                     else replyMsg bot chan nick "Commands: !random !dict !word !wordlist !name !closure !meet !parse" >> return bot
 
 {-
    IRC messages are always lines of characters terminated with a CR-LF

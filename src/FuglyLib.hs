@@ -17,7 +17,8 @@ module FuglyLib
          cleanString,
          wnClosure,
          wnMeet,
-         gfParseA,
+         gfRandom,
+         gfParseBool,
          gfParseC,
          gfTranslate,
          sentence,
@@ -209,11 +210,12 @@ wordGetwc      (Name w c _ _ _)   = (c, w)
 insertWords :: Fugly -> [String] -> IO (Map.Map String Word)
 insertWords (Fugly {dict=d}) [] = return d
 insertWords fugly [x] = insertWord fugly x [] [] []
-insertWords fugly msg@(x:y:xs) =
-      case (len) of
+insertWords fugly@(Fugly dict pgf _ _ _ _) msg@(x:y:xs)
+  | gfParseBool pgf (unwords $ take 20 msg) = case (len) of
         2 -> do ff <- insertWord fugly x [] y []
                 insertWord fugly{dict=ff} y x [] []
         _ -> insertWords' fugly 0 len msg
+  | otherwise = return dict
   where
     len = length msg
     insertWords' (Fugly {dict=d}) _ _ [] = return d
@@ -531,19 +533,19 @@ asSuggest :: Aspell.SpellChecker -> String -> IO String
 asSuggest aspell word = do w <- Aspell.suggest aspell (ByteString.pack word)
                            return $ unwords $ map ByteString.unpack w
 
+gfRandom :: PGF -> Int -> String
+gfRandom pgf num = linearize pgf (head $ languages pgf) $ head $ generateRandom (Random.mkStdGen num) pgf (startCat pgf)
+
 gfTranslate :: PGF -> String -> String
-gfTranslate gr s = case parseAllLang gr (startCat gr) s of
---    (lg,t:_):_ -> unlines [linearize gr l t | l <- languages gr, l /= lg]
-    (lg,t:_):_ -> unlines [linearize gr l t | l <- languages gr]
+gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
+    (lg,t:_):_ -> unlines [linearize pgf l t | l <- languages pgf, l /= lg]
     _          -> "Me no understand Engrish."
 
-gfParseA :: PGF -> String -> [String]
-gfParseA pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
+gfParseBool :: PGF -> String -> Bool
+gfParseBool pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
   where
-    lin pgf lang (ParseOk tl, b)      = map (linearize pgf lang) $ concat $ map (generateFrom pgf) tl
-    lin pgf lang (ParseFailed a, b)   = []
-    lin pgf lang (ParseIncomplete, b) = []
-    lin pgf lang _                    = []
+    lin pgf lang (ParseOk tl, b)      = True
+    lin pgf lang _                    = False
     lang = head $ languages pgf
 
 gfParseC :: PGF -> String -> [String]
@@ -591,7 +593,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i words = do
       ww <- words
-      if null ww then return []
+      if null ww then return ["FNORD"]
         else if i >= n then return $ nub ww else do
                www <- findNext' f (last ww) i
                s1b f n (i + 1) (return $ ww ++ www)
