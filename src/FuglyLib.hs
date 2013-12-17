@@ -18,7 +18,7 @@ module FuglyLib
          wnClosure,
          wnMeet,
          gfParseA,
-         gfParseB,
+         gfParseC,
          gfTranslate,
          sentence,
          Word (..),
@@ -538,15 +538,23 @@ gfTranslate gr s = case parseAllLang gr (startCat gr) s of
     _          -> "Me no understand Engrish."
 
 gfParseA :: PGF -> String -> [String]
-gfParseA pgf msg = map (linearize pgf lang) (parse pgf lang (startCat pgf) msg)
+gfParseA pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
   where
+    lin pgf lang (ParseOk tl, b)      = map (linearize pgf lang) $ concat $ map (generateFrom pgf) tl
+    lin pgf lang (ParseFailed a, b)   = []
+    lin pgf lang (ParseIncomplete, b) = []
+    lin pgf lang _                    = []
     lang = head $ languages pgf
 
-gfParseB :: PGF -> String -> String
-gfParseB pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
+gfParseC :: PGF -> String -> [String]
+gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
   where
-    lin pgf lang (a@(ParseOk tl), b) = showBracketedString b
-    lin pgf lang _                   = "No parse!"
+    lin pgf lang (ParseOk tl, b)      = map (lin' pgf lang) tl
+    lin pgf lang (ParseFailed a, b)   = ["parse failed at " ++ show a ++
+                                        " tokens: " ++ showBracketedString b]
+    lin pgf lang (ParseIncomplete, b) = ["parse incomplete: " ++ showBracketedString b]
+    lin pgf lang _                    = ["No parse!"]
+    lin' pgf lang t = "parse: " ++ showBracketedString (bracketedLinearize pgf lang t)
     lang = head $ languages pgf
 
 -- markov1 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
