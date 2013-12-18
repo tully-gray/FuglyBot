@@ -1,5 +1,5 @@
 import Control.Monad.Trans.Class
-import Control.Monad.Trans.State.Lazy
+import Control.Monad.Trans.State.Strict
 import Data.Char (isDigit, isAscii, toLower)
 import Data.List
 import qualified Data.Map as Map
