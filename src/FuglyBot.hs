@@ -77,7 +77,7 @@ main = do
     bracket (start args) stop (loop args)
   where
     stop :: Bot -> IO ()
-    stop bot@(Bot s p@(Parameter {fuglydir=fd}) f) = do stopFugly fd f ; hClose s
+    stop = do hClose . socket
     loop :: [String] -> Bot -> IO ()
     loop args bot = catchIOError (evalStateT (run args) bot) (const $ return ())
 
@@ -110,13 +110,13 @@ run args = do
 
 listenIRC :: Net ()
 listenIRC = do
+    bot <- get
     socket <- gets (\x@(Bot s _ _) -> s)
-    let pong x = lift (write socket "PONG" (':' : drop 6 x)) >> listenIRC
     s <- lift $ hGetLine socket
     lift $ putStrLn s
-    if ping s then pong s else do processLine (words s) ; listenIRC
-  where
-    ping x     = "PING :" `isPrefixOf` x
+    --if "PING :" `isPrefixOf` s then do lift (write socket "PONG" (':' : drop 6 s)) >> lift (forkIO (runStateT listenIRC bot)) else do processLine (words s) >> lift (forkIO (evalStateT listenIRC bot))
+    if "PING :" `isPrefixOf` s then do lift (write socket "PONG" (':' : drop 6 s)) >> listenIRC else do lift (forkIO (evalStateT (processLine $ words s) bot)) >> listenIRC
+    return () :: Net ()
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -277,7 +277,7 @@ reply chan nick msg = do
     if null chan then lift $ sentencePriv socket fugly 1 43 nick msg
       else if null nick then return [()]
            else lift $ sentenceReply socket fugly 1 43 chan nick msg
-    n <- lift $ insertWords fugly msg
+    n <- lift $ insertWords fugly True msg
     return (Bot socket params fugly{dict=n})
 
 execCmd :: String -> String -> [String] -> Net Bot
@@ -535,5 +535,5 @@ insertFromFile2 file = do
     socket <- gets (\x@(Bot s _ _) -> s)
     params <- gets (\x@(Bot _ p _) -> p)
     fugly@(Fugly dict _ _ _ _ _) <- gets (\x@(Bot _ _ f) -> f)
-    n <- lift $ insertWords fugly $ words f
+    n <- lift $ insertWords fugly False $ words f
     put (Bot socket params fugly{dict=n})

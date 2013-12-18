@@ -23,6 +23,7 @@ module FuglyLib
          gfParseC,
          gfTranslate,
          sentence,
+         joinWords,
          toUpperSentence,
          endSentence,
          dePlenk,
@@ -42,6 +43,7 @@ import Data.Tree (flatten)
 import qualified System.Random as Random
 import System.IO
 import System.IO.Error
+import System.IO.Unsafe
 
 import qualified Data.MarkovChain as Markov
 
@@ -211,11 +213,11 @@ wordGetRelated (Name n c b a r)   = r
 wordGetwc      (Word w c _ _ _ _) = (c, w)
 wordGetwc      (Name w c _ _ _)   = (c, w)
 
-insertWords :: Fugly -> [String] -> IO (Map.Map String Word)
-insertWords (Fugly {dict=d}) [] = return d
-insertWords fugly [x] = insertWord fugly x [] [] []
-insertWords fugly@(Fugly dict pgf _ _ _ _) msg@(x:y:xs)
-  | gfParseBool pgf (unwords $ take 10 msg) = case (len) of
+insertWords :: Fugly -> Bool -> [String] -> IO (Map.Map String Word)
+insertWords (Fugly {dict=d}) _ [] = return d
+insertWords fugly _ [x] = insertWord fugly x [] [] []
+insertWords fugly@(Fugly dict pgf _ _ _ _) check msg@(x:y:xs)
+  | gfParseBool pgf (unwords $ take 10 msg) || check == False = case (len) of
         2 -> do ff <- insertWord fugly x [] y []
                 insertWord fugly{dict=ff} y x [] []
         _ -> insertWords' fugly 0 len msg
@@ -276,7 +278,7 @@ insertWordRaw' (Fugly dict _ wne aspell allow _) w word before after pos = do
            return $ i word
            else if pp /= UnknownEPos || Aspell.check aspell (ByteString.pack word) then
                   return $ i word
-                  else if (length asw) > 0 then return $ i (head asw)
+                  else if (length asw) > 0 then return $ i (fHead "insertWordRaw" [] asw)
                        else
                          return dict
   where
@@ -414,12 +416,13 @@ dePlenk []  = []
 dePlenk s   = dePlenk' s []
   where
     dePlenk' [] l  = l
+    dePlenk' [x] l = l ++ x:[]
     dePlenk' a@(x:xs) l
       | length a == 1                             = l ++ x:[]
       | x == ' ' && (h == ' ' || isPunctuation h) = dePlenk' (tail xs) (l ++ h:[])
       | otherwise                                 = dePlenk' xs (l ++ x:[])
       where
-        h = head xs
+        h = fHead "dePlenk" '!' xs
 
 strip :: Eq a => a -> [a] -> [a]
 strip _ [] = []
@@ -436,9 +439,9 @@ replace a b (x:xs)
 joinWords :: Char -> [String] -> [String]
 joinWords _ [] = []
 joinWords a (x:xs)
-    | (head x) == a   = unwords (x : (take num xs)) : joinWords a (drop num xs)
-    | otherwise       = x : joinWords a xs
-  where num = (fromMaybe 0 (elemIndex a $ map last xs)) + 1
+    | (fHead "joinWords" ' ' x) == a = unwords (x : (take num xs)) : joinWords a (drop num xs)
+    | otherwise                     = x : joinWords a xs
+  where num = (fromMaybe 0 (elemIndex a $ map (\x -> fLast "joinWords" '!' x) xs)) + 1
 
 fixUnderscore :: String -> String
 fixUnderscore = strip '"' . replace ' ' '_'
@@ -451,13 +454,18 @@ toUpperSentence msg = (up' msg : [] ) ++ tail msg
 
 endSentence :: [String] -> [String]
 endSentence []  = []
-endSentence msg = (init msg) ++ ((last msg) ++ if elem (head msg) r then "?" else ".") : []
+endSentence msg = (init msg) ++ ((fLast "endSentence" [] msg) ++ if elem (head msg) r then "?" else ".") : []
   where
     r = ["is", "are", "what", "when", "who", "where", "am"]
 
 fixWords :: Fugly -> [String] -> [String]
 fixWords f@(Fugly dict pgf wne aspell allow ban) msg = [x | x <- msg,
             Map.member x dict || elem x allow]
+
+fHead a b [] = unsafePerformIO (do putStrLn ("fHead: error in " ++ a) ; return b)
+fHead a b c  = head c
+fLast a b [] = unsafePerformIO (do putStrLn ("fLast: error in " ++ a) ; return b)
+fLast a b c  = last c
 
 wnLength :: [[a]] -> Int
 wnLength a = (length a) - (length $ elemIndices True (map null a))
@@ -572,8 +580,8 @@ gfRandom fugly num = do r <- gfRandom' fugly num
 gfRandom' :: Fugly -> Int -> IO [String]
 gfRandom' fugly@(Fugly {pgf=p}) num = do
   r <- Random.newStdGen
-  return $ {-fixWords fugly $-} words $ linearize p (head $ languages p) $ head $
-    generateRandomDepth r p (startCat p) (Just num)
+  let rr = generateRandomDepth r p (startCat p) (Just num)
+  return (if null rr then [] else words $ linearize p (head $ languages p) (head rr))
 
 gfAll :: PGF -> Int -> String
 gfAll pgf num = unwords $ toUpperSentence $ endSentence $ take 15 $ words $ linearize pgf (head $ languages pgf) ((generateAllDepth pgf (startCat pgf) (Just 3))!!num)
@@ -620,7 +628,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
   let s1d x = do
       w <- x
       if null w then return []
-        else return ((init w) ++ ((last w) ++ if elem (head w) r then "?" else ".") : [])
+        else return ((init w) ++ ((fLast "sentence: s1d" [] w) ++ if elem (head w) r then "?" else ".") : [])
   let s1e x = do
       w <- x
       if null w then return []
@@ -628,7 +636,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
   let s1f x = do
       w <- x
       if null w then return []
-        else if elem (last w) l then return $ init w else return w
+        else if elem (fLast "sentence: s1f" [] w) l then return $ init w else return w
   map (\x -> do y <-x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1f . s1a) msg)
   where
     findNext' = if strict then findNextWordStrict else findNextWord
@@ -638,7 +646,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
       r <- gfRandom' f 3
       if null ww then return r
         else if i >= n then return $ nub ww else do
-               www <- findNext' f (last ww) i
+               www <- findNext' f (fLast "sentence: s1b" [] ww) i
                s1b f n (i + 1) (return $ ww ++ www)
     s1c :: [String] -> String
     s1c [] = []
@@ -648,21 +656,16 @@ findNextWord :: Fugly -> String -> Int -> IO [String]
 findNextWord fugly@(Fugly dict pgf wne aspell _ ban) word i = do
   a <- asSuggest aspell word
   r <- gfRandom' fugly 3
-  let lr = length related
-  rr <- Random.getStdRandom (Random.randomR (0, lr))
-  let next3 = if null $ words a then unwords r
-              else if elem (head $ words a) ban then []
-                   else head $ words a
-  let next4 = if null related then next1 else related!!rr
+  let lr = if isJust w then length related else 0
+  rr <- Random.getStdRandom (Random.randomR (0, lr - 1))
+  let next3 = if null $ words a then unwords r else head $ words a
+  let next4 = if null related || isNothing w then next1 else related!!rr
   let f = if isJust w then
-        if null neigh then next3
-        else if isJust ww then
-          if elem next1 nextNeigh then
-            next2
-          else
-            next4
-              else
-                next1
+            if null neigh then next3
+              else if isJust ww then
+              if elem next1 nextNeigh then next2
+                else next4
+              else next1
           else next3
   return $ replace "i" "I" $ words f
     where
@@ -673,7 +676,8 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ ban) word i = do
       next1 = neigh!!(mod i (length neigh))
       next2 = nextNeigh!!(mod i (length nextNeigh))
       related     = map (strip '"') $ wordGetRelated (fromJust w)
-      relatedNext = map (strip '"') $ wordGetRelated (fromJust ww)
+      -- related     = map (strip '"') $ joinWords '"' $ wordGetRelated (fromJust w)
+      -- relatedNext = map (strip '"') $ wordGetRelated (fromJust ww)
 
 findNextWordStrict :: Fugly -> String -> Int -> IO [String]
 findNextWordStrict fugly@(Fugly dict pgf wne aspell _ _) word i = do

@@ -21,9 +21,12 @@ Library
         NLP.WordNet.Consts
         NLP.WordNet.Prims
         NLP.WordNet.Types
+    GHC-Options: -rtsopts=all
+-- -debug -prof -fprof-auto
 
 Executable fuglybot
     Main-is:         FuglyBot.hs
     Build-depends:   base == 4.*, array, bytestring, containers, filepath, gf, haspell, network, random, transformers
     Hs-source-dirs:  src
-    GHC-Options: -rtsopts
+    GHC-Options: -rtsopts=all
+-- -debug -prof -fprof-auto
