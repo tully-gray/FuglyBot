@@ -572,7 +572,7 @@ gfRandom fugly num = do r <- gfRandom' fugly num
 gfRandom' :: Fugly -> Int -> IO [String]
 gfRandom' fugly@(Fugly {pgf=p}) num = do
   r <- Random.newStdGen
-  return $ fixWords fugly $ words $ linearize p (head $ languages p) $ head $
+  return $ {-fixWords fugly $-} words $ linearize p (head $ languages p) $ head $
     generateRandomDepth r p (startCat p) (Just num)
 
 gfAll :: PGF -> Int -> String
@@ -616,7 +616,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
   let r = ["is", "are", "what", "when", "who", "where", "am"]
   let s1a x = do
       w <- s1b fugly len 0 (findNext' fugly x 1)
-      return $ nub $ filter (\x -> length x > 0 && gfParseBool pgf x) w
+      return $ nub $ filter (\x -> length x > 0 && gfParseBool pgf x) (fixWords fugly w)
   let s1d x = do
       w <- x
       if null w then return []
@@ -648,16 +648,19 @@ findNextWord :: Fugly -> String -> Int -> IO [String]
 findNextWord fugly@(Fugly dict pgf wne aspell _ ban) word i = do
   a <- asSuggest aspell word
   r <- gfRandom' fugly 3
+  let lr = length related
+  rr <- Random.getStdRandom (Random.randomR (0, lr))
   let next3 = if null $ words a then unwords r
               else if elem (head $ words a) ban then []
                    else head $ words a
+  let next4 = if null related then next1 else related!!rr
   let f = if isJust w then
         if null neigh then next3
         else if isJust ww then
           if elem next1 nextNeigh then
             next2
           else
-            next1
+            next4
               else
                 next1
           else next3

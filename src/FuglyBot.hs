@@ -275,8 +275,6 @@ reply :: String -> String -> [String] -> Net Bot
 reply chan nick msg = do
     bot@(Bot socket params fugly@(Fugly _ pgf wne _ _ _)) <- get
     if null chan then lift $ sentencePriv socket fugly 1 43 nick msg
-      -- else if null nick then lift (forkIO ((sequence $ map (chanMsg bot chan) (gfParseA pgf $ unwords msg)) >> return () :: IO ())) >> return [()]
-      -- else if null nick then lift (sequence $ map (chanMsg bot chan) (gfParseA pgf $ unwords msg)) >> return [()]
       else if null nick then return [()]
            else lift $ sentenceReply socket fugly 1 43 chan nick msg
     n <- lift $ insertWords fugly msg
@@ -490,7 +488,7 @@ replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) fugly) chan nick msg
 
 sentencePriv :: Handle -> Fugly -> Int -> Int -> String -> [String] -> IO [()]
 sentencePriv h f n l nick m = do
-    let msg = sentence f n l m True
+    let msg = sentence f n l m False
     threadDelay 2000000
     sequence $ map (p h) msg
     sequence $ map (d h) msg
