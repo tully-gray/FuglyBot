@@ -433,7 +433,7 @@ execCmd chan nick (x:xs) = do
       -- | x == "!random" = case (length xs) of
       --       1 -> replyMsg bot chan nick (gfAll pgf (read (xs!!0))) >> return bot
       --       _ -> replyMsg bot chan nick "Usage: !random <number>" >> return bot
-      | x == "!help" = if nick == owner then replyMsg bot chan nick
+      | otherwise  = if nick == owner then replyMsg bot chan nick
                        ("Commands: !dict !wordlist !word !insertword !dropword "
                        ++ "!banword !allowword !name !insertname !closure !meet !parse "
                        ++ "!params !setparam !showparams !nick !join !part !talk !quit "

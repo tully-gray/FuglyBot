@@ -410,7 +410,8 @@ cleanString f (x:xs)
         | otherwise = x : cleanString f xs
 
 dePlenk :: String -> String
-dePlenk (x:xs) = dePlenk' (x:xs) []
+dePlenk []  = []
+dePlenk s   = dePlenk' s []
   where
     dePlenk' [] l  = l
     dePlenk' a@(x:xs) l
@@ -441,6 +442,22 @@ joinWords a (x:xs)
 
 fixUnderscore :: String -> String
 fixUnderscore = strip '"' . replace ' ' '_'
+
+toUpperSentence :: [String] -> [String]
+toUpperSentence []  = []
+toUpperSentence msg = (up' msg : [] ) ++ tail msg
+  where
+    up' w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
+
+endSentence :: [String] -> [String]
+endSentence []  = []
+endSentence msg = (init msg) ++ ((last msg) ++ if elem (head msg) r then "?" else ".") : []
+  where
+    r = ["is", "are", "what", "when", "who", "where", "am"]
+
+fixWords :: Fugly -> [String] -> [String]
+fixWords f@(Fugly dict pgf wne aspell allow ban) msg = [x | x <- msg,
+            Map.member x dict || elem x allow]
 
 wnLength :: [[a]] -> Int
 wnLength a = (length a) - (length $ elemIndices True (map null a))
@@ -548,13 +565,15 @@ asSuggest :: Aspell.SpellChecker -> String -> IO String
 asSuggest aspell word = do w <- Aspell.suggest aspell (ByteString.pack word)
                            return $ unwords $ map ByteString.unpack w
 
-gfRandom :: PGF -> Int -> IO String
-gfRandom pgf num = do r <- gfRandom' pgf num
-                      return $ unwords $ toUpperSentence $ endSentence $ take 15 $ words r
+gfRandom :: Fugly -> Int -> IO String
+gfRandom fugly num = do r <- gfRandom' fugly num
+                        return $ unwords $ toUpperSentence $ endSentence $ take 15 r
 
-gfRandom' :: PGF -> Int -> IO String
-gfRandom' pgf num = do r <- Random.newStdGen
-                       return $ linearize pgf (head $ languages pgf) $ head $ generateRandomDepth r pgf (startCat pgf) (Just num)
+gfRandom' :: Fugly -> Int -> IO [String]
+gfRandom' fugly@(Fugly {pgf=p}) num = do
+  r <- Random.newStdGen
+  return $ fixWords fugly $ words $ linearize p (head $ languages p) $ head $
+    generateRandomDepth r p (startCat p) (Just num)
 
 gfAll :: PGF -> Int -> String
 gfAll pgf num = unwords $ toUpperSentence $ endSentence $ take 15 $ words $ linearize pgf (head $ languages pgf) ((generateAllDepth pgf (startCat pgf) (Just 3))!!num)
@@ -590,18 +609,6 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
 --   where
 --     mix a b = if (length b) < 2 then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
 
-toUpperSentence :: [String] -> [String]
-toUpperSentence []  = []
-toUpperSentence msg = (up' msg : [] ) ++ tail msg
-  where
-    up' w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
-
-endSentence :: [String] -> [String]
-endSentence []  = []
-endSentence msg = (init msg) ++ ((last msg) ++ if elem (head msg) r then "?" else ".") : []
-  where
-    r = ["is", "are", "what", "when", "who", "where", "am"]
-
 sentence :: Fugly -> Int -> Int -> [String] -> Bool -> [IO String]
 sentence _ _ _ [] _ = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
@@ -628,8 +635,8 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do
       ww <- msg
-      r <- gfRandom' pgf 3
-      if null ww then return $ words r
+      r <- gfRandom' f 3
+      if null ww then return r
         else if i >= n then return $ nub ww else do
                www <- findNext' f (last ww) i
                s1b f n (i + 1) (return $ ww ++ www)
@@ -640,8 +647,8 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
 findNextWord :: Fugly -> String -> Int -> IO [String]
 findNextWord fugly@(Fugly dict pgf wne aspell _ ban) word i = do
   a <- asSuggest aspell word
-  r <- gfRandom' pgf 3
-  let next3 = if null $ words a then r
+  r <- gfRandom' fugly 3
+  let next3 = if null $ words a then unwords r
               else if elem (head $ words a) ban then []
                    else head $ words a
   let f = if isJust w then
