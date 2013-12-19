@@ -1,3 +1,4 @@
+import Control.Concurrent.MVar
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State.Strict
 import Data.Char
@@ -75,12 +76,16 @@ main = do
     args <- cmdLine
     bracket (start args) stop (loop args)
   where
-    stop :: Bot -> IO ()
-    stop = do hClose . socket
-    loop :: [String] -> Bot -> IO ()
-    loop args bot = catchIOError (evalStateT (run args) bot) (const $ return ())
+    -- stop :: Bot -> IO ()
+    stop bot = do
+      b <- readMVar bot
+      hClose $ (\(Bot s _ _) -> s) b
+    -- loop :: [String] -> Bot -> IO ()
+    loop args bot = do
+      b <- readMVar bot
+      catchIOError (evalStateT (run args) bot) (const $ return ())
 
-start :: [String] -> IO Bot
+--start :: [String] -> IO Bot
 start args = do
     let server   = args !! 0
     let port     = read $ args !! 1
@@ -92,30 +97,35 @@ start args = do
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir
-    return (Bot socket (Parameter nick owner fuglydir wndir False 10 460 channel []) fugly)
+    bot <-newMVar (Bot socket (Parameter nick owner fuglydir wndir False 10 460 channel []) fugly)
+    return bot
 
-run :: [String] -> Net ()
+run :: [String] -> StateT (MVar Bot) IO b
 run args = do
     let channel = args !! 4
     let passwd  = args !! 7
-    bot <- get
-    let nick = (\x@(Bot _ (Parameter n _ _ _ _ _ _ _ _) _) -> n) bot
-    let socket = (\x@(Bot s _ _) -> s) bot
+    b <- get
+    bot <- lift $ takeMVar b
+    let nick = (\(Bot _ (Parameter {nick=n}) _) -> n) bot
+    let socket = (\(Bot s _ _) -> s) bot
     lift $ write socket "NICK" nick
     lift $ write socket "USER" (nick ++ " 0 * :user")
     lift $ privMsg bot "nickserv" ("IDENTIFY " ++ passwd)
     lift $ joinChannel socket "JOIN" [channel]
+    lift $ putMVar b bot
     listenIRC
 
-listenIRC :: Net ()
+listenIRC :: StateT (MVar Bot) IO b
 listenIRC = do
-    bot <- get
-    socket <- gets (\x@(Bot s _ _) -> s)
-    s <- lift $ hGetLine socket
-    lift $ putStrLn s
-    if "PING :" `isPrefixOf` s then do
-      lift (write socket "PONG" (':' : drop 6 s)) >> listenIRC else do
-      lift (forkIO (evalStateT (processLine $ words s) bot)) >> listenIRC
+    b <- get
+    bot <- lift $ takeMVar b
+    let s = (\(Bot s _ _) -> s) bot
+    l <- lift $ hGetLine s
+    lift $ putStrLn l
+    lift $ putMVar b bot
+    if "PING :" `isPrefixOf` l then do
+      lift (write s "PONG" (':' : drop 6 l)) >> listenIRC else do
+      lift (forkIO (evalStateT (processLine $ words l) b)) >> listenIRC
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -242,46 +252,46 @@ rejoinChannel h chan rk = do
     rejoin' rk chan h = forkIO (threadDelay (rk * 1000000) >>
                                 hPutStr h ("JOIN " ++ chan ++ "\r\n"))
 
-processLine :: [String] -> Net ()
-processLine [] = return () :: Net ()
+processLine :: [String] -> StateT (MVar Bot) IO ()
+processLine [] = return ()
 processLine line = do
-    bot <- get
-    process' bot line
+    b <- get
+    bot <- lift $ takeMVar b
+    let socket = (\(Bot s _ _) -> s) bot
+    let nick = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
+    let rejoinkick = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
+    let bk = beenKicked nick line
+    if (not $ null bk) then do lift (rejoinChannel socket bk rejoinkick)
+                               lift $ putMVar b bot
+      else if null msg then lift $ putMVar b bot
+         else if chan == nick then do nb <- prvcmd bot ; lift $ putMVar b nb
+           else if spokenTo nick msg then if null (tail msg) then lift $ putMVar b bot
+                                          else if (head $ head $ tail msg) == '!'
+                                            then do nb <- execCmd bot chan who (tail msg)
+                                                    lift $ putMVar b nb
+                                               else do nb <- reply bot chan who (tail msg)
+                                                       lift $ putMVar b nb
+             else do nb <- reply bot chan [] msg ; lift $ putMVar b nb
   where
-    process' bot line
-      | (not $ null $ beenKicked nick line) =
-         lift (rejoinChannel socket (beenKicked nick line) rejoinkick)
-      | null msg          = return () :: Net ()
-      | chan == nick      = prvcmd bot >>= put
-      | spokenTo nick msg = if null (tail msg) then return () :: Net ()
-                            else if (head $ head $ tail msg) == '!'
-                                 then execCmd chan who (tail msg) >>= put
-                                 else reply chan who (tail msg) >>= put
-      | otherwise         = reply chan [] msg >>= put
-      where
-        socket = (\(Bot s _ _) -> s) bot
-        nick = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
-        rejoinkick = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
     msg  = getMsg line
     who  = getNick line
     chan = getChannel line
     prvcmd bot = if (length $ head msg) > 0 then
-                   if (head $ head msg) == '!' then execCmd who who msg
-                   else reply [] who msg
-                 else reply [] who msg
+                   if (head $ head msg) == '!' then execCmd bot who who msg
+                   else reply bot [] who msg
+                 else reply bot [] who msg
 
-reply :: String -> String -> [String] -> Net Bot
-reply chan nick msg = do
-    bot@(Bot socket params fugly@(Fugly _ pgf wne _ _ _)) <- get
+reply :: (Monad (t IO), MonadTrans t) =>
+          Bot -> String -> String -> [String] -> t IO Bot
+reply bot@(Bot socket params fugly@(Fugly _ pgf wne _ _ _)) chan nick msg = do
     if null chan then lift $ sentencePriv socket fugly 1 43 nick msg
       else if null nick then return [()]
            else lift $ sentenceReply socket fugly 1 43 chan nick msg
     n <- lift $ insertWords fugly True msg
     return (Bot socket params fugly{dict=n})
 
-execCmd :: String -> String -> [String] -> Net Bot
-execCmd chan nick (x:xs) = do
-    bot <- get
+execCmd :: MonadTrans t => Bot -> String -> String -> [String] -> t IO Bot
+execCmd bot chan nick (x:xs) = do
     lift $ execCmd' bot
   where
     execCmd' bot@(Bot socket params@(Parameter botnick owner fuglydir wndir usercmd rejoinkick
