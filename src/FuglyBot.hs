@@ -97,7 +97,8 @@ start args = do
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir
-    bot <-newMVar (Bot socket (Parameter nick owner fuglydir wndir False 10 460 channel []) fugly)
+    bot <- newMVar (Bot socket (Parameter nick owner fuglydir wndir
+                                False 10 460 channel []) fugly)
     return bot
 
 run :: [String] -> StateT (MVar Bot) IO b
@@ -185,17 +186,15 @@ joinChannel h a (x:xs) = do
         else return ()
 
 changeParam :: Bot -> String -> String -> IO Bot
-changeParam bot@(Bot socket params@(Parameter nick owner fuglydir wndir usercmd
-                             rejoinkick maxchanmsg chatchan topic) fugly)
-  param value = do
+changeParam bot@(Bot s p f) param value = do
     case (readParam param) of
       Nick         -> changeNick bot (value : "" : [])
-      Owner        -> return (Bot socket params{owner=value} fugly)
-      UserCommands -> return (Bot socket params{usercmd=readBool value} fugly)
-      RejoinKick   -> return (Bot socket params{rejoinkick=read value} fugly)
-      MaxChanMsg   -> return (Bot socket params{maxchanmsg=read value} fugly)
-      ChatChannel  -> return (Bot socket params{chatchannel=value} fugly)
-      Topic        -> return (Bot socket params{topic=value} fugly)
+      Owner        -> return bot{params=p{owner=value}}
+      UserCommands -> return bot{params=p{usercmd=readBool value}}
+      RejoinKick   -> return bot{params=p{rejoinkick=read value}}
+      MaxChanMsg   -> return bot{params=p{maxchanmsg=read value}}
+      ChatChannel  -> return bot{params=p{chatchannel=value}}
+      Topic        -> return bot{params=p{topic=value}}
       _            -> return bot
   where
     readBool a
@@ -522,7 +521,7 @@ write socket s msg = do
     threadDelay 2000000
 
 insertFromFile :: Bot -> FilePath -> IO Bot
-insertFromFile bot@(Bot s p fugly) file = do
+insertFromFile (Bot s p fugly) file = do
     f <- readFile file
     n <- insertWords fugly False $ words f
     return (Bot s p fugly{dict=n})
