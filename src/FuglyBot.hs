@@ -76,16 +76,16 @@ main = do
     args <- cmdLine
     bracket (start args) stop (loop args)
   where
-    -- stop :: Bot -> IO ()
+    stop :: MVar Bot -> IO ()
     stop bot = do
       b <- readMVar bot
       hClose $ (\(Bot s _ _) -> s) b
-    -- loop :: [String] -> Bot -> IO ()
+    loop :: [String] -> MVar Bot -> IO ()
     loop args bot = do
       b <- readMVar bot
       catchIOError (evalStateT (run args) bot) (const $ return ())
 
---start :: [String] -> IO Bot
+start :: [String] -> IO (MVar Bot)
 start args = do
     let server   = args !! 0
     let port     = read $ args !! 1
@@ -105,24 +105,22 @@ run args = do
     let channel = args !! 4
     let passwd  = args !! 7
     b <- get
-    bot <- lift $ takeMVar b
+    bot <- lift $ readMVar b
     let nick = (\(Bot _ (Parameter {nick=n}) _) -> n) bot
     let socket = (\(Bot s _ _) -> s) bot
     lift $ write socket "NICK" nick
     lift $ write socket "USER" (nick ++ " 0 * :user")
     lift $ privMsg bot "nickserv" ("IDENTIFY " ++ passwd)
     lift $ joinChannel socket "JOIN" [channel]
-    lift $ putMVar b bot
     listenIRC
 
 listenIRC :: StateT (MVar Bot) IO b
 listenIRC = do
     b <- get
-    bot <- lift $ takeMVar b
+    bot <- lift $ readMVar b
     let s = (\(Bot s _ _) -> s) bot
     l <- lift $ hGetLine s
     lift $ putStrLn l
-    lift $ putMVar b bot
     if "PING :" `isPrefixOf` l then do
       lift (write s "PONG" (':' : drop 6 l)) >> listenIRC else do
       lift (forkIO (evalStateT (processLine $ words l) b)) >> listenIRC
@@ -256,22 +254,21 @@ processLine :: [String] -> StateT (MVar Bot) IO ()
 processLine [] = return ()
 processLine line = do
     b <- get
-    bot <- lift $ takeMVar b
+    bot <- lift $ readMVar b
     let socket = (\(Bot s _ _) -> s) bot
     let nick = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
     let rejoinkick = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
     let bk = beenKicked nick line
     if (not $ null bk) then do lift (rejoinChannel socket bk rejoinkick)
-                               lift $ putMVar b bot
-      else if null msg then lift $ putMVar b bot
-         else if chan == nick then do nb <- prvcmd bot ; lift $ putMVar b nb
-           else if spokenTo nick msg then if null (tail msg) then lift $ putMVar b bot
+      else if null msg then return ()
+         else if chan == nick then do nb <- prvcmd bot ; lift $ swapMVar b nb ; return ()
+           else if spokenTo nick msg then if null (tail msg) then return ()
                                           else if (head $ head $ tail msg) == '!'
                                             then do nb <- execCmd bot chan who (tail msg)
-                                                    lift $ putMVar b nb
+                                                    lift $ swapMVar b nb ; return ()
                                                else do nb <- reply bot chan who (tail msg)
-                                                       lift $ putMVar b nb
-             else do nb <- reply bot chan [] msg ; lift $ putMVar b nb
+                                                       lift $ swapMVar b nb ; return ()
+             else do nb <- reply bot chan [] msg ; lift $ swapMVar b nb ; return ()
   where
     msg  = getMsg line
     who  = getNick line
