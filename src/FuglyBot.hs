@@ -313,8 +313,7 @@ execCmd bot chan nick (x:xs) = do
                                              return bot else return bot
       | x == "!nick" = if nick == owner then changeNick bot xs else return bot
       | x == "!readfile" = if nick == owner then case (length xs) of
---        1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
-          1 -> catchIOError (execStateT (insertFromFile2 (xs!!0)) bot) (const $ return bot)
+          1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
           _ -> replyMsg bot chan nick "Usage: !readfile <file>" >>
                return bot else return bot
       | x == "!showparams" =
@@ -522,24 +521,8 @@ write socket s msg = do
     hPutStr stdout ("> " ++ s ++ " " ++ msg ++ "\n")
     threadDelay 2000000
 
--- insertFromFile :: Bot -> FilePath -> IO Bot
--- insertFromFile bot@(Bot socket params fugly@(dict, wne, aspell, allow, ban)) file = do
---     f <- readFile file
---     n <- insertWords fugly $ words f
---     return (Bot socket params (n, wne, aspell, allow, ban))
-
--- insertFromFile1 :: Bot -> FilePath -> Net ()
--- insertFromFile1 bot@(Bot socket params fugly@(dict, wne, aspell, allow, ban)) file = do
---     f <- lift $ readFile file
---     n <- lift $ insertWords fugly $ words f
---     put (Bot socket params (n, wne, aspell, allow, ban))
-
-insertFromFile2 :: FilePath -> Net ()
-insertFromFile2 file = do
-    f <- lift $ readFile file
-    bot <- get
-    socket <- gets (\(Bot s _ _) -> s)
-    params <- gets (\(Bot _ p _) -> p)
-    fugly <- gets (\(Bot _ _ ff) -> ff)
-    n <- lift $ insertWords fugly False $ words f
-    put (Bot socket params fugly{dict=n})
+insertFromFile :: Bot -> FilePath -> IO Bot
+insertFromFile bot@(Bot s p fugly) file = do
+    f <- readFile file
+    n <- insertWords fugly False $ words f
+    return (Bot s p fugly{dict=n})
