@@ -1,12 +1,10 @@
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State.Strict
-import Data.Char (isDigit, isAscii, toLower)
+import Data.Char
 import Data.List
 import qualified Data.Map as Map
-import Data.Maybe
 import Network
 import System.Environment (getArgs, getProgName)
-import System.Exit
 import System.IO
 import System.IO.Error
 import Control.Concurrent (forkIO, threadDelay)
@@ -38,6 +36,7 @@ data Parameter = Nick | Owner | UserCommands | RejoinKick | MaxChanMsg
                  }
                deriving (Eq, Ord, Show)
 
+allParams :: [Parameter]
 allParams = [Nick ..]
 
 instance Enum Parameter where
@@ -114,9 +113,9 @@ listenIRC = do
     socket <- gets (\x@(Bot s _ _) -> s)
     s <- lift $ hGetLine socket
     lift $ putStrLn s
-    --if "PING :" `isPrefixOf` s then do lift (write socket "PONG" (':' : drop 6 s)) >> lift (forkIO (runStateT listenIRC bot)) else do processLine (words s) >> lift (forkIO (evalStateT listenIRC bot))
-    if "PING :" `isPrefixOf` s then do lift (write socket "PONG" (':' : drop 6 s)) >> listenIRC else do lift (forkIO (evalStateT (processLine $ words s) bot)) >> listenIRC
-    return () :: Net ()
+    if "PING :" `isPrefixOf` s then do
+      lift (write socket "PONG" (':' : drop 6 s)) >> listenIRC else do
+      lift (forkIO (evalStateT (processLine $ words s) bot)) >> listenIRC
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -260,9 +259,9 @@ processLine line = do
                                  else reply chan who (tail msg) >>= put
       | otherwise         = reply chan [] msg >>= put
       where
-        socket = (\x@(Bot s _ _) -> s) bot
-        nick = (\x@(Bot _ (Parameter {nick = n}) _) -> n) bot
-        rejoinkick = (\x@(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
+        socket = (\(Bot s _ _) -> s) bot
+        nick = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
+        rejoinkick = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
     msg  = getMsg line
     who  = getNick line
     chan = getChannel line
@@ -532,8 +531,8 @@ insertFromFile2 :: FilePath -> Net ()
 insertFromFile2 file = do
     f <- lift $ readFile file
     bot <- get
-    socket <- gets (\x@(Bot s _ _) -> s)
-    params <- gets (\x@(Bot _ p _) -> p)
-    fugly@(Fugly dict _ _ _ _ _) <- gets (\x@(Bot _ _ f) -> f)
+    socket <- gets (\(Bot s _ _) -> s)
+    params <- gets (\(Bot _ p _) -> p)
+    fugly <- gets (\(Bot _ _ ff) -> ff)
     n <- lift $ insertWords fugly False $ words f
     put (Bot socket params fugly{dict=n})
