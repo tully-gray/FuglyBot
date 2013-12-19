@@ -280,7 +280,7 @@ processLine line = do
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply bot@(Bot socket params fugly@(Fugly _ pgf wne _ _ _)) chan nick msg = do
-    if null chan then lift $ sentencePriv socket fugly 1 43 nick msg
+    if null chan then lift $ sentencePriv socket fugly 2 43 nick msg
       else if null nick then return [()]
            else lift $ sentenceReply socket fugly 1 43 chan nick msg
     n <- lift $ insertWords fugly True msg
@@ -471,13 +471,15 @@ sentenceReply h f n l chan nick m = do
     p :: Handle -> IO String -> IO ()
     p h w = do
       ww <- w
-      if nick == chan then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n")
-        else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\r\n")
+      if null ww then return ()
+        else if nick == chan then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n")
+          else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\r\n")
     d :: Handle -> IO String -> IO ()
     d h w = do
       ww <- w
-      if nick == chan then hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
-        else hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\n")
+      if null ww then return ()
+        else if nick == chan then hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
+          else hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\n")
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) fugly) chan nick msg
@@ -500,11 +502,13 @@ sentencePriv h f n l nick m = do
     p :: Handle -> IO String -> IO ()
     p h w = do
             ww <- w
-            hPutStr h ("PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\r\n")
+            if null ww then return ()
+              else hPutStr h ("PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\r\n")
     d :: Handle -> IO String -> IO ()
     d h w = do
             ww <- w
-            hPutStr stdout ("> PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\n")
+            if null ww then return ()
+              else hPutStr stdout ("> PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\n")
 
 privMsg :: Bot -> String -> String -> IO ()
 privMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) fugly) nick msg =
