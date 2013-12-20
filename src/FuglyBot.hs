@@ -5,7 +5,7 @@ import Data.Char
 import Data.List
 import qualified Data.Map as Map
 import Network
-import System.Environment (getArgs, getProgName)
+import System.Environment (getArgs)
 import System.IO
 import System.IO.Error
 import Control.Concurrent (forkIO, threadDelay)
@@ -81,14 +81,12 @@ main = do
       b <- readMVar bot
       hClose $ (\(Bot s _ _) -> s) b
     loop :: [String] -> MVar Bot -> IO ()
-    loop args bot = do
-      b <- readMVar bot
-      catchIOError (evalStateT (run args) bot) (const $ return ())
+    loop args bot = do catchIOError (evalStateT (run args) bot) (const $ return ())
 
 start :: [String] -> IO (MVar Bot)
 start args = do
     let server   = args !! 0
-    let port     = read $ args !! 1
+    let port     = read $ args !! 1 :: Integer
     let channel  = args !! 4
     let nick     = cleanString isAscii (args !! 2)
     let owner    = args !! 3
@@ -121,15 +119,19 @@ listenIRC = do
     bot <- lift $ readMVar b
     let s = (\(Bot s _ _) -> s) bot
     l <- lift $ hGetLine s
+    let ll = words l
+    let lll = take 2 $ drop 1 ll
     lift $ putStrLn l
     if "PING :" `isPrefixOf` l then do
-      lift (write s "PONG" (':' : drop 6 l)) >> listenIRC else do
-      lift (forkIO (evalStateT (processLine $ words l) b)) >> listenIRC
+      lift (write s "PONG" (':' : drop 6 l)) >> listenIRC
+      else if (length ll > 2) && (head lll) == "NICK" then do
+      lift (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> listenIRC
+        else do
+             lift (forkIO (evalStateT (processLine $ words l) b)) >> listenIRC
 
 cmdLine :: IO [String]
 cmdLine = do
     args <- getArgs
-    prog <- getProgName
     let l            = length args
     let serverPos    = (maximum' $ elemIndices "-server" args) + 1
     let server       = if l > serverPos then args !! serverPos else "irc.freenode.net"
@@ -154,27 +156,37 @@ cmdLine = do
     maximum' [] = 1000
     maximum' a  = maximum a
 
-changeNick :: Bot -> [String] -> IO Bot
-changeNick bot [] = return bot
-changeNick bot@(Bot socket (Parameter {owner = o}) _) (x:_) = do
+changeNick :: [String] -> [String] -> StateT (MVar Bot) IO Bot
+changeNick [] [] = do
+    b <- get
+    bot <- lift $ readMVar b
+    return bot
+changeNick (x:_) [] = do
+    b <- get
+    bot <- lift $ readMVar b
+    let socket = (\(Bot s _ _) -> s) bot
     let new = cleanString isAscii x
-    write socket "NICK" new
-    s <- hGetLine socket
-    putStrLn s
-    let line = words s
-    if (length line) > 2 then testNick' bot new (take 2 (drop 1 line))
-      else return "Something went wrong!" >>= privMsg bot o >> return bot
+    lift $ write socket "NICK" new
+    return bot
+changeNick [] line = do
+    b <- get
+    bot <- lift $ readMVar b
+    let nick = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
+    lift $ testNick bot nick line
   where
-    testNick' :: Bot -> String -> [String] -> IO Bot
-    testNick' bot@(Bot socket params@(Parameter {owner = o}) fugly)
-      new line
-        | (x == "NICK") && (drop 1 y) == new =
-          return (Bot socket params{nick=new} fugly)
-        | otherwise                          =
-            return "Nick change failed!" >>= privMsg bot o >> return bot
+    testNick :: Bot -> String -> [String] -> IO Bot
+    testNick bot [] _ = return bot
+    testNick bot _ [] = return bot
+    testNick bot@(Bot socket params@(Parameter {owner = o}) fugly)
+      old line
+        | (x == "NICK") = return ("Nick change successful.") >>= privMsg bot o
+                          >> return (Bot socket params{nick = drop 1 y} fugly)
+        | otherwise     = return ("Nick change failed!") >>= privMsg bot o
+                          >> return (Bot socket params{nick = old} fugly)
       where
         x = head line
         y = last line
+    testNick bot@(Bot _ _ _) _ _ = return bot
 
 joinChannel :: Handle -> String -> [String] -> IO ()
 joinChannel _ _  []    = return () :: IO ()
@@ -188,7 +200,7 @@ joinChannel h a (x:xs) = do
 changeParam :: Bot -> String -> String -> IO Bot
 changeParam bot@(Bot _ p _) param value = do
     case (readParam param) of
-      Nick         -> changeNick bot (value : "" : [])
+      Nick         -> do nb <- newMVar bot ; evalStateT (changeNick (value : "" : []) []) nb
       Owner        -> return bot{params=p{owner=value}}
       UserCommands -> return bot{params=p{usercmd=readBool value}}
       RejoinKick   -> return bot{params=p{rejoinkick=read value}}
@@ -316,7 +328,7 @@ execCmd bot chan nick (x:xs) = do
                                              return bot else return bot
       | x == "!part" = if nick == owner then joinChannel socket "PART" xs >>
                                              return bot else return bot
-      | x == "!nick" = if nick == owner then changeNick bot xs else return bot
+      | x == "!nick" = if nick == owner then do nb <- newMVar bot ; evalStateT (changeNick xs []) nb else return bot
       | x == "!readfile" = if nick == owner then case (length xs) of
           1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
           _ -> replyMsg bot chan nick "Usage: !readfile <file>" >>
