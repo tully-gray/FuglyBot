@@ -449,7 +449,8 @@ execCmd bot chan nick (x:xs) = do
                  >> return bot
       | x == "!parse" = case (length xs) of
             0 -> replyMsg bot chan nick "Usage: !parse <sentence>" >> return bot
-            _ -> (sequence $ map (replyMsg bot chan nick) (gfParseC pgf (take 5 $ unwords xs))) >> return bot
+            _ -> (sequence $ map (replyMsg bot chan nick)
+                  (gfParseC pgf (unwords $ take 12 xs))) >> return bot
       -- | x == "!random" = case (length xs) of
       --       1 -> replyMsg bot chan nick (gfAll pgf (read (xs!!0))) >> return bot
       --       _ -> replyMsg bot chan nick "Usage: !random <number>" >> return bot
@@ -458,7 +459,8 @@ execCmd bot chan nick (x:xs) = do
                        ++ "!banword !allowword !name !insertname !closure !meet !parse "
                        ++ "!params !setparam !showparams !nick !join !part !talk !quit "
                        ++ "!readfile !load !save") >> return bot
-                     else replyMsg bot chan nick "Commands: !dict !word !wordlist !name !closure !meet !parse" >> return bot
+                     else replyMsg bot chan nick ("Commands: !dict !word !wordlist !name "
+                       ++ "!closure !meet !parse") >> return bot
     execCmd' bot = return bot
 
 {-
