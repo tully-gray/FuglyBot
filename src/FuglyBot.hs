@@ -487,20 +487,20 @@ sentenceReply h f n l chan nick m = do
     let msg = sentence f n l m False
     threadDelay 2000000
     _ <- sequence $ map (p h) msg
-    sequence $ map d msg
+    return [()]
   where
     p :: Handle -> IO String -> IO ()
     p h w = do
       ww <- w
       if null ww then return ()
-        else if nick == chan then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n")
-          else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\r\n")
-    d :: IO String -> IO ()
-    d w = do
-      ww <- w
-      if null ww then return ()
-        else if nick == chan then hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
-          else hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\n")
+        else if nick == chan then hPutStr h ("PRIVMSG " ++
+                                             (chan ++ " :" ++ ww) ++ "\r\n") >>
+                                  hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :"
+                                                                   ++ ww) ++ "\n")
+          else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick
+                                         ++ ": " ++ ww) ++ "\r\n") >>
+               hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": "
+                                                ++ ww) ++ "\n")
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan nick msg
@@ -519,18 +519,14 @@ sentencePriv h f n l nick m = do
     let msg = sentence f n l m False
     threadDelay 2000000
     _ <- sequence $ map (p h) msg
-    sequence $ map d msg
+    return [()]
   where
     p :: Handle -> IO String -> IO ()
     p h w = do
             ww <- w
             if null ww then return ()
-              else hPutStr h ("PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\r\n")
-    d :: IO String -> IO ()
-    d w = do
-          ww <- w
-          if null ww then return ()
-            else hPutStr stdout ("> PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\n")
+              else hPutStr h ("PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\r\n") >>
+                   hPutStr stdout ("> PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\n")
 
 privMsg :: Bot -> String -> String -> IO ()
 privMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) nick msg =

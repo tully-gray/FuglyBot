@@ -620,11 +620,11 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
 sentence :: Fugly -> Int -> Int -> [String] -> Bool -> [IO String]
 sentence _ _ _ [] _ = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
-  let l = ["a", "the", "is", "are", "and", "i", "I"]
   let r = ["is", "are", "what", "when", "who", "where", "am"]
   let s1a x = do
       w <- s1b fugly len 0 (findNext' fugly x 1)
-      return $ nub $ filter (\x -> length x > 0 && gfParseBool pgf x) (fixWords fugly w)
+      putStrLn $ unwords w
+      return $ nub $ filter (\x -> length x > 0) (fixWords fugly w)
   let s1d x = do
       w <- x
       if null w then return []
@@ -633,11 +633,8 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
       w <- x
       if null w then return []
         else return ((s1c w : [] ) ++ tail w)
-  let s1f x = do
-      w <- x
-      if null w then return []
-        else if elem (fLast "sentence: s1f" [] w) l then return $ init w else return w
-  map (\x -> do y <-x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1f . s1a) msg)
+  let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) msg)
+  map (\x -> do y <- x ; if gfParseBool pgf y then return y else return []) s1
   where
     findNext' = if strict then findNextWordStrict else findNextWord
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
