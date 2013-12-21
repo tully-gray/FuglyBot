@@ -634,7 +634,8 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
       if null w then return []
         else return ((s1c w : [] ) ++ tail w)
   let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) msg)
-  map (\x -> do y <- x ; if gfParseBool pgf y then return y else return []) s1
+  take num $ map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
+                            return y else return []) s1
   where
     findNext' = if strict then findNextWordStrict else findNextWord
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]

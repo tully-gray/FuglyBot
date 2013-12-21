@@ -292,9 +292,9 @@ processLine line = do
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply (Bot socket params fugly) chan nick msg = do
-    _ <- if null chan then lift $ sentencePriv socket fugly 2 43 nick msg
+    _ <- if null chan then lift $ sentencePriv socket fugly 2 243 nick msg
          else if null nick then return [()]
-           else lift $ sentenceReply socket fugly 1 43 chan nick msg
+           else lift $ sentenceReply socket fugly 1 343 chan nick msg
     n <- lift $ insertWords fugly True msg
     return (Bot socket params fugly{dict=n})
 
@@ -516,7 +516,7 @@ replyMsg _ _ _ _ = return ()
 
 sentencePriv :: Handle -> Fugly -> Int -> Int -> String -> [String] -> IO [()]
 sentencePriv h f n l nick m = do
-    let msg = sentence f n l m False
+    let msg = sentence f n l m True
     threadDelay 2000000
     _ <- sequence $ map (p h) msg
     return [()]
