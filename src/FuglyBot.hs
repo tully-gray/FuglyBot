@@ -1,15 +1,18 @@
+import Control.Concurrent
 import Control.Concurrent.MVar
+import Control.Exception
+import Control.Monad
 import Control.Monad.Trans.Class
-import Control.Monad.Trans.State.Strict
+import Control.Monad.Trans.State.Lazy
+import Control.Parallel
 import Data.Char
 import Data.List
 import qualified Data.Map as Map
 import Network
 import System.Environment (getArgs)
+import System.Exit
 import System.IO
 import System.IO.Error
-import Control.Concurrent (forkIO, threadDelay)
-import Control.Exception
 import Prelude
 
 import FuglyLib
@@ -92,42 +95,37 @@ start args = do
     let owner    = args !! 3
     let fuglydir = args !! 5 :: FilePath
     let wndir    = args !! 6 :: FilePath
+    let passwd   = args !! 7
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir
-    bot <- newMVar (Bot socket (Parameter nick owner fuglydir wndir
-                                False 10 460 channel []) fugly)
+    let b = (Bot socket (Parameter nick owner fuglydir wndir
+                         False 10 460 channel []) fugly)
+    bot <- newMVar b
+    write socket "NICK" nick
+    write socket "USER" (nick ++ " 0 * :user")
+    privMsg b "nickserv" ("IDENTIFY " ++ passwd)
+    joinChannel socket "JOIN" [channel]
     return bot
 
 run :: [String] -> StateT (MVar Bot) IO b
-run args = do
-    let channel = args !! 4
-    let passwd  = args !! 7
-    b <- get
-    bot <- lift $ readMVar b
-    let nick = (\(Bot _ (Parameter {nick=n}) _) -> n) bot
-    let socket = (\(Bot s _ _) -> s) bot
-    lift $ write socket "NICK" nick
-    lift $ write socket "USER" (nick ++ " 0 * :user")
-    lift $ privMsg bot "nickserv" ("IDENTIFY " ++ passwd)
-    lift $ joinChannel socket "JOIN" [channel]
-    listenIRC
-
-listenIRC :: StateT (MVar Bot) IO b
-listenIRC = do
+run args = forever $ do
     b <- get
     bot <- lift $ readMVar b
     let s = (\(Bot s _ _) -> s) bot
     l <- lift $ hGetLine s
-    let ll = words l
-    let lll = take 2 $ drop 1 ll
     lift $ putStrLn l
-    if "PING :" `isPrefixOf` l then do
-      lift (write s "PONG" (':' : drop 6 l)) >> listenIRC
-      else if (length ll > 2) && (head lll) == "NICK" then do
-      lift (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> listenIRC
-        else do
-             lift (forkIO (evalStateT (processLine $ words l) b)) >> listenIRC
+    listenIRC b s l
+  where
+    listenIRC b s l = do
+      let ll = words l
+      let lll = take 2 $ drop 1 ll
+      if "PING :" `isPrefixOf` l then do
+        lift (write s "PONG" (':' : drop 6 l)) >> return ()
+        else if (length ll > 2) && (head lll) == "NICK" then do
+          lift (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
+             else do
+               lift (forkIO (evalStateT (processLine $ words l) b)) >> return ()
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -280,6 +278,7 @@ processLine line = do
                                                else do nb <- reply bot chan who (tail msg)
                                                        _ <- lift $ swapMVar b nb ; return ()
              else do nb <- reply bot chan [] msg ; _ <- lift $ swapMVar b nb ; return ()
+    lift (do id <- myThreadId ; killThread id)
   where
     msg  = getMsg line
     who  = getNick line
@@ -292,9 +291,9 @@ processLine line = do
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply (Bot socket params fugly) chan nick msg = do
-    _ <- if null chan then lift $ sentencePriv socket fugly 2 243 nick msg
+    _ <- if null chan then lift $ sentencePriv socket fugly 100 4300 nick msg
          else if null nick then return [()]
-           else lift $ sentenceReply socket fugly 1 343 chan nick msg
+           else lift $ sentenceReply socket fugly 100 4300 chan nick msg
     n <- lift $ insertWords fugly True msg
     return (Bot socket params fugly{dict=n})
 
@@ -484,7 +483,7 @@ execCmd bot chan nick (x:xs) = do
 
 sentenceReply :: Handle -> Fugly -> Int -> Int -> String -> String -> [String] -> IO [()]
 sentenceReply h f n l chan nick m = do
-    let msg = sentence f n l m False
+    let msg = sentence f n l m True
     threadDelay 2000000
     _ <- sequence $ map (p h) msg
     return [()]

@@ -32,6 +32,7 @@ module FuglyLib
        )
        where
 
+import Control.Concurrent
 import Control.Exception
 import qualified Data.ByteString.Char8 as ByteString
 import Data.Char
@@ -103,7 +104,8 @@ initFugly fuglydir wndir = do
     wne <- NLP.WordNet.initializeWordNetWithOptions
            (return wndir :: Maybe FilePath)
            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
-    a <- Aspell.spellCheckerWithOptions [Aspell.Options.Lang (ByteString.pack "en_US"), Aspell.Options.IgnoreCase False]
+    -- a <- Aspell.spellCheckerWithOptions [Aspell.Options.Lang (ByteString.pack "en_US"), Aspell.Options.IgnoreCase False, Aspell.Options.Size Aspell.Options.Small, Aspell.Options.SuggestMode Aspell.Options.Fast]
+    a <- Aspell.spellChecker
     let aspell = head $ rights [a]
     return (Fugly dict pgf wne aspell allow ban)
 
@@ -570,8 +572,8 @@ wnMeet w c d e  = do
         else return []
 
 asSuggest :: Aspell.SpellChecker -> String -> IO String
-asSuggest aspell word = do w <- Aspell.suggest aspell (ByteString.pack word)
-                           return $ unwords $ map ByteString.unpack w
+asSuggest aspell word = runInBoundThread (do w <- Aspell.suggest aspell (ByteString.pack word)
+                                             return $ unwords $ map ByteString.unpack w)
 
 gfRandom :: Fugly -> Int -> IO String
 gfRandom fugly num = do r <- gfRandom' fugly num
@@ -652,11 +654,12 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) num len msg strict = do
 
 findNextWord :: Fugly -> String -> Int -> IO [String]
 findNextWord fugly@(Fugly dict pgf wne aspell _ ban) word i = do
-  a <- asSuggest aspell word
+  -- a <- asSuggest aspell word
   r <- gfRandom' fugly 3
   let lr = if isJust w then length related else 0
   rr <- Random.getStdRandom (Random.randomR (0, lr - 1))
-  let next3 = if null $ words a then unwords r else head $ words a
+  -- let next3 = if null $ words a then unwords r else head $ words a
+  let next3 = unwords r
   let next4 = if null related || isNothing w then next1 else related!!rr
   let f = if isJust w then
             if null neigh then next3
@@ -679,8 +682,8 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ ban) word i = do
 
 findNextWordStrict :: Fugly -> String -> Int -> IO [String]
 findNextWordStrict fugly@(Fugly dict pgf wne aspell _ _) word i = do
-  a <- asSuggest aspell word
-  let next3 = if null $ words a then [] else head $ words a
+  -- a <- asSuggest aspell word
+  -- let next3 = if null $ words a then [] else head $ words a
   let f = if isJust w then
         if null neigh then []
         else if isJust ww then
