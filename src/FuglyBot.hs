@@ -125,7 +125,7 @@ run args = forever $ do
         else if (length ll > 2) && (head lll) == "NICK" then do
           lift (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
              else do
-               lift (forkIO (evalStateT (processLine $ words l) b)) >> return ()
+               lift (do id <- forkIO (evalStateT (processLine $ words l) b) ; forkIO (do threadDelay 9000000 ; killThread id)) >> return ()
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -291,9 +291,9 @@ processLine line = do
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply (Bot socket params fugly) chan nick msg = do
-    _ <- if null chan then lift $ sentencePriv socket fugly 100 4300 nick msg
+    _ <- if null chan then lift $ sentencePriv socket fugly 100 430 nick msg
          else if null nick then return [()]
-           else lift $ sentenceReply socket fugly 100 4300 chan nick msg
+           else lift $ sentenceReply socket fugly 100 430 chan nick msg
     n <- lift $ insertWords fugly True msg
     return (Bot socket params fugly{dict=n})
 

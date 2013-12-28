@@ -572,8 +572,9 @@ wnMeet w c d e  = do
         else return []
 
 asSuggest :: Aspell.SpellChecker -> String -> IO String
-asSuggest aspell word = runInBoundThread (do w <- Aspell.suggest aspell (ByteString.pack word)
-                                             return $ unwords $ map ByteString.unpack w)
+asSuggest aspell word = runInUnboundThread (do yield
+                                               w <- Aspell.suggest aspell (ByteString.pack word)
+                                               return $ unwords $ map ByteString.unpack w)
 
 gfRandom :: Fugly -> Int -> IO String
 gfRandom fugly num = do r <- gfRandom' fugly num
@@ -596,7 +597,7 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
   where
-    lin pgf lang (ParseOk tl, b)      = True
+    lin pgf lang (ParseOk tl, _)      = True
     lin pgf lang _                    = False
     lang = head $ languages pgf
 
@@ -682,28 +683,17 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ ban) word i = do
 
 findNextWordStrict :: Fugly -> String -> Int -> IO [String]
 findNextWordStrict fugly@(Fugly dict pgf wne aspell _ _) word i = do
-  -- a <- asSuggest aspell word
-  -- let next3 = if null $ words a then [] else head $ words a
-  let f = if isJust w then
-        if null neigh then []
-        else if isJust ww then
-          if elem next1 nextNeigh then
-            next2
-          else
-            next1
-              else
-                next1
-          else []
-  return $ replace "i" "I" $ words f
+  let ln = if isJust w then length neigh else 0
+  rr <- Random.getStdRandom (Random.randomR (0, ln - 1))
+  a <- asSuggest aspell word
+  let next2 = if null $ words a then [] else head $ words a
+  let ff = if isJust w && (length neigh > 0) then
+             neigh!!rr
+             else next2
+  return $ replace "i" "I" $ words ff
     where
       w = Map.lookup word dict
-      ww = Map.lookup next1 dict
-      neigh = listNeighMax $ wordGetAfter (fromJust w)
-      nextNeigh = listNeighMax $ wordGetAfter (fromJust ww)
-      next1 = neigh!!(mod i (length neigh))
-      next2 = nextNeigh!!(mod i (length nextNeigh))
-      related     = map (strip '"') $ wordGetRelated (fromJust w)
-      relatedNext = map (strip '"') $ wordGetRelated (fromJust ww)
+      neigh = listNeigh $ wordGetAfter (fromJust w)
 
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup fugly@(Fugly _ _ wne aspell _ _) word pos = do
