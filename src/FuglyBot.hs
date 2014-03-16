@@ -125,7 +125,7 @@ run args = forever $ do
         else if (length ll > 2) && (head lll) == "NICK" then do
           lift (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
              else do
-               lift (do id <- forkIO (evalStateT (processLine $ words l) b) ; forkIO (do threadDelay 9000000 ; killThread id)) >> return ()
+               lift (forkIO (runInBoundThread $ evalStateT (processLine $ words l) b)) >> return ()
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -140,7 +140,7 @@ cmdLine = do
     let ownerPos     = (maximum' $ elemIndices "-owner" args) + 1
     let owner        = if l > ownerPos then args !! ownerPos else "shadowdaemon"
     let channelPos   = (maximum' $ elemIndices "-channel" args) + 1
-    let channel      = if l > channelPos then args !! channelPos else "#lolbots"
+    let channel      = if l > channelPos then args !! channelPos else "#fuglybot"
     let fuglydirPos  = (maximum' $ elemIndices "-fuglydir" args) + 1
     let fuglydir     = if l > fuglydirPos then args !! fuglydirPos
                                             else "/var/lib/fuglybot"
@@ -278,7 +278,6 @@ processLine line = do
                                                else do nb <- reply bot chan who (tail msg)
                                                        _ <- lift $ swapMVar b nb ; return ()
              else do nb <- reply bot chan [] msg ; _ <- lift $ swapMVar b nb ; return ()
-    lift (do id <- myThreadId ; killThread id)
   where
     msg  = getMsg line
     who  = getNick line
@@ -291,9 +290,9 @@ processLine line = do
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply (Bot socket params fugly) chan nick msg = do
-    _ <- if null chan then lift $ sentencePriv socket fugly 100 430 nick msg
+    _ <- if null chan then lift $ sentencePriv socket fugly 2 12 nick msg
          else if null nick then return [()]
-           else lift $ sentenceReply socket fugly 100 430 chan nick msg
+           else lift $ sentenceReply socket fugly 2 12 chan nick msg
     n <- lift $ insertWords fugly True msg
     return (Bot socket params fugly{dict=n})
 
@@ -316,6 +315,8 @@ execCmd bot chan nick (x:xs) = do
                     write socket "QUIT" ":Bye" >> return bot
           _ -> do stopFugly fuglydir fugly >>
                     write socket "QUIT" (":" ++ unwords xs) >> return bot
+          -- 0 -> do write socket "QUIT" ":Bye" >> return bot
+          -- _ -> do write socket "QUIT" (":" ++ unwords xs) >> return bot
         else return bot
       | x == "!save" = if nick == owner then catchIOError (saveDict fugly fuglydir)
                                        (const $ return ()) >> return bot else return bot
@@ -429,7 +430,7 @@ execCmd bot chan nick (x:xs) = do
             _ -> replyMsg bot chan nick "Usage: !insertname <name>" >> return bot
                            else return bot
       | x == "!talk" = if nick == owner then
-          if (length xs) > 2 then sentenceReply socket fugly 1 43 (xs!!0) (xs!!1) (tail xs)
+          if (length xs) > 2 then sentenceReply socket fugly 1 43 (xs!!0) (xs!!1) (drop 2 xs)
                                   >> return bot
           else replyMsg bot chan nick "Usage: !talk <channel> <nick> <msg>" >> return bot
                      else return bot
@@ -448,7 +449,7 @@ execCmd bot chan nick (x:xs) = do
                  >> return bot
       | x == "!parse" = case (length xs) of
             0 -> replyMsg bot chan nick "Usage: !parse <sentence>" >> return bot
-            _ -> (sequence $ map (replyMsg bot chan nick)
+            _ -> (sequence $ map (replyMsg bot chan nick) $ take 3
                   (gfParseC pgf (unwords $ take 12 xs))) >> return bot
       -- | x == "!random" = case (length xs) of
       --       1 -> replyMsg bot chan nick (gfAll pgf (read (xs!!0))) >> return bot
@@ -484,13 +485,13 @@ execCmd bot chan nick (x:xs) = do
 sentenceReply :: Handle -> Fugly -> Int -> Int -> String -> String -> [String] -> IO [()]
 sentenceReply h f n l chan nick m = do
     let msg = sentence f n l m True
-    threadDelay 2000000
     _ <- sequence $ map (p h) msg
     return [()]
   where
     p :: Handle -> IO String -> IO ()
     p h w = do
       ww <- w
+      threadDelay 2000000
       if null ww then return ()
         else if nick == chan then hPutStr h ("PRIVMSG " ++
                                              (chan ++ " :" ++ ww) ++ "\r\n") >>
@@ -516,13 +517,13 @@ replyMsg _ _ _ _ = return ()
 sentencePriv :: Handle -> Fugly -> Int -> Int -> String -> [String] -> IO [()]
 sentencePriv h f n l nick m = do
     let msg = sentence f n l m True
-    threadDelay 2000000
     _ <- sequence $ map (p h) msg
     return [()]
   where
     p :: Handle -> IO String -> IO ()
     p h w = do
             ww <- w
+            threadDelay 2000000
             if null ww then return ()
               else hPutStr h ("PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\r\n") >>
                    hPutStr stdout ("> PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\n")

@@ -571,10 +571,10 @@ wnMeet w c d e  = do
                     getWords $ getSynset $ fromJust result
         else return []
 
+-- LD_PRELOAD=/usr/lib64/libjemalloc.so.1
 asSuggest :: Aspell.SpellChecker -> String -> IO String
-asSuggest aspell word = runInUnboundThread (do yield
-                                               w <- Aspell.suggest aspell (ByteString.pack word)
-                                               return $ unwords $ map ByteString.unpack w)
+asSuggest aspell word = runInBoundThread (do w <- Aspell.suggest aspell (ByteString.pack word)
+                                             return $ unwords $ map ByteString.unpack w)
 
 gfRandom :: Fugly -> Int -> IO String
 gfRandom fugly num = do r <- gfRandom' fugly num
@@ -595,10 +595,17 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
     _          -> "Me no understand Engrish."
 
 gfParseBool :: PGF -> String -> Bool
-gfParseBool pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
+{--gfParseBool pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
   where
     lin pgf lang (ParseOk tl, _)      = True
     lin pgf lang _                    = False
+    lang = head $ languages pgf--}
+gfParseBool pgf msg
+  | null msg                                 = False
+  | (length msg) > 70                        = False
+  | null $ parse pgf lang (startCat pgf) msg = False
+  | otherwise                                = True
+  where
     lang = head $ languages pgf
 
 gfParseC :: PGF -> String -> [String]
