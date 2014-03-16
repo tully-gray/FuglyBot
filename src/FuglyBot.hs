@@ -104,8 +104,8 @@ start args = do
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
-    privMsg b "nickserv" ("IDENTIFY " ++ passwd)
-    joinChannel socket "JOIN" [channel]
+    --privMsg b "nickserv" ("IDENTIFY " ++ passwd)
+    --joinChannel socket "JOIN" [channel]
     return bot
 
 run :: [String] -> StateT (MVar Bot) IO b
@@ -434,6 +434,11 @@ execCmd bot chan nick (x:xs) = do
                                   >> return bot
           else replyMsg bot chan nick "Usage: !talk <channel> <nick> <msg>" >> return bot
                      else return bot
+      | x == "!raw" = if nick == owner then
+          if (length xs) > 0 then write socket (xs!!0)(unwords $ tail xs)
+                                  >> return bot
+          else replyMsg bot chan nick "Usage: !raw <msg>" >> return bot
+                     else return bot
       | x == "!closure" = case (length xs) of
             3 -> (wnClosure wne (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan nick
                  >> return bot
@@ -457,8 +462,8 @@ execCmd bot chan nick (x:xs) = do
       | otherwise  = if nick == owner then replyMsg bot chan nick
                        ("Commands: !dict !wordlist !word !insertword !dropword "
                        ++ "!banword !allowword !name !insertname !closure !meet !parse "
-                       ++ "!params !setparam !showparams !nick !join !part !talk !quit "
-                       ++ "!readfile !load !save") >> return bot
+                       ++ "!params !setparam !showparams !nick !join !part !talk !raw "
+                       ++ "!quit !readfile !load !save") >> return bot
                      else replyMsg bot chan nick ("Commands: !dict !word !wordlist !name "
                        ++ "!closure !meet !parse") >> return bot
     execCmd' bot = return bot
