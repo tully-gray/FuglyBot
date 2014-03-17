@@ -597,7 +597,7 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
   | null msg                                 = False
-  | (length msg) > 77                        = False
+  | (length msg) > 67                        = True
   | null $ parse pgf lang (startCat pgf) msg = False
   | otherwise                                = True
   where
@@ -634,7 +634,7 @@ sentence _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
   let r = ["is", "are", "what", "when", "who", "where", "am"]
   let s1a x = do
-      w <- s1b fugly 100 0 $ findNextWord fugly x 1
+      w <- s1b fugly 200 0 $ findNextWord fugly x 1
       putStrLn x
       putStrLn $ unwords w
       return $ nub $ filter (\x -> length x > 0) (fixWords fugly w)
@@ -696,16 +696,20 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ ban) word i = do
 findNextWord :: Fugly -> String -> Int -> IO [String]
 findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
   let ln = if isJust w then length neigh else 0
-  rr <- Random.getStdRandom (Random.randomR (0, ln - 1))
+  let lr = if isJust w then length related else 0
+  nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
+  rr <- Random.getStdRandom (Random.randomR (0, lr - 1))
   a <- asSuggest aspell word
-  let next2 = if null $ words a then [] else head $ words a
+  let next1 = if null related || isNothing w then [] else related!!rr
+  let next2 = if null $ words a then next1 else head $ words a
   let ff = if isJust w && (length neigh > 0) then
-             neigh!!rr
+             neigh!!nr
              else next2
   return $ replace "i" "I" $ words ff
     where
       w = Map.lookup word dict
       neigh = listNeigh $ wordGetAfter (fromJust w)
+      related = map (strip '"') $ wordGetRelated (fromJust w)
 
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup fugly@(Fugly _ _ wne aspell _ _) word pos = do
