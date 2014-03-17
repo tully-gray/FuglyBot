@@ -290,10 +290,12 @@ processLine line = do
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply (Bot socket params fugly) chan nick msg = do
+    let owner = (\(Parameter {owner = o}) -> o) params
+    let s = if nick == owner then False else True
     _ <- if null chan then lift $ sentencePriv socket fugly nick msg
          else if null nick then return ()
            else lift $ sentenceReply socket fugly chan nick msg
-    n <- lift $ insertWords fugly True msg
+    n <- lift $ insertWords fugly s msg
     return (Bot socket params fugly{dict=n})
 
 execCmd :: MonadTrans t => Bot -> String -> String -> [String] -> t IO Bot
