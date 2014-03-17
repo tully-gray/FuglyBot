@@ -290,9 +290,9 @@ processLine line = do
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply (Bot socket params fugly) chan nick msg = do
-    _ <- if null chan then lift $ sentencePriv socket fugly 2 12 nick msg
-         else if null nick then return [()]
-           else lift $ sentenceReply socket fugly 2 12 chan nick msg
+    _ <- if null chan then lift $ sentencePriv socket fugly nick msg
+         else if null nick then return ()
+           else lift $ sentenceReply socket fugly chan nick msg
     n <- lift $ insertWords fugly True msg
     return (Bot socket params fugly{dict=n})
 
@@ -430,7 +430,7 @@ execCmd bot chan nick (x:xs) = do
             _ -> replyMsg bot chan nick "Usage: !insertname <name>" >> return bot
                            else return bot
       | x == "!talk" = if nick == owner then
-          if (length xs) > 2 then sentenceReply socket fugly 1 43 (xs!!0) (xs!!1) (drop 2 xs)
+          if (length xs) > 2 then sentenceReply socket fugly (xs!!0) (xs!!1) (drop 2 xs)
                                   >> return bot
           else replyMsg bot chan nick "Usage: !talk <channel> <nick> <msg>" >> return bot
                      else return bot
@@ -487,17 +487,12 @@ execCmd bot chan nick (x:xs) = do
 --      else
 --      chanMsg bot chan msg
 
-sentenceReply :: Handle -> Fugly -> Int -> Int -> String -> String -> [String] -> IO [()]
-sentenceReply h f n l chan nick m = do
-    let msg = sentence f n l m True
-    _ <- sequence $ map (p h) msg
-    return [()]
+sentenceReply :: Handle -> Fugly -> String -> String -> [String] -> IO ()
+sentenceReply h f chan nick m = p h (sentence f m)
   where
-    p :: Handle -> IO String -> IO ()
-    p h w = do
-      ww <- w
-      threadDelay 2000000
-      if null ww then return ()
+    p h (x:xs) = do
+      ww <- x
+      if null ww then p h xs
         else if nick == chan then hPutStr h ("PRIVMSG " ++
                                              (chan ++ " :" ++ ww) ++ "\r\n") >>
                                   hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :"
@@ -506,6 +501,15 @@ sentenceReply h f n l chan nick m = do
                                          ++ ": " ++ ww) ++ "\r\n") >>
                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": "
                                                 ++ ww) ++ "\n")
+
+sentencePriv :: Handle -> Fugly -> String -> [String] -> IO ()
+sentencePriv h f nick m = p h (sentence f m)
+  where
+    p h (x:xs) = do
+      xx <- x
+      if null xx then p h xs
+        else hPutStr h ("PRIVMSG " ++ (nick ++ " :" ++ xx) ++ "\r\n") >>
+             hPutStr stdout ("> PRIVMSG " ++ (nick ++ " :" ++ xx) ++ "\n")
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan nick msg
@@ -518,20 +522,6 @@ replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan nick msg
       replyMsg bot chan nick (drop mcm msg) else
         write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ msg)
 replyMsg _ _ _ _ = return ()
-
-sentencePriv :: Handle -> Fugly -> Int -> Int -> String -> [String] -> IO [()]
-sentencePriv h f n l nick m = do
-    let msg = sentence f n l m True
-    _ <- sequence $ map (p h) msg
-    return [()]
-  where
-    p :: Handle -> IO String -> IO ()
-    p h w = do
-            ww <- w
-            threadDelay 2000000
-            if null ww then return ()
-              else hPutStr h ("PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\r\n") >>
-                   hPutStr stdout ("> PRIVMSG " ++ (nick ++ " :" ++ ww) ++ "\n")
 
 privMsg :: Bot -> String -> String -> IO ()
 privMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) nick msg =
@@ -546,7 +536,7 @@ write :: Handle -> String -> String -> IO ()
 write socket s msg = do
     hPutStr socket (s ++ " " ++ msg ++ "\r\n")
     hPutStr stdout ("> " ++ s ++ " " ++ msg ++ "\n")
-    threadDelay 2000000
+    --threadDelay 2000000
 
 insertFromFile :: Bot -> FilePath -> IO Bot
 insertFromFile (Bot s p fugly) file = do
