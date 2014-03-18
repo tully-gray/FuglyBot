@@ -421,6 +421,13 @@ execCmd bot chan nick (x:xs) = do
             _ -> replyMsg bot chan nick "Usage: !allowword <list|add|delete> <word>"
                  >> return bot
                          else return bot
+      | x == "!namelist" =
+          let num = if read (xs!!0) > (100 :: Integer) then 100 :: Int else read (xs!!0) in
+          case (length xs) of
+            1 -> replyMsg bot chan nick (unwords $ listNamesCountSort2 dict num)
+                 -- >> replyMsg bot chan nick ("Total name count: " ++ (show $ Map.size dict))
+                 >> return bot
+            _ -> replyMsg bot chan nick "Usage: !namelist <number>" >> return bot
       | x == "!name" = case (length xs) of
             1 -> replyMsg bot chan nick (listWordFull dict (xs!!0)) >> return bot
             _ -> replyMsg bot chan nick "Usage: !name <name>" >> return bot
@@ -463,7 +470,7 @@ execCmd bot chan nick (x:xs) = do
       --       _ -> replyMsg bot chan nick "Usage: !random <number>" >> return bot
       | otherwise  = if nick == owner then replyMsg bot chan nick
                        ("Commands: !dict !wordlist !word !insertword !dropword "
-                       ++ "!banword !allowword !name !insertname !closure !meet !parse "
+                       ++ "!banword !allowword !namelist !name !insertname !closure !meet !parse "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "
                        ++ "!quit !readfile !load !save") >> return bot
                      else replyMsg bot chan nick ("Commands: !dict !word !wordlist !name "
@@ -538,7 +545,6 @@ write :: Handle -> String -> String -> IO ()
 write socket s msg = do
     hPutStr socket (s ++ " " ++ msg ++ "\r\n")
     hPutStr stdout ("> " ++ s ++ " " ++ msg ++ "\n")
-    --threadDelay 2000000
 
 insertFromFile :: Bot -> FilePath -> IO Bot
 insertFromFile (Bot s p fugly) file = do

@@ -14,6 +14,7 @@ module FuglyLib
          listWordFull,
          listWordsCountSort,
          listWordsCountSort2,
+         listNamesCountSort2,
          cleanString,
          wnClosure,
          wnMeet,
@@ -126,7 +127,6 @@ saveDict fugly@(Fugly dict _ _ _ allow ban) fuglydir = do
         hPutStrLn h ">END<"
         hPutStrLn h $ unwords allow
         hPutStrLn h $ unwords ban
-        hFlush h
         hClose h
   where
     saveDict' :: Handle -> [(String, Word)] -> IO ()
@@ -204,6 +204,8 @@ loadDict fuglydir = do
                   else
                     f h ww nm
 
+wordIsName     (Word w c b a r p) = False
+wordIsName     (Name n c b a r)   = True
 wordGetWord    (Word w c b a r p) = w
 wordGetWord    (Name n c b a r)   = n
 wordGetAfter   (Word w c b a r p) = a
@@ -326,9 +328,6 @@ dropWord m word = Map.map del' (Map.delete word m)
       del' (Word w c b a r p) = (Word w c (Map.delete word b) (Map.delete word a) r p)
       del' (Name w c b a r) = (Name w c (Map.delete word b) (Map.delete word a) r)
 
-startWords :: [String]
-startWords = ["me", "you"]
-
 incCount' :: Word -> Int
 incCount' (Word _ c _ _ _ _) = c + 1
 incCount' (Name _ c _ _ _) = c + 1
@@ -391,6 +390,10 @@ listWordsCountSort m = reverse $ map snd (sort $ map wordGetwc $ Map.elems m)
 listWordsCountSort2 :: Map.Map String Word -> Int -> [String]
 listWordsCountSort2 m num = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
                             sort $ map wordGetwc $ Map.elems m]
+
+listNamesCountSort2 :: Map.Map String Word -> Int -> [String]
+listNamesCountSort2 m num = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
+                            sort $ map wordGetwc $ filter wordIsName $ Map.elems m]
 
 listWordFull :: Map.Map String Word -> String -> String
 listWordFull m word =
@@ -634,7 +637,7 @@ sentence _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
   let r = ["is", "are", "what", "when", "who", "where", "am"]
   let s1a x = do
-      w <- s1b fugly 200 0 $ findNextWord fugly x 1
+      w <- s1b fugly 100 0 $ findNextWord fugly x 1
       putStrLn x
       putStrLn $ unwords w
       return $ nub $ filter (\x -> length x > 0) (fixWords fugly w)
