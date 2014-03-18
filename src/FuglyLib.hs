@@ -15,6 +15,7 @@ module FuglyLib
          listWordsCountSort,
          listWordsCountSort2,
          listNamesCountSort2,
+         wordIsName,
          cleanString,
          wnClosure,
          wnMeet,

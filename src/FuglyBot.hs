@@ -425,7 +425,8 @@ execCmd bot chan nick (x:xs) = do
           let num = if read (xs!!0) > (100 :: Integer) then 100 :: Int else read (xs!!0) in
           case (length xs) of
             1 -> replyMsg bot chan nick (unwords $ listNamesCountSort2 dict num)
-                 -- >> replyMsg bot chan nick ("Total name count: " ++ (show $ Map.size dict))
+                 >> replyMsg bot chan nick ("Total name count: " ++ (show $ length $
+                                             filter wordIsName $ Map.elems dict))
                  >> return bot
             _ -> replyMsg bot chan nick "Usage: !namelist <number>" >> return bot
       | x == "!name" = case (length xs) of
