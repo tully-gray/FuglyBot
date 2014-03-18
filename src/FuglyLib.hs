@@ -126,8 +126,8 @@ saveDict fugly@(Fugly dict _ _ _ allow ban) fuglydir = do
         putStrLn "Saving dict file..."
         saveDict' h d
         hPutStrLn h ">END<"
-        hPutStrLn h $ unwords allow
-        hPutStrLn h $ unwords ban
+        hPutStrLn h $ unwords $ sort allow
+        hPutStrLn h $ unwords $ sort ban
         hClose h
   where
     saveDict' :: Handle -> [(String, Word)] -> IO ()
@@ -650,7 +650,6 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
       w <- x
       if null w then return []
         else return ((s1c w : [] ) ++ tail w)
-  -- let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle (msg ++ r)))
   let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
   let s2 = map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
                                       return y else return []) s1
