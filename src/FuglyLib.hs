@@ -466,7 +466,7 @@ endSentence msg = (init msg) ++ ((fLast "endSentence" [] msg) ++ if elem (head m
 
 fixWords :: Fugly -> [String] -> [String]
 fixWords f@(Fugly dict pgf wne aspell allow ban) msg = [x | x <- msg,
-            Map.member x dict || elem x allow]
+            (Map.member x dict || elem x allow) && (not (elem x ban))]
 
 fHead a b [] = unsafePerformIO (do putStrLn ("fHead: error in " ++ a) ; return b)
 fHead a b c  = head c
