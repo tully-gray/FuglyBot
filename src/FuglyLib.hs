@@ -601,10 +601,11 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
   | null msg                                 = False
-  | (length msg) > 70                        = False
+  | (length msg) > 60 = if length w > 5 then gfParseBool pgf $ unwords $ take 6 w else False
   | null $ parse pgf lang (startCat pgf) msg = False
   | otherwise                                = True
   where
+    w = words msg
     lang = head $ languages pgf
 
 gfParseBool2 :: PGF -> String -> Bool
@@ -638,19 +639,28 @@ sentence _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
   let r = ["is", "are", "what", "when", "who", "where", "am"]
   let s1a x = do
-      w <- s1b fugly 50 0 $ findNextWord fugly x 1
-      putStrLn x
+      w <- s1b fugly 25 0 $ findNextWord fugly x 1
       putStrLn $ unwords w
       return $ nub $ filter (\x -> length x > 0) (fixWords fugly w)
   let s1d x = do
       w <- x
       if null w then return []
-        else return ((init w) ++ ((fLast "sentence: s1d" [] w) ++ if elem (head w) r then "?" else ".") : [])
+        else return ((init w) ++ ((fLast "sentence: s1d" [] w) ++
+                                  if elem (head w) r then "?" else ".") : [])
   let s1e x = do
       w <- x
       if null w then return []
         else return ((s1c w : [] ) ++ tail w)
-  let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
+  let s1f x = do
+      w <- x
+      let l = length w
+      if length w > 6 then do
+         p1 <- wnPartPOS wne (w!!4)
+         p2 <- wnPartPOS wne (w!!5)
+         if p1 /= UnknownEPos && p2 /= UnknownEPos then
+            return ((take 5 w) ++ [", ", "the"] ++ (drop 5 w)) else
+            return w else return w
+  let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1f . s1d . s1a) (cycle msg))
   let s2 = map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
                                       return y else return []) s1
   s2
