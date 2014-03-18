@@ -26,7 +26,7 @@ data Bot = Bot {
 type Net = StateT Bot IO
 
 data Parameter = Nick | Owner | UserCommands | RejoinKick | MaxChanMsg
-               | ChatChannel | Topic | UnknownParam
+               | ChatChannel | Topic | AllowPM | UnknownParam
                | Parameter {
                  nick        :: String,
                  owner       :: String,
@@ -36,7 +36,8 @@ data Parameter = Nick | Owner | UserCommands | RejoinKick | MaxChanMsg
                  rejoinkick  :: Int,
                  maxchanmsg  :: Int,
                  chatchannel :: String,
-                 topic       :: String
+                 topic       :: String,
+                 allowpm     :: Bool
                  }
                deriving (Eq, Ord, Show)
 
@@ -51,7 +52,8 @@ instance Enum Parameter where
     toEnum 5 = MaxChanMsg
     toEnum 6 = ChatChannel
     toEnum 7 = Topic
-    toEnum 8 = UnknownParam
+    toEnum 8 = AllowPM
+    toEnum 9 = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
     fromEnum UserCommands   = 3
@@ -59,7 +61,8 @@ instance Enum Parameter where
     fromEnum MaxChanMsg     = 5
     fromEnum ChatChannel    = 6
     fromEnum Topic          = 7
-    fromEnum UnknownParam   = 8
+    fromEnum AllowPM        = 8
+    fromEnum UnknownParam   = 9
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -72,6 +75,7 @@ readParam a | (map toLower a) == "rejoinkick"      = RejoinKick
 readParam a | (map toLower a) == "maxchanmsg"      = MaxChanMsg
 readParam a | (map toLower a) == "chatchannel"     = ChatChannel
 readParam a | (map toLower a) == "topic"           = Topic
+readParam a | (map toLower a) == "allowpm"         = AllowPM
 readParam _                                        = UnknownParam
 
 main :: IO ()
@@ -100,7 +104,7 @@ start args = do
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir
     let b = (Bot socket (Parameter nick owner fuglydir wndir
-                         False 10 460 channel []) fugly)
+                         False 10 460 channel [] False) fugly)
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
@@ -205,6 +209,7 @@ changeParam bot@(Bot _ p _) param value = do
       MaxChanMsg   -> return bot{params=p{maxchanmsg=read value}}
       ChatChannel  -> return bot{params=p{chatchannel=value}}
       Topic        -> return bot{params=p{topic=value}}
+      AllowPM      -> return bot{params=p{allowpm=readBool value}}
       _            -> return bot
   where
     readBool a
@@ -291,8 +296,10 @@ reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply (Bot socket params fugly) chan nick msg = do
     let owner = (\(Parameter {owner = o}) -> o) params
+    let apm = (\(Parameter {allowpm = a}) -> a) params
     let s = if nick == owner then False else True
-    _ <- if null chan then lift $ sentencePriv socket fugly nick msg
+    _ <- if null chan then if apm then lift $ sentencePriv socket fugly nick msg
+                           else return ()
          else if null nick then return ()
            else lift $ sentenceReply socket fugly chan nick msg
     n <- lift $ insertWords fugly s msg
@@ -308,7 +315,7 @@ execCmd bot chan nick (x:xs) = do
     execCmd' :: Bot -> IO Bot
     execCmd' bot@(Bot socket params@(Parameter botnick owner fuglydir _
                                      usercmd rejoinkick maxchanmsg
-                                     chatchan _)
+                                     chatchan _ allowpm)
                   fugly@(Fugly dict pgf wne aspell allow ban))
       | usercmd == False && nick /= owner = return bot
       | x == "!quit" =
@@ -340,7 +347,7 @@ execCmd bot chan nick (x:xs) = do
             0 -> replyMsg bot chan nick ("nick: " ++ botnick ++ "  owner: " ++ owner ++
                    "  usercommands: " ++ show usercmd ++ "  rejoinkick: "
                    ++ show rejoinkick ++ "  maxchanmsg: " ++ show maxchanmsg
-                   ++ "  chatchannel: " ++ chatchan) >> return bot
+                   ++ "  chatchannel: " ++ chatchan ++ "  allowpm: " ++ show allowpm) >> return bot
             _ -> replyMsg bot chan nick "Usage: !showparams" >> return bot
           else return bot
       | x == "!setparam" =
