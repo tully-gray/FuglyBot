@@ -601,7 +601,7 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
   | null msg                                 = False
-  | (length msg) > 67                        = True
+  | (length msg) > 70                        = False
   | null $ parse pgf lang (startCat pgf) msg = False
   | otherwise                                = True
   where
@@ -638,7 +638,7 @@ sentence _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
   let r = ["is", "are", "what", "when", "who", "where", "am"]
   let s1a x = do
-      w <- s1b fugly 100 0 $ findNextWord fugly x 1
+      w <- s1b fugly 70 0 $ findNextWord fugly x 1
       putStrLn x
       putStrLn $ unwords w
       return $ nub $ filter (\x -> length x > 0) (fixWords fugly w)
@@ -718,6 +718,8 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup fugly@(Fugly _ _ wne aspell _ _) word pos = do
     gloss <- wnGloss wne word pos
-    if gloss == "Nothing!" then do a <- asSuggest aspell word
-                                   return (gloss ++ " Perhaps you meant: " ++ a)
+    if gloss == "Nothing!" then
+       do a <- asSuggest aspell word
+          return (gloss ++ " Perhaps you meant: " ++
+                  (unwords (filter (\x -> x /= word) (words a))))
       else return gloss
