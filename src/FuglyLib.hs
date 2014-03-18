@@ -638,7 +638,7 @@ sentence _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
   let r = ["is", "are", "what", "when", "who", "where", "am"]
   let s1a x = do
-      w <- s1b fugly 70 0 $ findNextWord fugly x 1
+      w <- s1b fugly 50 0 $ findNextWord fugly x 1
       putStrLn x
       putStrLn $ unwords w
       return $ nub $ filter (\x -> length x > 0) (fixWords fugly w)
@@ -650,7 +650,8 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
       w <- x
       if null w then return []
         else return ((s1c w : [] ) ++ tail w)
-  let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle (msg ++ r)))
+  -- let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle (msg ++ r)))
+  let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
   let s2 = map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
                                       return y else return []) s1
   s2
