@@ -478,17 +478,6 @@ execCmd bot chan nick (x:xs) = do
                        ++ "!closure !meet !parse") >> return bot
     execCmd' bot = return bot
 
-{-
-   IRC messages are always lines of characters terminated with a CR-LF
-   (Carriage Return - Line Feed) pair, and these messages SHALL NOT
-   exceed 512 characters in length, counting all characters including
-   the trailing CR-LF. Thus, there are 510 characters maximum allowed
-   for the command and its parameters.  There is no provision for
-   continuation of message lines.
-
-   https://tools.ietf.org/html/rfc2812
--}
-
 -- chanMsg :: Bot -> String -> String -> IO ()
 -- chanMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan msg =
 --   if length msg > mcm then do

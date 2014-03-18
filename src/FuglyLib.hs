@@ -667,36 +667,6 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
     s1c [] = []
     s1c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
 
-{--
-findNextWord :: Fugly -> String -> Int -> IO [String]
-findNextWord fugly@(Fugly dict pgf wne aspell _ ban) word i = do
-  a <- asSuggest aspell word
-  r <- gfRandom' fugly 3
-  let lr = if isJust w then length related else 0
-  rr <- Random.getStdRandom (Random.randomR (0, lr - 1))
-  let next3 = if null $ words a then unwords r else head $ words a
-  -- let next3 = unwords r
-  let next4 = if null related || isNothing w then next1 else related!!rr
-  let f = if isJust w then
-            if null neigh then next3
-              else if isJust ww then
-              if elem next1 nextNeigh then next2
-                else next4
-              else next1
-          else next3
-  return $ replace "i" "I" $ words f
-    where
-      w = Map.lookup word dict
-      ww = Map.lookup next1 dict
-      neigh = listNeigh $ wordGetAfter (fromJust w)
-      nextNeigh = listNeigh $ wordGetAfter (fromJust ww)
-      next1 = neigh!!(mod i (length neigh))
-      next2 = nextNeigh!!(mod i (length nextNeigh))
-      related     = map (strip '"') $ wordGetRelated (fromJust w)
-      -- related     = map (strip '"') $ joinWords '"' $ wordGetRelated (fromJust w)
-      -- relatedNext = map (strip '"') $ wordGetRelated (fromJust ww)
---}
-
 findNextWord :: Fugly -> String -> Int -> IO [String]
 findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
   let ln = if isJust w then length neigh else 0
