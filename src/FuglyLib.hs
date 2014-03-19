@@ -599,12 +599,18 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
+  | length w > 10 = (gfParseBoolA pgf $ take 10 w) && (gfParseBool pgf (unwords $ drop 10 w))
+  | otherwise     = gfParseBoolA pgf w
+    where
+      w = words msg
+
+gfParseBoolA :: PGF -> [String] -> Bool
+gfParseBoolA pgf msg
   | null msg                                 = False
   | null $ parse pgf lang (startCat pgf) m   = False
   | otherwise                                = True
   where
-    w = words msg
-    m = unwords $ take 10 w
+    m = unwords msg
     lang = head $ languages pgf
 
 gfParseBool2 :: PGF -> String -> Bool
