@@ -303,12 +303,13 @@ reply :: (Monad (t IO), MonadTrans t) =>
 reply bot@(Bot socket params fugly@(Fugly _ pgf _ _ _ _)) chan nick msg = do
     let owner = (\(Parameter {owner = o}) -> o) params
     let bnick = (\(Parameter {nick = n}) -> n) params
-    let apm = (\(Parameter {allowpm = a}) -> a) params
+    let apm   = (\(Parameter {allowpm = a}) -> a) params
     let learn = (\(Parameter {learning = l}) -> l) params
     let parse = gfParseBool pgf $ unwords msg
     _ <- if null chan then if apm then lift $ sentencePriv socket fugly nick msg
                            else return ()
-         else if null nick then if parse && length msg > 3 && (elem True $ map (elem bnick) $ map subsequences msg) then
+         else if null nick then if parse && length msg > 3 &&
+                                   (elem True $ map (elem bnick) $ map subsequences msg) then
                                   lift $ sentenceReply socket fugly chan chan msg
                                 else return ()
            else lift $ sentenceReply socket fugly chan nick msg
