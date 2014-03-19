@@ -222,7 +222,7 @@ insertWords :: Fugly -> Bool -> [String] -> IO (Map.Map String Word)
 insertWords (Fugly {dict=d}) _ [] = return d
 insertWords fugly _ [x] = insertWord fugly x [] [] []
 insertWords fugly@(Fugly dict pgf _ _ _ _) check msg@(x:y:xs)
-  | gfParseBool pgf (unwords $ take 10 msg) || check == False = case (len) of
+  | gfParseBool pgf (unwords msg) || check == False = case (len) of
         2 -> do ff <- insertWord fugly x [] y []
                 insertWord fugly{dict=ff} y x [] []
         _ -> insertWords' fugly 0 len msg
@@ -601,12 +601,11 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
   | null msg                                 = False
-  | (length msg) > 60 = if l > 5 then gfParseBool pgf $ unwords $ take 6 w else False
-  | null $ parse pgf lang (startCat pgf) msg = False
+  | null $ parse pgf lang (startCat pgf) m   = False
   | otherwise                                = True
   where
     w = words msg
-    l = length w
+    m = unwords $ take 10 w
     lang = head $ languages pgf
 
 gfParseBool2 :: PGF -> String -> Bool
