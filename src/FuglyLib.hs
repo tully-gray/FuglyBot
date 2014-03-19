@@ -641,7 +641,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
   let r = ["is", "are", "what", "when", "who", "where", "am"]
   let s1a x = do
       w <- s1b fugly 25 0 $ findNextWord fugly x 1
-      putStrLn $ unwords w
+      -- putStrLn $ unwords w
       return $ nub $ filter (\x -> length x > 0) (fixWords fugly w)
   let s1d x = do
       w <- x
@@ -674,7 +674,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
   let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1f . s1d . s1a) (cycle msg))
   let s2 = map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
                                       return y else return []) s1
-  take 50 s2
+  take 250 s2
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do
@@ -691,20 +691,23 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
 findNextWord :: Fugly -> String -> Int -> IO [String]
 findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
   let ln = if isJust w then length neigh else 0
+  let lm = if isJust w then length neighmax else 0
   let lr = if isJust w then length related else 0
   nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
+  mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
   rr <- Random.getStdRandom (Random.randomR (0, lr - 1))
   a <- asSuggest aspell word
   let next1 = if null related || isNothing w then [] else related!!rr
   let next2 = if null $ words a then next1 else head $ words a
   let ff = if isJust w && (length neigh > 0) then
-             neigh!!nr
+             if (mod i 2 == 0) then neighmax!!mr else neigh!!nr
              else next2
   return $ replace "i" "I" $ words ff
     where
-      w = Map.lookup word dict
-      neigh = listNeigh $ wordGetAfter (fromJust w)
-      related = map (strip '"') $ wordGetRelated (fromJust w)
+      w        = Map.lookup word dict
+      neigh    = listNeigh $ wordGetAfter (fromJust w)
+      neighmax = listNeighMax $ wordGetAfter (fromJust w)
+      related  = map (strip '"') $ wordGetRelated (fromJust w)
 
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup fugly@(Fugly _ _ wne aspell _ _) word pos = do
