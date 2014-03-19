@@ -104,32 +104,38 @@ start args = do
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir
     let b = (Bot socket (Parameter nick owner fuglydir wndir
-                         False 10 460 channel [] False) fugly)
+                         False 10 400 channel [] False) fugly)
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
-    --privMsg b "nickserv" ("IDENTIFY " ++ passwd)
-    --joinChannel socket "JOIN" [channel]
     return bot
 
 run :: [String] -> StateT (MVar Bot) IO b
-run args = forever $ do
+run args = do
     b <- get
     bot <- lift $ readMVar b
     let s = (\(Bot s _ _) -> s) bot
-    l <- lift $ hGetLine s
-    lift $ putStrLn l
-    listenIRC b s l
-  where
-    listenIRC b s l = do
-      let ll = words l
-      let lll = take 2 $ drop 1 ll
-      if "PING :" `isPrefixOf` l then do
-        lift (write s "PONG" (':' : drop 6 l)) >> return ()
-        else if (length ll > 2) && (head lll) == "NICK" then do
-          lift (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
-             else do
-               lift (forkIO (runInBoundThread $ evalStateT (processLine $ words l) b)) >> return ()
+    let channel = args !! 4
+    let passwd  = args !! 7
+    lift (forkIO (do
+                     threadDelay 40000000
+                     if not $ null passwd then privMsg bot "nickserv" ("IDENTIFY " ++ passwd) else return ()
+                     joinChannel s "JOIN" [channel]
+                     forever (do write s "PING" ":foo" ; threadDelay 20000000)))
+    forever $ do
+      l <- lift $ hGetLine s
+      lift $ putStrLn l
+      listenIRC b s l
+    where
+      listenIRC b s l = do
+        let ll = words l
+        let lll = take 2 $ drop 1 ll
+        if "PING :" `isPrefixOf` l then do
+          lift (write s "PONG" (':' : drop 6 l)) >> return ()
+          else if (length ll > 2) && (head lll) == "NICK" then do
+            lift (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
+              else do
+                lift (forkIO (runInBoundThread $ evalStateT (processLine $ words l) b)) >> return ()
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -476,6 +482,9 @@ execCmd bot chan nick (x:xs) = do
       -- | x == "!random" = case (length xs) of
       --       1 -> replyMsg bot chan nick (gfAll pgf (read (xs!!0))) >> return bot
       --       _ -> replyMsg bot chan nick "Usage: !random <number>" >> return bot
+      | x == "!test" = if nick == owner then
+            replyMsg bot chan nick (unwords $ map show $ take 750 $ iterate succ 0) >> return bot
+            else return bot
       | otherwise  = if nick == owner then replyMsg bot chan nick
                        ("Commands: !dict !wordlist !word !insertword !dropword "
                        ++ "!banword !allowword !namelist !name !insertname !closure !meet !parse "
