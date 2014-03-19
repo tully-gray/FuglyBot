@@ -300,16 +300,18 @@ processLine line = do
 
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
-reply (Bot socket params fugly) chan nick msg = do
+reply bot@(Bot socket params fugly@(Fugly _ pgf _ _ _ _)) chan nick msg = do
     let owner = (\(Parameter {owner = o}) -> o) params
     let apm = (\(Parameter {allowpm = a}) -> a) params
-    let s = if nick == owner then False else True
     _ <- if null chan then if apm then lift $ sentencePriv socket fugly nick msg
                            else return ()
          else if null nick then return ()
            else lift $ sentenceReply socket fugly chan nick msg
-    n <- lift $ insertWords fugly s msg
-    return (Bot socket params fugly{dict=n})
+    if (gfParseBool pgf $ unwords msg) || nick == owner then do
+      nd <- lift $ insertWords fugly msg
+      lift $ putStrLn ">parse<"
+      return (Bot socket params fugly{dict=nd}) else
+      return bot
 
 execCmd :: MonadTrans t => Bot -> String -> String -> [String] -> t IO Bot
 execCmd bot _ _ [] = lift $ return bot
@@ -557,5 +559,5 @@ write socket s msg = do
 insertFromFile :: Bot -> FilePath -> IO Bot
 insertFromFile (Bot s p fugly) file = do
     f <- readFile file
-    n <- insertWords fugly False $ words f
+    n <- insertWords fugly $ words f
     return (Bot s p fugly{dict=n})

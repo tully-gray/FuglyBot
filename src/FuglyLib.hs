@@ -218,15 +218,14 @@ wordGetRelated (Name n c b a r)   = r
 wordGetwc      (Word w c _ _ _ _) = (c, w)
 wordGetwc      (Name w c _ _ _)   = (c, w)
 
-insertWords :: Fugly -> Bool -> [String] -> IO (Map.Map String Word)
-insertWords (Fugly {dict=d}) _ [] = return d
-insertWords fugly _ [x] = insertWord fugly x [] [] []
-insertWords fugly@(Fugly dict pgf _ _ _ _) check msg@(x:y:xs)
-  | gfParseBool pgf (unwords msg) || check == False = case (len) of
-        2 -> do ff <- insertWord fugly x [] y []
-                insertWord fugly{dict=ff} y x [] []
-        _ -> insertWords' fugly 0 len msg
-  | otherwise = return dict
+insertWords :: Fugly -> [String] -> IO (Map.Map String Word)
+insertWords (Fugly {dict=d}) [] = return d
+insertWords fugly [x] = insertWord fugly x [] [] []
+insertWords fugly@(Fugly dict pgf _ _ _ _) msg@(x:y:xs) =
+  case (len) of
+    2 -> do ff <- insertWord fugly x [] y []
+            insertWord fugly{dict=ff} y x [] []
+    _ -> insertWords' fugly 0 len msg
   where
     len = length msg
     insertWords' (Fugly {dict=d}) _ _ [] = return d
