@@ -26,7 +26,7 @@ data Bot = Bot {
 type Net = StateT Bot IO
 
 data Parameter = Nick | Owner | UserCommands | RejoinKick | MaxChanMsg
-               | ChatChannel | Topic | AllowPM | UnknownParam
+               | Learning | AllowPM | Topic | UnknownParam
                | Parameter {
                  nick        :: String,
                  owner       :: String,
@@ -35,9 +35,9 @@ data Parameter = Nick | Owner | UserCommands | RejoinKick | MaxChanMsg
                  usercmd     :: Bool,
                  rejoinkick  :: Int,
                  maxchanmsg  :: Int,
-                 chatchannel :: String,
-                 topic       :: String,
-                 allowpm     :: Bool
+                 learning    :: Bool,
+                 allowpm     :: Bool,
+                 topic       :: String
                  }
                deriving (Eq, Ord, Show)
 
@@ -50,18 +50,18 @@ instance Enum Parameter where
     toEnum 3 = UserCommands
     toEnum 4 = RejoinKick
     toEnum 5 = MaxChanMsg
-    toEnum 6 = ChatChannel
-    toEnum 7 = Topic
-    toEnum 8 = AllowPM
+    toEnum 6 = Learning
+    toEnum 7 = AllowPM
+    toEnum 8 = Topic
     toEnum 9 = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
     fromEnum UserCommands   = 3
     fromEnum RejoinKick     = 4
     fromEnum MaxChanMsg     = 5
-    fromEnum ChatChannel    = 6
-    fromEnum Topic          = 7
-    fromEnum AllowPM        = 8
+    fromEnum Learning       = 6
+    fromEnum AllowPM        = 7
+    fromEnum Topic          = 8
     fromEnum UnknownParam   = 9
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
@@ -73,9 +73,9 @@ readParam a | (map toLower a) == "usercmd"         = UserCommands
 readParam a | (map toLower a) == "usercommands"    = UserCommands
 readParam a | (map toLower a) == "rejoinkick"      = RejoinKick
 readParam a | (map toLower a) == "maxchanmsg"      = MaxChanMsg
-readParam a | (map toLower a) == "chatchannel"     = ChatChannel
-readParam a | (map toLower a) == "topic"           = Topic
+readParam a | (map toLower a) == "learning"        = Learning
 readParam a | (map toLower a) == "allowpm"         = AllowPM
+readParam a | (map toLower a) == "topic"           = Topic
 readParam _                                        = UnknownParam
 
 main :: IO ()
@@ -104,7 +104,7 @@ start args = do
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir
     let b = (Bot socket (Parameter nick owner fuglydir wndir
-                         False 10 400 channel [] False) fugly)
+                         False 10 400 False False []) fugly)
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
@@ -213,9 +213,9 @@ changeParam bot@(Bot _ p _) param value = do
       UserCommands -> return bot{params=p{usercmd=readBool value}}
       RejoinKick   -> return bot{params=p{rejoinkick=read value}}
       MaxChanMsg   -> return bot{params=p{maxchanmsg=read value}}
-      ChatChannel  -> return bot{params=p{chatchannel=value}}
-      Topic        -> return bot{params=p{topic=value}}
+      Learning     -> return bot{params=p{learning=readBool value}}
       AllowPM      -> return bot{params=p{allowpm=readBool value}}
+      Topic        -> return bot{params=p{topic=value}}
       _            -> return bot
   where
     readBool a
@@ -304,6 +304,7 @@ reply bot@(Bot socket params fugly@(Fugly _ pgf _ _ _ _)) chan nick msg = do
     let owner = (\(Parameter {owner = o}) -> o) params
     let bnick = (\(Parameter {nick = n}) -> n) params
     let apm = (\(Parameter {allowpm = a}) -> a) params
+    let learn = (\(Parameter {learning = l}) -> l) params
     let parse = gfParseBool pgf $ unwords msg
     _ <- if null chan then if apm then lift $ sentencePriv socket fugly nick msg
                            else return ()
@@ -311,7 +312,7 @@ reply bot@(Bot socket params fugly@(Fugly _ pgf _ _ _ _)) chan nick msg = do
                                   lift $ sentenceReply socket fugly chan chan msg
                                 else return ()
            else lift $ sentenceReply socket fugly chan nick msg
-    if parse || nick == owner then do
+    if (learn && parse) || nick == owner then do
       nd <- lift $ insertWords fugly msg
       lift $ putStrLn ">parse<"
       return (Bot socket params fugly{dict=nd}) else
@@ -327,7 +328,7 @@ execCmd bot chan nick (x:xs) = do
     execCmd' :: Bot -> IO Bot
     execCmd' bot@(Bot socket params@(Parameter botnick owner fuglydir _
                                      usercmd rejoinkick maxchanmsg
-                                     chatchan _ allowpm)
+                                     learning _ allowpm)
                   fugly@(Fugly dict pgf wne aspell allow ban))
       | usercmd == False && nick /= owner = return bot
       | x == "!quit" =
@@ -359,7 +360,7 @@ execCmd bot chan nick (x:xs) = do
             0 -> replyMsg bot chan nick ("nick: " ++ botnick ++ "  owner: " ++ owner ++
                    "  usercommands: " ++ show usercmd ++ "  rejoinkick: "
                    ++ show rejoinkick ++ "  maxchanmsg: " ++ show maxchanmsg
-                   ++ "  chatchannel: " ++ chatchan ++ "  allowpm: " ++ show allowpm) >> return bot
+                   ++ "  learning: " ++ show learning ++ "  allowpm: " ++ show allowpm) >> return bot
             _ -> replyMsg bot chan nick "Usage: !showparams" >> return bot
           else return bot
       | x == "!setparam" =
