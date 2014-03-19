@@ -644,7 +644,7 @@ sentence _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
   let r = ["is", "are", "what", "when", "who", "where", "am"]
   let s1a x = do
-      w <- s1b fugly 25 0 $ findNextWord fugly x 1
+      w <- s1b fugly 50 0 $ findNextWord fugly x 1
       -- putStrLn $ unwords w
       return $ nub $ filter (\x -> length x > 0) (fixWords fugly w)
   let s1d x = do
