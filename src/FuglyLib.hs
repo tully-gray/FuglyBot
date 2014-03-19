@@ -601,11 +601,12 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
   | null msg                                 = False
-  | (length msg) > 60 = if length w > 5 then gfParseBool pgf $ unwords $ take 6 w else False
+  | (length msg) > 60 = if l > 5 then gfParseBool pgf $ unwords $ take 6 w else False
   | null $ parse pgf lang (startCat pgf) msg = False
   | otherwise                                = True
   where
     w = words msg
+    l = length w
     lang = head $ languages pgf
 
 gfParseBool2 :: PGF -> String -> Bool
@@ -654,16 +655,26 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
   let s1f x = do
       w <- x
       let l = length w
-      if length w > 6 then do
-         p1 <- wnPartPOS wne (w!!4)
-         p2 <- wnPartPOS wne (w!!5)
+      if l > 14 then do
+         p1 <- wnPartPOS wne (w!!12)
+         p2 <- wnPartPOS wne (w!!13)
          if p1 /= UnknownEPos && p2 /= UnknownEPos then
-            return ((take 5 w) ++ [", ", "the"] ++ (drop 5 w)) else
-            return w else return w
+            return ((take 13 w) ++ [".  ", "The"] ++ (drop 13 w))
+           else return w else if l > 10 then do
+             p1 <- wnPartPOS wne (w!!8)
+             p2 <- wnPartPOS wne (w!!9)
+             if p1 /= UnknownEPos && p2 /= UnknownEPos then
+                return ((take 9 w) ++ [", ", "the"] ++ (drop 9 w))
+               else return w else if l > 6 then do
+                 p1 <- wnPartPOS wne (w!!4)
+                 p2 <- wnPartPOS wne (w!!5)
+                 if (p1 == POS Noun || p1 == POS Verb) && p2 == POS Noun then
+                    return ((take 5 w) ++ [", ", "and", "the"] ++ (drop 5 w)) else
+                    return w else return w
   let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1f . s1d . s1a) (cycle msg))
   let s2 = map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
                                       return y else return []) s1
-  s2
+  take 50 s2
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do

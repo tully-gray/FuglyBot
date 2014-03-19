@@ -496,6 +496,7 @@ execCmd bot chan nick (x:xs) = do
 sentenceReply :: Handle -> Fugly -> String -> String -> [String] -> IO ()
 sentenceReply h f chan nick m = p h (sentence f m)
   where
+    p h []     = return ()
     p h (x:xs) = do
       ww <- x
       if null ww then p h xs
@@ -511,6 +512,7 @@ sentenceReply h f chan nick m = p h (sentence f m)
 sentencePriv :: Handle -> Fugly -> String -> [String] -> IO ()
 sentencePriv h f nick m = p h (sentence f m)
   where
+    p h []     = return ()
     p h (x:xs) = do
       xx <- x
       if null xx then p h xs
