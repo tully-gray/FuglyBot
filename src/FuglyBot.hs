@@ -331,7 +331,7 @@ execCmd bot chan nick (x:xs) = do
     execCmd' :: Bot -> IO Bot
     execCmd' bot@(Bot socket params@(Parameter botnick owner fuglydir _
                                      usercmd rejoinkick maxchanmsg
-                                     learning _ allowpm)
+                                     learning allowpm topic)
                   fugly@(Fugly dict pgf wne aspell allow ban))
       | usercmd == False && nick /= owner = return bot
       | x == "!quit" =
@@ -363,7 +363,8 @@ execCmd bot chan nick (x:xs) = do
             0 -> replyMsg bot chan nick ("nick: " ++ botnick ++ "  owner: " ++ owner ++
                    "  usercommands: " ++ show usercmd ++ "  rejoinkick: "
                    ++ show rejoinkick ++ "  maxchanmsg: " ++ show maxchanmsg
-                   ++ "  learning: " ++ show learning ++ "  allowpm: " ++ show allowpm) >> return bot
+                   ++ "  learning: " ++ show learning ++ "  allowpm: " ++ show allowpm
+                   ++ "  topic: " ++ topic) >> return bot
             _ -> replyMsg bot chan nick "Usage: !showparams" >> return bot
           else return bot
       | x == "!setparam" =
