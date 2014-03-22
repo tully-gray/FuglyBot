@@ -275,10 +275,12 @@ processLine [] = return ()
 processLine line = do
     b <- get
     bot <- lift $ readMVar b
+    t <- lift $ myThreadId
     let socket = (\(Bot s _ _) -> s) bot
     let nick = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
     let rejoinkick = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
     let bk = beenKicked nick line
+    lift $ forkIO (do threadDelay 100000000 ; killThread t)
     if (not $ null bk) then do lift (rejoinChannel socket bk rejoinkick)
       else if null msg then return ()
          else if chan == nick then do nb <- prvcmd bot ; _ <- lift $ swapMVar b nb ; return ()
@@ -308,7 +310,7 @@ reply bot@(Bot socket params fugly@(Fugly _ pgf _ _ _ _)) chan nick msg = do
     let parse = gfParseBool pgf $ unwords msg
     _ <- if null chan then if apm then lift $ sentencePriv socket fugly nick msg
                            else return ()
-         else if null nick then if parse && length msg > 3 &&
+         else if null nick then if {--parse &&--} length msg > 3 &&
                                    (elem True $ map (elem bnick) $ map subsequences msg) then
                                   lift $ sentenceReply socket fugly chan chan msg
                                 else return ()
@@ -513,7 +515,7 @@ execCmd bot chan nick (x:xs) = do
 sentenceReply :: Handle -> Fugly -> String -> String -> [String] -> IO ()
 sentenceReply h f chan nick m = p h (sentence f m)
   where
-    p h []     = return ()
+    p _ []     = return ()
     p h (x:xs) = do
       ww <- x
       if null ww then p h xs
@@ -529,7 +531,7 @@ sentenceReply h f chan nick m = p h (sentence f m)
 sentencePriv :: Handle -> Fugly -> String -> [String] -> IO ()
 sentencePriv h f nick m = p h (sentence f m)
   where
-    p h []     = return ()
+    p _ []     = return ()
     p h (x:xs) = do
       xx <- x
       if null xx then p h xs
