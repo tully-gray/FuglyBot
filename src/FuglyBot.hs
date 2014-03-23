@@ -13,6 +13,7 @@ import System.Environment (getArgs)
 import System.Exit
 import System.IO
 import System.IO.Error
+import Text.Regex.Posix
 import Prelude
 
 import FuglyLib
@@ -310,8 +311,8 @@ reply bot@(Bot socket params fugly@(Fugly _ pgf _ _ _ _)) chan nick msg = do
     let parse = gfParseBool pgf $ unwords msg
     _ <- if null chan then if apm then lift $ sentencePriv socket fugly nick msg
                            else return ()
-         else if null nick then if {--parse &&--} length msg > 3 &&
-                                   (elem True $ map (elem bnick) $ map subsequences msg) then
+         else if null nick then if {--parse &&--} length msg > 3 && (unwords msg) =~ bnick then
+                                   {--(elem True $ map (elem bnick) $ map subsequences msg) then--}
                                   lift $ sentenceReply socket fugly chan chan msg
                                 else return ()
            else lift $ sentenceReply socket fugly chan nick msg
