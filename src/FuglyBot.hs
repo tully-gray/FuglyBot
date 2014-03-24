@@ -50,6 +50,7 @@ instance Enum Parameter where
     toEnum 7 = AllowPM
     toEnum 8 = Topic
     toEnum 9 = UnknownParam
+    toEnum _ = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
     fromEnum UserCommands   = 3
@@ -59,6 +60,7 @@ instance Enum Parameter where
     fromEnum AllowPM        = 7
     fromEnum Topic          = 8
     fromEnum UnknownParam   = 9
+    fromEnum _              = 9
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
