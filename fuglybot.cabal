@@ -21,10 +21,10 @@ Library
         NLP.WordNet.Consts
         NLP.WordNet.Prims
         NLP.WordNet.Types
-    GHC-Options: -rtsopts=all -threaded -feager-blackholing -Wall
+    GHC-Options: -rtsopts=all -threaded -feager-blackholing -Wall -fno-warn-name-shadowing
 
 Executable fuglybot
     Main-is:         FuglyBot.hs
     Build-depends:   base == 4.*, array, bytestring, containers, filepath, gf, haspell, network, parallel, random, regex-posix, transformers
     Hs-source-dirs:  src
-    GHC-Options: -rtsopts=all -threaded -feager-blackholing -Wall
+    GHC-Options: -rtsopts=all -threaded -feager-blackholing -Wall -fno-warn-name-shadowing

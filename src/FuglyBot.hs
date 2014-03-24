@@ -1,16 +1,13 @@
 import Control.Concurrent
-import Control.Concurrent.MVar
 import Control.Exception
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State.Lazy
-import Control.Parallel
 import Data.Char
 import Data.List
 import qualified Data.Map as Map
 import Network
 import System.Environment (getArgs)
-import System.Exit
 import System.IO
 import System.IO.Error
 import Text.Regex.Posix
@@ -23,8 +20,6 @@ data Bot = Bot {
     params :: Parameter,
     fugly :: Fugly
     }
-
-type Net = StateT Bot IO
 
 data Parameter = Nick | Owner | UserCommands | RejoinKick | MaxChanMsg
                | Learning | AllowPM | Topic | UnknownParam
@@ -95,17 +90,14 @@ start :: [String] -> IO (MVar Bot)
 start args = do
     let server   = args !! 0
     let port     = read $ args !! 1 :: Integer
-    let channel  = args !! 4
     let nick     = cleanString isAscii (args !! 2)
     let owner    = args !! 3
     let fuglydir = args !! 5 :: FilePath
     let wndir    = args !! 6 :: FilePath
-    let passwd   = args !! 7
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir
-    let b = (Bot socket (Parameter nick owner fuglydir wndir
-                         False 10 400 False False []) fugly)
+    let b = (Bot socket (Parameter nick owner fuglydir wndir False 10 400 False False []) fugly)
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
@@ -122,7 +114,7 @@ run args = do
                      threadDelay 40000000
                      if not $ null passwd then privMsg bot "nickserv" ("IDENTIFY " ++ passwd) else return ()
                      joinChannel s "JOIN" [channel]
-                     forever (do write s "PING" ":foo" ; threadDelay 20000000)))
+                     forever (do write s "PING" ":foo" ; threadDelay 20000000))) >> return ()
     forever $ do
       l <- lift $ hGetLine s
       lift $ putStrLn l
@@ -166,7 +158,7 @@ cmdLine = do
     maximum' a  = maximum a
 
 changeNick :: [String] -> [String] -> StateT (MVar Bot) IO Bot
-changeNick [] [] = do
+changeNick (_ : _) (_ : _) = do
     b <- get
     bot <- lift $ readMVar b
     return bot
@@ -281,7 +273,7 @@ processLine line = do
     let nick = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
     let rejoinkick = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
     let bk = beenKicked nick line
-    lift $ forkIO (do threadDelay 20000000 ; killThread t)
+    lift $ forkIO (do threadDelay 20000000 ; killThread t) >> return ()
     if (not $ null bk) then do lift (rejoinChannel socket bk rejoinkick)
       else if null msg then return ()
          else if chan == nick then do nb <- prvcmd bot ; _ <- lift $ swapMVar b nb ; return ()
@@ -495,7 +487,7 @@ execCmd bot chan nick (x:xs) = do
       --       1 -> replyMsg bot chan nick (gfAll pgf (read (xs!!0))) >> return bot
       --       _ -> replyMsg bot chan nick "Usage: !random <number>" >> return bot
       | x == "!test" = if nick == owner then
-            replyMsg bot chan nick (unwords $ map show $ take 750 $ iterate succ 0) >> return bot
+            replyMsg bot chan nick (unwords $ map show $ take 750 $ iterate succ (0 :: Int)) >> return bot
             else return bot
       | otherwise  = if nick == owner then replyMsg bot chan nick
                        ("Commands: !dict !wordlist !word !insertword !dropword "
