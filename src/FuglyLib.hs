@@ -599,7 +599,7 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
-  | length w > 6 = (gfParseBoolA pgf $ take 6 w) && (gfParseBool pgf (unwords $ drop 6 w))
+  | length w > 8 = (gfParseBoolA pgf $ take 8 w) && (gfParseBool pgf (unwords $ drop 8 w))
   | otherwise     = gfParseBoolA pgf w
     where
       w = words msg
@@ -642,9 +642,9 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
 sentence :: Fugly -> [String] -> [IO String]
 sentence _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
-  let r = ["is", "are", "what", "when", "who", "where", "am"]
+  let r = ["is", "are", "what", "when", "who", "where", "want", "am"]
   let s1a x = do
-      w <- s1b fugly 50 0 $ findNextWord fugly x 1
+      w <- s1b fugly 75 0 $ findNextWord fugly x 1
       -- putStrLn $ unwords w
       return $ nub $ filter (\x -> length x > 0) (fixWords fugly w)
   let s1d x = do
@@ -678,12 +678,12 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
   let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1f . s1d . s1a) (cycle msg))
   let s2 = map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
                                       return y else return []) s1
-  take 250 s2
+  take 2000 s2
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do
       ww <- msg
-      r <- gfRandom' f 3
+      r <- gfRandom' f 5
       if null ww then return r
         else if i >= n then return $ nub ww else do
                www <- findNextWord f (fLast "sentence: s1b" [] ww) i
