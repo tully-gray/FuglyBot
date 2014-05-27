@@ -310,8 +310,7 @@ reply bot@(Bot socket params fugly@(Fugly _ pgf _ _ _ _)) chan nick msg = do
                                   lift $ sentenceReply socket fugly chan chan msg
                                 else return ()
            else lift $ sentenceReply socket fugly chan nick msg
-    -- if (learn && parse) || nick == owner then do
-    if learn then do
+    if (learn && parse) || nick == owner then do
       nd <- lift $ insertWords fugly msg
       lift $ putStrLn ">parse<"
       return (Bot socket params fugly{dict=nd}) else
@@ -446,7 +445,7 @@ execCmd bot chan nick (x:xs) = do
           case (length xs) of
             1 -> replyMsg bot chan nick (unwords $ listNamesCountSort2 dict num)
                  >> replyMsg bot chan nick ("Total name count: " ++ (show $ length $
-                                             filter wordIsName $ Map.elems dict))
+                                             filter (\x -> wordIs x == "name") $ Map.elems dict))
                  >> return bot
             _ -> replyMsg bot chan nick "Usage: !namelist <number>" >> return bot
       | x == "!name" = case (length xs) of

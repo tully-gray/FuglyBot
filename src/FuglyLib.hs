@@ -15,7 +15,7 @@ module FuglyLib
          listWordsCountSort,
          listWordsCountSort2,
          listNamesCountSort2,
-         wordIsName,
+         wordIs,
          cleanString,
          wnClosure,
          wnMeet,
@@ -84,14 +84,14 @@ data Word = Word {
               related :: [String]
               } |
             Place {
-              word    :: String,
+              place   :: String,
               count   :: Int,
               before  :: Map.Map String Int,
               after   :: Map.Map String Int,
               related :: [String]
               } |
             Phrase {
-              word    :: String,
+              phrase  :: String,
               count   :: Int,
               before  :: Map.Map String Int,
               after   :: Map.Map String Int,
@@ -143,7 +143,8 @@ saveDict fugly@(Fugly dict _ _ _ allow ban) fuglydir = do
                              ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
                              ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
-                             ("pos: " ++ (show p) ++ "\n")]
+                             ("pos: " ++ (show p) ++ "\n"),
+                             ("end: \n")]
     format' m@(Name w c b a r)
       | null w    = []
       | otherwise = unwords [("name: " ++ w ++ "\n"),
@@ -151,7 +152,7 @@ saveDict fugly@(Fugly dict _ _ _ allow ban) fuglydir = do
                              ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
                              ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
-                             ("pos: name\n")]
+                             ("end: \n")]
 
 loadDict :: FilePath -> IO (Map.Map String Word, [String], [String])
 loadDict fuglydir = do
@@ -163,7 +164,7 @@ loadDict fuglydir = do
       else do
       hSetBuffering h LineBuffering
       putStrLn "Loading dict file..."
-      dict <- f h w [([], w)]
+      dict <- ff h w [([], w)]
       allow <- hGetLine h
       ban <- hGetLine h
       let out = (Map.fromList dict, words allow, words ban)
@@ -176,9 +177,8 @@ loadDict fuglydir = do
     getNeigh'        [] l = l
     getNeigh' (x:y:xs) [] = getNeigh' xs [(x, read y)]
     getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, read y) : [])
-    f :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
-    f h word@(Name n c b a r) nm = f h (Word n c b a r (POS Noun)) nm
-    f h word@(Word w c b a r p) nm = do
+    ff :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
+    ff h word nm = do
       l <- hGetLine h
       let wl = words l
       let l1 = length $ filter (\x -> x /= ' ') l
@@ -187,26 +187,30 @@ loadDict fuglydir = do
       let l4 = if l1 > 3 && l2 > 0 && l3 == True then True else False
       let ll = if l4 == True then tail wl else ["BAD BAD BAD"]
       let ww = if l4 == True then case (head wl) of
-                           "word:"    -> (Word (unwords ll) c b a r p)
-                           "name:"    -> (Name (unwords ll) c b a r)
-                           "count:"   -> (Word w (read $ unwords $ ll) b a r p)
-                           "before:"  -> (Word w c (getNeigh $ ll) a r p)
-                           "after:"   -> (Word w c b (getNeigh $ ll) r p)
-                           "related:" -> (Word w c b a (joinWords '"' ll) p)
-                           "pos:"     -> (Word w c b a r
-                                          (readEPOS $ unwords $ ll))
-                           _          -> (Word w c b a r p)
-               else (Word w c b a r p)
+                           "word:"    -> (Word (unwords ll) 0 Map.empty Map.empty [] UnknownEPos)
+                           "name:"    -> (Name (unwords ll) 0 Map.empty Map.empty [])
+                           -- "place:"   -> word{place=(unwords ll)}
+                           -- "phrase:"  -> word{phrase=(unwords ll)}
+                           "count:"   -> word{count=(read $ unwords $ ll)}
+                           "before:"  -> word{before=(getNeigh $ ll)}
+                           "after:"   -> word{after=(getNeigh $ ll)}
+                           "related:" -> word{related=(joinWords '"' ll)}
+                           "pos:"     -> word{FuglyLib.pos=(readEPOS $ unwords $ ll)}
+                           "end:"     -> word
+                           _          -> word
+               else word
       if l4 == False then do putStrLn ("Oops: " ++ l) >> return nm
-        else if (head wl) == "pos:" then
-               f h ww (nm ++ ((wordGetWord ww), ww) : [])
+        else if (head wl) == "end:" then
+               ff h ww (nm ++ ((wordGetWord ww), ww) : [])
              else if (head wl) == ">END<" then
                     return nm
                   else
-                    f h ww nm
+                    ff h ww nm
 
-wordIsName     (Word w c b a r p) = False
-wordIsName     (Name n c b a r)   = True
+wordIs         (Word w c b a r p) = "word"
+wordIs         (Name n c b a r)   = "name"
+wordIs         (Place p c b a r)  = "place"
+wordIs         (Phrase p c b a r) = "phrase"
 wordGetWord    (Word w c b a r p) = w
 wordGetWord    (Name n c b a r)   = n
 wordGetAfter   (Word w c b a r p) = a
@@ -393,7 +397,7 @@ listWordsCountSort2 m num = concat [[w, show c, ";"] | (c, w) <- take num $ reve
 
 listNamesCountSort2 :: Map.Map String Word -> Int -> [String]
 listNamesCountSort2 m num = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
-                            sort $ map wordGetwc $ filter wordIsName $ Map.elems m]
+                            sort $ map wordGetwc $ filter (\x -> wordIs x == "name")  $ Map.elems m]
 
 listWordFull :: Map.Map String Word -> String -> String
 listWordFull m word =
@@ -646,7 +650,8 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
   let s1a x = do
       w <- s1b fugly 75 0 $ findNextWord fugly x 1
       -- putStrLn $ unwords w
-      return $ nub $ filter (\x -> length x > 0) (fixWords fugly w)
+      -- return $ nub $ filter (\x -> length x > 0) (fixWords fugly w)
+      return $ filter (\x -> length x > 0) (fixWords fugly w)
   let s1d x = do
       w <- x
       if null w then return []
