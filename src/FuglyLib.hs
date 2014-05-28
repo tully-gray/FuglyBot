@@ -603,7 +603,7 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
-  | length w > 8 = (gfParseBoolA pgf $ take 8 w) && (gfParseBool pgf (unwords $ drop 8 w))
+  | length w > 10  = (gfParseBoolA pgf $ take 10 w) && (gfParseBool pgf (unwords $ drop 10 w))
   | otherwise     = gfParseBoolA pgf w
     where
       w = words msg
@@ -668,22 +668,22 @@ sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
          p1 <- wnPartPOS wne (w!!12)
          p2 <- wnPartPOS wne (w!!13)
          if p1 /= UnknownEPos && p2 /= UnknownEPos then
-            return ((take 13 w) ++ [".  ", "The"] ++ (drop 13 w))
+            return ((take 13 w) ++ ["fnord.  ", "The"] ++ (drop 13 w))
            else return w else if l > 10 then do
              p1 <- wnPartPOS wne (w!!8)
              p2 <- wnPartPOS wne (w!!9)
              if p1 /= UnknownEPos && p2 /= UnknownEPos then
-                return ((take 9 w) ++ [", ", "the"] ++ (drop 9 w))
+                return ((take 9 w) ++ ["fnord, ", "the"] ++ (drop 9 w))
                else return w else if l > 6 then do
                  p1 <- wnPartPOS wne (w!!4)
                  p2 <- wnPartPOS wne (w!!5)
                  if (p1 == POS Noun || p1 == POS Verb) && p2 == POS Noun then
-                    return ((take 5 w) ++ [", ", "and", "the"] ++ (drop 5 w)) else
+                    return ((take 5 w) ++ ["fnord, ", "and", "the"] ++ (drop 5 w)) else
                     return w else return w
   let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1f . s1d . s1a) (cycle msg))
   let s2 = map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
                                       return y else return []) s1
-  take 2000 s2
+  take 20000 s2
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do
@@ -705,8 +705,9 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
   nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
   mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
   rr <- Random.getStdRandom (Random.randomR (0, lr - 1))
+  r <- gfRandom' fugly 5
   a <- asSuggest aspell word
-  let next1 = if null related || isNothing w then [] else related!!rr
+  let next1 = if null related || isNothing w then unwords r else related!!rr
   let next2 = if null $ words a then next1 else head $ words a
   let ff = if isJust w && (length neigh > 0) then
              if (mod i 2 == 0) then neighmax!!mr else neigh!!nr
