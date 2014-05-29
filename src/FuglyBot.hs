@@ -92,7 +92,7 @@ start :: [String] -> IO (MVar Bot)
 start args = do
     let server   = args !! 0
     let port     = read $ args !! 1 :: Integer
-    let nick     = cleanString isAscii (args !! 2)
+    let nick     = cleanStringWhite isAscii (args !! 2)
     let owner    = args !! 3
     let fuglydir = args !! 5 :: FilePath
     let wndir    = args !! 6 :: FilePath
@@ -168,7 +168,7 @@ changeNick (x:_) [] = do
     b <- get
     bot <- lift $ readMVar b
     let socket = (\(Bot s _ _) -> s) bot
-    let new = cleanString isAscii x
+    let new = cleanStringWhite isAscii x
     lift $ write socket "NICK" new
     return bot
 changeNick [] line = do

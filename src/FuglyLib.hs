@@ -16,7 +16,8 @@ module FuglyLib
          listWordsCountSort2,
          listNamesCountSort2,
          wordIs,
-         cleanString,
+         cleanStringWhite,
+         cleanStringBlack,
          wnClosure,
          wnMeet,
          gfAll,
@@ -258,9 +259,9 @@ insertWord fugly@(Fugly dict pgf wne aspell allow ban) word before after pos =
     bn (Name {}) = before
     ai = if isJust a then an $ fromJust a else aa
     bi = if isJust b then bn $ fromJust b else bb
-    aa = map toLower $ cleanString isAlpha after
-    bb = map toLower $ cleanString isAlpha before
-    ww = if isJust w then word else map toLower $ cleanString isAlpha word
+    aa = map toLower $ cleanStringWhite isAlpha after
+    bb = map toLower $ cleanStringWhite isAlpha before
+    ww = if isJust w then word else map toLower $ cleanStringWhite isAlpha word
 
 insertWordRaw f@(Fugly {dict=d}) w b a p = insertWordRaw' f (Map.lookup w d) w b a p
 insertWordRaw' :: Fugly -> Maybe Word -> String -> String
@@ -412,11 +413,17 @@ listWordFull m word =
                  unwords $ listNeigh2 b, " after:", unwords $ listNeigh2 a,
                  " related:", unwords r]
 
-cleanString :: (Char -> Bool) -> String -> String
-cleanString _ [] = []
-cleanString f (x:xs)
-        | not $ f x = cleanString f xs
-        | otherwise = x : cleanString f xs
+cleanStringWhite :: (Char -> Bool) -> String -> String
+cleanStringWhite _ [] = []
+cleanStringWhite f (x:xs)
+        | not $ f x =     cleanStringWhite f xs
+        | otherwise = x : cleanStringWhite f xs
+
+cleanStringBlack :: (Char -> Bool) -> String -> String
+cleanStringBlack _ [] = []
+cleanStringBlack f (x:xs)
+        | f x       =     cleanStringBlack f xs
+        | otherwise = x : cleanStringBlack f xs
 
 dePlenk :: String -> String
 dePlenk []  = []
@@ -579,13 +586,14 @@ asSuggest aspell word = runInBoundThread (do w <- Aspell.suggest aspell (ByteStr
 
 gfRandom :: Fugly -> Int -> Int -> IO String
 gfRandom fugly lim num = do r <- gfRandom' fugly lim
-                            return $ dePlenk $ unwords $ toUpperSentence $ endSentence $ take num r
-
-gfRandom' :: Fugly -> Int -> IO [String]
-gfRandom' fugly@(Fugly {pgf=p}) lim = do
-  r <- Random.newStdGen
-  let rr = generateRandomDepth r p (startCat p) (Just lim)
-  return (if null rr then [] else words $ linearize p (head $ languages p) (head rr))
+                            return $ unwords $ toUpperSentence $ endSentence $ words $ cleanStringBlack isDigit $
+                              cleanStringBlack isPunctuation $ unwords $ take num r
+  where
+    gfRandom' :: Fugly -> Int -> IO [String]
+    gfRandom' (Fugly {pgf=p}) lim = do
+      r <- Random.newStdGen
+      let rr = generateRandomDepth r p (startCat p) (Just lim)
+      return (if null rr then [] else words $ linearize p (head $ languages p) (head rr))
 
 gfAll :: PGF -> Int -> String
 gfAll pgf num = unwords $ toUpperSentence $ endSentence $ take 15 $ words $ linearize pgf (head $ languages pgf) ((generateAllDepth pgf (startCat pgf) (Just 3))!!num)
@@ -632,9 +640,11 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
 sentence :: Fugly -> [String] -> [IO String]
 sentence _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
+  let sentenceLength = 75 :: Int
+  let sentenceTries = 200 :: Int
   let r = ["is", "are", "what", "when", "who", "where", "want", "am"]
   let s1a x = do
-      w <- s1b fugly 75 0 $ findNextWord fugly x 1
+      w <- s1b fugly sentenceLength 0 $ findNextWord fugly x 1
       putStrLn ("DEBUG > " ++ unwords w)
       return $ filter (\x -> length x > 0 && not (elem x ban)) w
   let s1d x = do
@@ -668,7 +678,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
   let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1f . s1d . s1a) (cycle msg))
   let s2 = map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
                                       return y else return []) s1
-  take 200 s2
+  take sentenceTries s2 ++ [gfRandom fugly 5 20]
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do
