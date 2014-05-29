@@ -48,8 +48,6 @@ import System.IO
 import System.IO.Error
 import System.IO.Unsafe
 
-import qualified Data.MarkovChain as Markov
-
 import qualified Language.Aspell as Aspell
 import qualified Language.Aspell.Options as Aspell.Options
 
@@ -631,14 +629,6 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
     lin' pgf lang t = "parse: " ++ showBracketedString (bracketedLinearize pgf lang t)
     lang = head $ languages pgf
 
--- markov1 :: Map.Map String Word -> [String] -> Int -> Int -> [String] -> [String]
--- markov1 dict markov num runs words
---     | length (markov ++ words) < 3 = take num $ Markov.run runs startWords 0 (Random.mkStdGen 17)
---     | otherwise = take num $ Markov.run runs (nub $ mix markov
---                             [x | x <- words, Map.member x dict]) 0 (Random.mkStdGen 17)
---   where
---     mix a b = if (length b) < 2 then a else concat [[b, a] | (a, b) <- zip a (cycle b)]
-
 sentence :: Fugly -> [String] -> [IO String]
 sentence _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
@@ -683,8 +673,6 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do
       ww <- msg
-      -- r <- gfRandom' f 5
-      -- if null ww then return r
       if null ww then return []
         else if i >= n then return $ nub ww else do
                www <- findNextWord f (fLast "sentence: s1b" [] ww) i
@@ -701,7 +689,6 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
   nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
   mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
   rr <- Random.getStdRandom (Random.randomR (0, lr - 1))
-  -- r <- gfRandom' fugly 5
   -- a <- asSuggest aspell word
   -- let la = length (words a)
   -- ar <- Random.getStdRandom (Random.randomR (0, la - 1))
@@ -711,7 +698,6 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
         2 -> if null related then neighmax!!mr else related!!rr
         _ -> "Doesn't happen!"
            -- else if la > 0 then (words a)!!ar else []
-           -- else unwords r
            else []
   return $ replace "i" "I" $ words ff
     where
