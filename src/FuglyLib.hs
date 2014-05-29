@@ -467,10 +467,6 @@ endSentence msg = (init msg) ++ ((fLast "endSentence" [] msg) ++ if elem (head m
   where
     r = ["is", "are", "what", "when", "who", "where", "want", "am"]
 
-fixWords :: Fugly -> [String] -> [String]
-fixWords f@(Fugly dict pgf wne aspell allow ban) msg = [x | x <- msg,
-            (Map.member x dict || elem x allow) && (not (elem x ban))]
-
 fHead a b [] = unsafePerformIO (do putStrLn ("fHead: error in " ++ a) ; return b)
 fHead a b c  = head c
 fLast a b [] = unsafePerformIO (do putStrLn ("fLast: error in " ++ a) ; return b)
@@ -645,13 +641,12 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
 
 sentence :: Fugly -> [String] -> [IO String]
 sentence _ [] = [return []] :: [IO String]
-sentence fugly@(Fugly dict pgf wne aspell _ _) msg = do
+sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
   let r = ["is", "are", "what", "when", "who", "where", "want", "am"]
   let s1a x = do
       w <- s1b fugly 75 0 $ findNextWord fugly x 1
       putStrLn ("DEBUG > " ++ unwords w)
-      -- return $ filter (\x -> length x > 0) (fixWords fugly w)
-      return $ filter (\x -> length x > 0) w
+      return $ filter (\x -> length x > 0 && not (elem x ban)) w
   let s1d x = do
       w <- x
       if null w then return []
