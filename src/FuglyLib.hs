@@ -605,7 +605,7 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
-  | length w > 10 = (gfParseBoolA pgf $ take 10 w) && (gfParseBool pgf (unwords $ drop 10 w))
+  | length w > 5  = (gfParseBoolA pgf $ take 5 w) && (gfParseBool pgf (unwords $ drop 5 w))
   | otherwise     = gfParseBoolA pgf w
     where
       w = words msg
@@ -640,8 +640,8 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
 sentence :: Fugly -> [String] -> [IO String]
 sentence _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
-  let sentenceLength = 75 :: Int
-  let sentenceTries = 200 :: Int
+  let sentenceLength = 200 :: Int
+  let sentenceTries  = 100 :: Int
   let r = ["is", "are", "what", "when", "who", "where", "want", "am"]
   let s1a x = do
       w <- s1b fugly sentenceLength 0 $ findNextWord fugly x 0
@@ -656,7 +656,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
       w <- x
       if null w then return []
         else return ((s1c w : [] ) ++ tail w)
-  let s1f x = do
+  {--let s1f x = do
       w <- x
       let l = length w
       if l > 14 then do
@@ -674,11 +674,12 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
                  p2 <- wnPartPOS wne (w!!5)
                  if (p1 == POS Noun || p1 == POS Verb) && p2 == POS Noun then
                     return ((take 5 w) ++ ["fnord, ", "and", "the"] ++ (drop 5 w)) else
-                    return w else return w
-  let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1f . s1d . s1a) (cycle msg))
+                    return w else return w--}
+  let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . {--s1f .--} s1d . s1a) (cycle msg))
   let s2 = map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
                                       return y else return []) s1
-  take sentenceTries s2 ++ [gfRandom fugly 5 20]
+  -- take sentenceTries s2 ++ [gfRandom fugly 5 20]
+  take sentenceTries s2
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do
