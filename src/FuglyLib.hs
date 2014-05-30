@@ -605,7 +605,7 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
-  | length w > 10  = (gfParseBoolA pgf $ take 10 w) && (gfParseBool pgf (unwords $ drop 10 w))
+  | length w > 10 = (gfParseBoolA pgf $ take 10 w) && (gfParseBool pgf (unwords $ drop 10 w))
   | otherwise     = gfParseBoolA pgf w
     where
       w = words msg
@@ -644,7 +644,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
   let sentenceTries = 200 :: Int
   let r = ["is", "are", "what", "when", "who", "where", "want", "am"]
   let s1a x = do
-      w <- s1b fugly sentenceLength 0 $ findNextWord fugly x 1
+      w <- s1b fugly sentenceLength 0 $ findNextWord fugly x 0
       putStrLn ("DEBUG > " ++ unwords w)
       return $ filter (\x -> length x > 0 && not (elem x ban)) w
   let s1d x = do
@@ -693,19 +693,21 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
 
 findNextWord :: Fugly -> String -> Int -> IO [String]
 findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
-  let ln = if isJust w then length neigh else 0
-  let lm = if isJust w then length neighmax else 0
-  let lr = if isJust w then length related else 0
+  let ln       = if isJust w then length neigh else 0
   nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
+  let ww       = if isJust w && (length neigh > 0) then Map.lookup (neigh!!nr) dict else Nothing
+  let related  = if isJust ww then map (strip '"') $ wordGetRelated (fromJust ww) else []
+  let lm       = if isJust w then length neighmax else 0
+  let lr       = if isJust ww then length related else 0
   mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
   rr <- Random.getStdRandom (Random.randomR (0, lr - 1))
   -- a <- asSuggest aspell word
   -- let la = length (words a)
   -- ar <- Random.getStdRandom (Random.randomR (0, la - 1))
   let ff = if isJust w && (length neigh > 0) then case mod i 3 of
-        0 -> neighmax!!mr
-        1 -> neigh!!nr
-        2 -> if null related then neighmax!!mr else related!!rr
+        0 -> neigh!!nr
+        1 -> neighmax!!mr
+        2 -> if isJust ww && (length related > 0) then related!!rr else neigh!!nr
         _ -> "Doesn't happen!"
            -- else if la > 0 then (words a)!!ar else []
            else []
@@ -714,7 +716,6 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
       w        = Map.lookup word dict
       neigh    = listNeigh $ wordGetAfter (fromJust w)
       neighmax = listNeighMax $ wordGetAfter (fromJust w)
-      related  = map (strip '"') $ wordGetRelated (fromJust w)
 
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup fugly@(Fugly _ _ wne aspell _ _) word pos = do
