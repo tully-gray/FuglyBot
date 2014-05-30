@@ -28,6 +28,7 @@ data Parameter = Nick | Owner | UserCommands | RejoinKick | MaxChanMsg
                  owner       :: String,
                  fuglydir    :: FilePath,
                  wndir       :: FilePath,
+                 gfdir       :: FilePath,
                  usercmd     :: Bool,
                  rejoinkick  :: Int,
                  maxchanmsg  :: Int,
@@ -96,10 +97,11 @@ start args = do
     let owner    = args !! 3
     let fuglydir = args !! 5 :: FilePath
     let wndir    = args !! 6 :: FilePath
+    let gfdir    = args !! 7 :: FilePath
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
-    fugly <- initFugly fuglydir wndir
-    let b = (Bot socket (Parameter nick owner fuglydir wndir False 10 400 False False []) fugly)
+    fugly <- initFugly fuglydir wndir gfdir
+    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 400 False False []) fugly)
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
@@ -152,9 +154,12 @@ cmdLine = do
     let wndirPos     = (maximum' $ elemIndices "-wndir" args) + 1
     let wndir        = if l > wndirPos then args !! wndirPos
                                             else "/usr/share/wordnet/dict/"
+    let gfdirPos     = (maximum' $ elemIndices "-gfdir" args) + 1
+    let gfdir        = if l > gfdirPos then args !! gfdirPos
+                                            else "/var/lib/fuglybot"
     let passwdPos    = (maximum' $ elemIndices "-passwd" args) + 1
     let passwd       = if l > passwdPos then args !! passwdPos else ""
-    return (server : port : nick : owner : channel : fuglydir : wndir : passwd : [])
+    return (server : port : nick : owner : channel : fuglydir : wndir : gfdir : passwd : [])
   where
     maximum' [] = 1000
     maximum' a  = maximum a
@@ -325,7 +330,7 @@ execCmd bot chan nick (x:xs) = do
     lift $ execCmd' bot
   where
     execCmd' :: Bot -> IO Bot
-    execCmd' bot@(Bot socket params@(Parameter botnick owner fuglydir _
+    execCmd' bot@(Bot socket params@(Parameter botnick owner fuglydir _ _
                                      usercmd rejoinkick maxchanmsg
                                      learning allowpm topic)
                   fugly@(Fugly dict pgf wne aspell allow ban))

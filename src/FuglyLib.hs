@@ -97,11 +97,11 @@ data Word = Word {
               related :: [String]
               }
 
-initFugly :: FilePath -> FilePath -> IO Fugly
-initFugly fuglydir wndir = do
+initFugly :: FilePath -> FilePath -> FilePath -> IO Fugly
+initFugly fuglydir wndir gfdir = do
     (dict, allow, ban) <- catchIOError (loadDict fuglydir)
                           (const $ return (Map.empty, [], []))
-    pgf <- readPGF "/home/lonewolf/src/Haskell/FuglyBot/gf/ParseEng.pgf"
+    pgf <- readPGF (gfdir ++ "/ParseEng.pgf")
     wne <- NLP.WordNet.initializeWordNetWithOptions
            (return wndir :: Maybe FilePath)
            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
