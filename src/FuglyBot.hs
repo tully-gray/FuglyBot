@@ -98,10 +98,11 @@ start args = do
     let fuglydir = args !! 5 :: FilePath
     let wndir    = args !! 6 :: FilePath
     let gfdir    = args !! 7 :: FilePath
+    let topic    = "default"
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
-    fugly <- initFugly fuglydir wndir gfdir
-    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 400 False False []) fugly)
+    fugly <- initFugly fuglydir wndir gfdir topic
+    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 400 False False topic) fugly)
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
@@ -206,7 +207,7 @@ joinChannel h a (x:xs) = do
         else return ()
 
 changeParam :: Bot -> String -> String -> String -> String -> IO Bot
-changeParam bot@(Bot _ p _) chan nick param value = do
+changeParam bot@(Bot _ p@(Parameter {fuglydir=fd, topic=t}) f) chan nick param value = do
     case (readParam param) of
       Nick         -> do nb <- newMVar bot ; evalStateT (changeNick (value : "" : []) []) nb
       Owner        -> replyMsg' "Owner"               >> return bot{params=p{owner=value}}
@@ -215,7 +216,9 @@ changeParam bot@(Bot _ p _) chan nick param value = do
       MaxChanMsg   -> replyMsg' "Max channel message" >> return bot{params=p{maxchanmsg=read value}}
       Learning     -> replyMsg' "Learning"            >> return bot{params=p{learning=readBool value}}
       AllowPM      -> replyMsg' "Allow PM"            >> return bot{params=p{allowpm=readBool value}}
-      Topic        -> replyMsg' "Topic"               >> return bot{params=p{topic=value}}
+      Topic        -> do (d, a, b) <- catchIOError (loadDict fd value) (const $ return (Map.empty, [], []))
+                         saveDict f fd t >> replyMsg' "Topic"
+                         return bot{params=p{topic=value},fugly=f{dict=d,allow=a,ban=b}}
       _            -> return bot
   where
     replyMsg' msg = replyMsg bot chan nick (msg ++ " set to " ++ show value ++ ".")
@@ -338,17 +341,17 @@ execCmd bot chan nick (x:xs) = do
       | usercmd == False && nick /= owner = return bot
       | x == "!quit" =
         if nick == owner then case (length xs) of
-          0 -> do stopFugly fuglydir fugly >>
+          0 -> do stopFugly fuglydir fugly topic >>
                     write socket "QUIT" ":Bye" >> return bot
-          _ -> do stopFugly fuglydir fugly >>
+          _ -> do stopFugly fuglydir fugly topic >>
                     write socket "QUIT" (":" ++ unwords xs) >> return bot
           -- 0 -> do write socket "QUIT" ":Bye" >> return bot
           -- _ -> do write socket "QUIT" (":" ++ unwords xs) >> return bot
         else return bot
-      | x == "!save" = if nick == owner then catchIOError (saveDict fugly fuglydir)
+      | x == "!save" = if nick == owner then catchIOError (saveDict fugly fuglydir topic)
                                        (const $ return ()) >> return bot else return bot
       | x == "!load" = if nick == owner then do
-           (nd, na, nb) <- catchIOError (loadDict fuglydir) (const $ return (dict, [], []))
+           (nd, na, nb) <- catchIOError (loadDict fuglydir topic) (const $ return (dict, [], []))
            return (Bot socket params (Fugly nd pgf wne aspell na nb))
                        else return bot
       | x == "!join" = if nick == owner then joinChannel socket "JOIN" xs >>

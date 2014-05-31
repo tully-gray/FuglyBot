@@ -97,9 +97,9 @@ data Word = Word {
               related :: [String]
               }
 
-initFugly :: FilePath -> FilePath -> FilePath -> IO Fugly
-initFugly fuglydir wndir gfdir = do
-    (dict, allow, ban) <- catchIOError (loadDict fuglydir)
+initFugly :: FilePath -> FilePath -> FilePath -> String -> IO Fugly
+initFugly fuglydir wndir gfdir topic = do
+    (dict, allow, ban) <- catchIOError (loadDict fuglydir topic)
                           (const $ return (Map.empty, [], []))
     pgf <- readPGF (gfdir ++ "/ParseEng.pgf")
     wne <- NLP.WordNet.initializeWordNetWithOptions
@@ -110,17 +110,17 @@ initFugly fuglydir wndir gfdir = do
     let aspell = head $ rights [a]
     return (Fugly dict pgf wne aspell allow ban)
 
-stopFugly :: FilePath -> Fugly -> IO ()
-stopFugly fuglydir fugly@(Fugly _ _ wne _ _ _) = do
-    catchIOError (saveDict fugly fuglydir) (const $ return ())
+stopFugly :: FilePath -> Fugly -> String -> IO ()
+stopFugly fuglydir fugly@(Fugly _ _ wne _ _ _) topic = do
+    catchIOError (saveDict fugly fuglydir topic) (const $ return ())
     closeWordNet wne
 
-saveDict :: Fugly -> FilePath -> IO ()
-saveDict fugly@(Fugly dict _ _ _ allow ban) fuglydir = do
+saveDict :: Fugly -> FilePath -> String -> IO ()
+saveDict fugly@(Fugly dict _ _ _ allow ban) fuglydir topic = do
     let d = Map.toList dict
     if null d then putStrLn "Empty dict!"
       else do
-        h <- openFile (fuglydir ++ "/dict.txt") WriteMode
+        h <- openFile (fuglydir ++ "/" ++ topic ++ "-dict.txt") WriteMode
         hSetBuffering h LineBuffering
         putStrLn "Saving dict file..."
         saveDict' h d
@@ -153,10 +153,10 @@ saveDict fugly@(Fugly dict _ _ _ allow ban) fuglydir = do
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("end: \n")]
 
-loadDict :: FilePath -> IO (Map.Map String Word, [String], [String])
-loadDict fuglydir = do
+loadDict :: FilePath -> String -> IO (Map.Map String Word, [String], [String])
+loadDict fuglydir topic = do
     let w = (Word [] 0 Map.empty Map.empty [] UnknownEPos)
-    h <- openFile (fuglydir ++ "/dict.txt") ReadMode
+    h <- openFile (fuglydir ++ "/" ++ topic ++ "-dict.txt") ReadMode
     eof <- hIsEOF h
     if eof then
       return (Map.empty, [], [])
