@@ -205,19 +205,20 @@ joinChannel h a (x:xs) = do
       joinChannel h a xs
         else return ()
 
-changeParam :: Bot -> String -> String -> IO Bot
-changeParam bot@(Bot _ p _) param value = do
+changeParam :: Bot -> String -> String -> String -> String -> IO Bot
+changeParam bot@(Bot _ p _) chan nick param value = do
     case (readParam param) of
       Nick         -> do nb <- newMVar bot ; evalStateT (changeNick (value : "" : []) []) nb
-      Owner        -> return bot{params=p{owner=value}}
-      UserCommands -> return bot{params=p{usercmd=readBool value}}
-      RejoinKick   -> return bot{params=p{rejoinkick=read value}}
-      MaxChanMsg   -> return bot{params=p{maxchanmsg=read value}}
-      Learning     -> return bot{params=p{learning=readBool value}}
-      AllowPM      -> return bot{params=p{allowpm=readBool value}}
-      Topic        -> return bot{params=p{topic=value}}
+      Owner        -> replyMsg' "Owner"               >> return bot{params=p{owner=value}}
+      UserCommands -> replyMsg' "User commands"       >> return bot{params=p{usercmd=readBool value}}
+      RejoinKick   -> replyMsg' "Rejoin kick time"    >> return bot{params=p{rejoinkick=read value}}
+      MaxChanMsg   -> replyMsg' "Max channel message" >> return bot{params=p{maxchanmsg=read value}}
+      Learning     -> replyMsg' "Learning"            >> return bot{params=p{learning=readBool value}}
+      AllowPM      -> replyMsg' "Allow PM"            >> return bot{params=p{allowpm=readBool value}}
+      Topic        -> replyMsg' "Topic"               >> return bot{params=p{topic=value}}
       _            -> return bot
   where
+    replyMsg' msg = replyMsg bot chan nick (msg ++ " set to " ++ show value ++ ".")
     readBool a
       | (map toLower a) == "true"    = True
       | (map toLower a) == "yes"     = True
@@ -370,7 +371,7 @@ execCmd bot chan nick (x:xs) = do
           else return bot
       | x == "!setparam" =
             if nick == owner then case (length xs) of
-              2 -> changeParam bot (xs!!0) (xs!!1)
+              2 -> changeParam bot chan nick (xs!!0) (xs!!1)
               _ -> replyMsg bot chan nick "Usage: !setparam <parameter> <value>" >> return bot
             else return bot
       | x == "!params" =
