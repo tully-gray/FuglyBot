@@ -708,7 +708,8 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
   let ff = if isJust w && (length neigh > 0) then case mod i 3 of
         0 -> neigh!!nr
         1 -> neighmax!!mr
-        2 -> if isJust ww && (length related > 0) then related!!rr else neigh!!nr
+        -- 2 -> if isJust ww && (length related > 0) then related!!rr else neigh!!nr
+        2 -> neigh!!nr
         _ -> "Doesn't happen!"
            -- else if la > 0 then (words a)!!ar else []
            else []
