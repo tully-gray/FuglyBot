@@ -24,6 +24,7 @@ module FuglyLib
          -- gfRandom,
          gfParseBool,
          gfParseC,
+         gfCategories,
          -- gfTranslate,
          sentence,
          joinWords,
@@ -640,6 +641,9 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
     lin pgf lang _                    = ["No parse!"]
     lin' pgf lang t = "parse: " ++ showBracketedString (bracketedLinearize pgf lang t)
     lang = head $ languages pgf
+
+gfCategories :: PGF -> [String]
+gfCategories pgf = map showCId (categories pgf)
 
 sentence :: Fugly -> [String] -> [IO String]
 sentence _ [] = [return []] :: [IO String]
