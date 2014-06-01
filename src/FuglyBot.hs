@@ -496,8 +496,8 @@ execCmd bot chan nick (x:xs) = do
             _ -> (sequence $ map (replyMsg bot chan nick) $ take 3
                   (gfParseC pgf (unwords $ take 12 xs))) >> return bot
       | x == "!gfcats" = case (length xs) of
-            1 -> return (unwords $ gfCategories pgf) >>= replyMsg bot chan nick >> return bot
-            _ -> replyMsg bot chan nick "Usage: !gfcats <word>" >> return bot
+            0 -> return (unwords $ gfCategories pgf) >>= replyMsg bot chan nick >> return bot
+            _ -> replyMsg bot chan nick "Usage: !gfcats" >> return bot
       -- | x == "!random" = case (length xs) of
       --       1 -> replyMsg bot chan nick (gfAll pgf (read (xs!!0))) >> return bot
       --       _ -> replyMsg bot chan nick "Usage: !random <number>" >> return bot
