@@ -247,22 +247,11 @@ insertWord fugly@(Fugly dict pgf wne aspell allow ban) [] _ _ _ = return dict
 insertWord fugly@(Fugly dict pgf wne aspell allow ban) word before after pos =
     if elem word ban || elem before ban || elem after ban then return dict
     else if isJust w then f $ fromJust w
-         else insertWordRaw' fugly w ww bb aa pos
+         else insertWordRaw' fugly w word before after pos
   where
     w = Map.lookup word dict
-    a = Map.lookup after dict
-    b = Map.lookup before dict
-    f (Word {})  = insertWordRaw' fugly w ww bi ai pos
-    f (Name {})  = insertName'    fugly w word bi ai
-    an (Word {}) = aa
-    an (Name {}) = after
-    bn (Word {}) = bb
-    bn (Name {}) = before
-    ai = if isJust a then an $ fromJust a else aa
-    bi = if isJust b then bn $ fromJust b else bb
-    aa = map toLower $ cleanStringWhite isAlpha after
-    bb = map toLower $ cleanStringWhite isAlpha before
-    ww = if isJust w then word else map toLower $ cleanStringWhite isAlpha word
+    f (Word {})  = insertWordRaw' fugly w word before after pos
+    f (Name {})  = insertName'    fugly w word before after
 
 insertWordRaw f@(Fugly {dict=d}) w b a p = insertWordRaw' f (Map.lookup w d) w b a p
 insertWordRaw' :: Fugly -> Maybe Word -> String -> String
@@ -654,7 +643,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
   let s1a x = do
       w <- s1b fugly sentenceLength 0 $ findNextWord fugly x 0
       putStrLn ("DEBUG > " ++ unwords w)
-      return $ filter (\x -> length x > 0 && not (elem x ban)) w
+      return ([x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
   let s1d x = do
       w <- x
       if null w then return []
