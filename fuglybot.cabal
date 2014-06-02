@@ -13,7 +13,7 @@ Cabal-version:   >= 1.8
 Library
     Build-depends:   base == 4.*, array, binary, bytestring, containers, filepath, gf, haspell, pretty, random, transformers
     Hs-source-dirs:  src
-    Exposed-Modules: FuglyLib, Data.MarkovChain, NLP.WordNet
+    Exposed-Modules: FuglyLib, NLP.WordNet
     Other-Modules:
         NLP.WordNet.Common
         NLP.WordNet.PrimTypes
