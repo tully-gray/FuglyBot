@@ -285,7 +285,7 @@ processLine line = do
     let rejoinkick = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
     let bk = beenKicked nick line
     {-- Kill long lived threads --}
-    lift $ forkIO (do threadDelay 60000000 ; killThread t) >> return ()
+    lift $ forkIO (do threadDelay 120000000 ; killThread t) >> return ()
     if (not $ null bk) then do lift (rejoinChannel socket bk rejoinkick)
       else if null msg then return ()
          else if chan == nick then do nb <- prvcmd bot ; _ <- lift $ swapMVar b nb ; return ()
