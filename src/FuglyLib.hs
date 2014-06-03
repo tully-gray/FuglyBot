@@ -637,7 +637,7 @@ gfCategories pgf = map showCId (categories pgf)
 sentence :: Fugly -> [String] -> [IO String]
 sentence _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
-  let sentenceLength = 500 :: Int
+  let sentenceLength = 200 :: Int
   let sentenceTries  = 500 :: Int
   let r = ["is", "are", "what", "when", "who", "where", "want", "am"]
   let s1a x = do
