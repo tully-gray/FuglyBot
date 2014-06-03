@@ -692,23 +692,14 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
 findNextWord :: Fugly -> String -> Int -> IO [String]
 findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
   let ln       = if isJust w then length neigh else 0
-  nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
-  let ww       = if isJust w && (length neigh > 0) then Map.lookup (neigh!!nr) dict else Nothing
-  let related  = if isJust ww then map (strip '"') $ wordGetRelated (fromJust ww) else []
   let lm       = if isJust w then length neighmax else 0
-  let lr       = if isJust ww then length related else 0
+  nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
   mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
-  rr <- Random.getStdRandom (Random.randomR (0, lr - 1))
-  -- a <- asSuggest aspell word
-  -- let la = length (words a)
-  -- ar <- Random.getStdRandom (Random.randomR (0, la - 1))
   let ff = if isJust w && (length neigh > 0) then case mod i 3 of
         0 -> neigh!!nr
         1 -> neighmax!!mr
-        -- 2 -> if isJust ww && (length related > 0) then related!!rr else neigh!!nr
         2 -> neigh!!nr
         _ -> "Doesn't happen!"
-           -- else if la > 0 then (words a)!!ar else []
            else []
   return $ replace "i" "I" $ words ff
     where
