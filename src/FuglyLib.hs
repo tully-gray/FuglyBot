@@ -634,14 +634,12 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
 gfCategories :: PGF -> [String]
 gfCategories pgf = map showCId (categories pgf)
 
-sentence :: Fugly -> [String] -> [IO String]
-sentence _ [] = [return []] :: [IO String]
-sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
-  let sentenceLength = 200 :: Int
-  let sentenceTries  = 500 :: Int
+sentence :: Fugly -> Int -> Int -> [String] -> [IO String]
+sentence _ _ _ [] = [return []] :: [IO String]
+sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen msg = do
   let r = ["is", "are", "what", "when", "who", "where", "want", "am"]
   let s1a x = do
-      w <- s1b fugly sentenceLength 0 $ findNextWord fugly x 0
+      w <- s1b fugly slen 0 $ findNextWord fugly x 0
       putStrLn ("DEBUG > " ++ unwords w)
       return ([x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
   let s1d x = do
@@ -675,8 +673,8 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) msg = do
   let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . {--s1f .--} s1d . s1a) (cycle msg))
   let s2 = map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
                                       return y else return []) s1
-  -- take sentenceTries s2 ++ [gfRandom fugly 5 20]
-  take sentenceTries s2
+  -- take stries s2 ++ [gfRandom fugly 5 20]
+  take stries s2
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do

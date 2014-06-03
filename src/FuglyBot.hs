@@ -21,8 +21,8 @@ data Bot = Bot {
     fugly :: Fugly
     }
 
-data Parameter = Nick | Owner | UserCommands | RejoinKick | MaxChanMsg
-               | Learning | AllowPM | Topic | UnknownParam
+data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
+               | STries | SLength | Learning | AllowPM | Topic | UnknownParam
                | Parameter {
                  nick        :: String,
                  owner       :: String,
@@ -31,7 +31,10 @@ data Parameter = Nick | Owner | UserCommands | RejoinKick | MaxChanMsg
                  gfdir       :: FilePath,
                  usercmd     :: Bool,
                  rejoinkick  :: Int,
+                 threadtime  :: Int,
                  maxchanmsg  :: Int,
+                 stries      :: Int,
+                 slength     :: Int,
                  learning    :: Bool,
                  allowpm     :: Bool,
                  topic       :: String
@@ -46,22 +49,28 @@ instance Enum Parameter where
     toEnum 2 = Owner
     toEnum 3 = UserCommands
     toEnum 4 = RejoinKick
-    toEnum 5 = MaxChanMsg
-    toEnum 6 = Learning
-    toEnum 7 = AllowPM
-    toEnum 8 = Topic
-    toEnum 9 = UnknownParam
-    toEnum _ = UnknownParam
+    toEnum 5 = ThreadTime
+    toEnum 6 = MaxChanMsg
+    toEnum 7 = STries
+    toEnum 8 = SLength
+    toEnum 9 = Learning
+    toEnum 10 = AllowPM
+    toEnum 11 = Topic
+    toEnum 12 = UnknownParam
+    toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
     fromEnum UserCommands   = 3
     fromEnum RejoinKick     = 4
-    fromEnum MaxChanMsg     = 5
-    fromEnum Learning       = 6
-    fromEnum AllowPM        = 7
-    fromEnum Topic          = 8
-    fromEnum UnknownParam   = 9
-    fromEnum _              = 9
+    fromEnum ThreadTime     = 5
+    fromEnum MaxChanMsg     = 6
+    fromEnum STries         = 7
+    fromEnum SLength        = 8
+    fromEnum Learning       = 9
+    fromEnum AllowPM        = 10
+    fromEnum Topic          = 11
+    fromEnum UnknownParam   = 12
+    fromEnum _              = 12
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -71,7 +80,10 @@ readParam a | (map toLower a) == "owner"           = Owner
 readParam a | (map toLower a) == "usercmd"         = UserCommands
 readParam a | (map toLower a) == "usercommands"    = UserCommands
 readParam a | (map toLower a) == "rejoinkick"      = RejoinKick
+readParam a | (map toLower a) == "threadtime"      = ThreadTime
 readParam a | (map toLower a) == "maxchanmsg"      = MaxChanMsg
+readParam a | (map toLower a) == "stries"          = STries
+readParam a | (map toLower a) == "slength"         = SLength
 readParam a | (map toLower a) == "learning"        = Learning
 readParam a | (map toLower a) == "allowpm"         = AllowPM
 readParam a | (map toLower a) == "topic"           = Topic
@@ -102,7 +114,7 @@ start args = do
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir gfdir topic
-    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 400 False False topic) fugly)
+    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 20 400 100 100 False False topic) fugly)
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
@@ -213,7 +225,10 @@ changeParam bot@(Bot _ p@(Parameter {fuglydir=fd, topic=t}) f) chan nick param v
       Owner        -> replyMsg' "Owner"               >> return bot{params=p{owner=value}}
       UserCommands -> replyMsg' "User commands"       >> return bot{params=p{usercmd=readBool value}}
       RejoinKick   -> replyMsg' "Rejoin kick time"    >> return bot{params=p{rejoinkick=read value}}
+      ThreadTime   -> replyMsg' "Thread time"         >> return bot{params=p{threadtime=read value}}
       MaxChanMsg   -> replyMsg' "Max channel message" >> return bot{params=p{maxchanmsg=read value}}
+      STries       -> replyMsg' "Sentence tries"      >> return bot{params=p{stries=read value}}
+      SLength      -> replyMsg' "Sentence length"     >> return bot{params=p{slength=read value}}
       Learning     -> replyMsg' "Learning"            >> return bot{params=p{learning=readBool value}}
       AllowPM      -> replyMsg' "Allow PM"            >> return bot{params=p{allowpm=readBool value}}
       Topic        -> do (d, a, b) <- catchIOError (loadDict fd value) (const $ return (Map.empty, [], []))
@@ -283,9 +298,10 @@ processLine line = do
     let socket = (\(Bot s _ _) -> s) bot
     let nick = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
     let rejoinkick = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
+    let ttime = (\(Bot _ (Parameter {threadtime = t}) _) -> t * 1000000) bot
     let bk = beenKicked nick line
     {-- Kill long lived threads --}
-    lift $ forkIO (do threadDelay 120000000 ; killThread t) >> return ()
+    lift $ forkIO (do threadDelay ttime ; killThread t) >> return ()
     if (not $ null bk) then do lift (rejoinChannel socket bk rejoinkick)
       else if null msg then return ()
          else if chan == nick then do nb <- prvcmd bot ; _ <- lift $ swapMVar b nb ; return ()
@@ -313,13 +329,15 @@ reply bot@(Bot socket params fugly@(Fugly _ pgf _ _ _ _)) chan nick msg = do
     let apm   = (\(Parameter {allowpm = a}) -> a) params
     let learn = (\(Parameter {learning = l}) -> l) params
     let parse = gfParseBool pgf $ unwords msg
-    _ <- if null chan then if apm then lift $ sentencePriv socket fugly nick msg
+    let stries = (\(Parameter {stries = s}) -> s) params
+    let slen = (\(Parameter {slength = s}) -> s) params
+    _ <- if null chan then if apm then lift $ sentencePriv socket fugly nick stries slen msg
                            else return ()
          else if null nick then if {--parse &&--} length msg > 3 && (unwords msg) =~ bnick then
                                    {--(elem True $ map (elem bnick) $ map subsequences msg) then--}
-                                  lift $ sentenceReply socket fugly chan chan msg
+                                  lift $ sentenceReply socket fugly chan chan stries slen msg
                                 else return ()
-           else lift $ sentenceReply socket fugly chan nick msg
+           else lift $ sentenceReply socket fugly chan nick stries slen msg
     if (learn && parse) || nick == owner then do
       nd <- lift $ insertWords fugly msg
       lift $ putStrLn ">parse<"
@@ -335,8 +353,8 @@ execCmd bot chan nick (x:xs) = do
   where
     execCmd' :: Bot -> IO Bot
     execCmd' bot@(Bot socket params@(Parameter botnick owner fuglydir _ _
-                                     usercmd rejoinkick maxchanmsg
-                                     learning allowpm topic)
+                                     usercmd rejoinkick threadtime maxchanmsg
+                                     stries slen learning allowpm topic)
                   fugly@(Fugly dict pgf wne aspell allow ban))
       | usercmd == False && nick /= owner = return bot
       | x == "!quit" =
@@ -367,8 +385,9 @@ execCmd bot chan nick (x:xs) = do
           if nick == owner then case (length xs) of
             0 -> replyMsg bot chan nick ("nick: " ++ botnick ++ "  owner: " ++ owner ++
                    "  usercommands: " ++ show usercmd ++ "  rejoinkick: "
-                   ++ show rejoinkick ++ "  maxchanmsg: " ++ show maxchanmsg
-                   ++ "  learning: " ++ show learning ++ "  allowpm: " ++ show allowpm
+                   ++ show rejoinkick ++ "  threadtime: " ++ show threadtime ++ "  maxchanmsg: " ++ show maxchanmsg
+                   ++ "  sentencetries: " ++ show stries ++ "  sentencelength: " ++ show slen ++ "  learning: " ++ show learning
+                   ++ "  allowpm: " ++ show allowpm
                    ++ "  topic: " ++ topic) >> return bot
             _ -> replyMsg bot chan nick "Usage: !showparams" >> return bot
           else return bot
@@ -469,7 +488,7 @@ execCmd bot chan nick (x:xs) = do
             _ -> replyMsg bot chan nick "Usage: !insertname <name>" >> return bot
                            else return bot
       | x == "!talk" = if nick == owner then
-          if (length xs) > 2 then sentenceReply socket fugly (xs!!0) (xs!!1) (drop 2 xs)
+          if (length xs) > 2 then sentenceReply socket fugly (xs!!0) (xs!!1) stries slen (drop 2 xs)
                                   >> return bot
           else replyMsg bot chan nick "Usage: !talk <channel> <nick> <msg>" >> return bot
                      else return bot
@@ -522,8 +541,8 @@ execCmd bot chan nick (x:xs) = do
 --      else
 --      chanMsg bot chan msg
 
-sentenceReply :: Handle -> Fugly -> String -> String -> [String] -> IO ()
-sentenceReply h f chan nick m = p h (sentence f m)
+sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> [String] -> IO ()
+sentenceReply h f chan nick stries slen m = p h (sentence f stries slen m)
   where
     p _ []     = return ()
     p h (x:xs) = do
@@ -538,8 +557,8 @@ sentenceReply h f chan nick m = p h (sentence f m)
                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": "
                                                 ++ ww) ++ "\n")
 
-sentencePriv :: Handle -> Fugly -> String -> [String] -> IO ()
-sentencePriv h f nick m = p h (sentence f m)
+sentencePriv :: Handle -> Fugly -> String -> Int -> Int -> [String] -> IO ()
+sentencePriv h f nick stries slen m = p h (sentence f stries slen m)
   where
     p _ []     = return ()
     p h (x:xs) = do
