@@ -651,29 +651,9 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen msg = do
       w <- x
       if null w then return []
         else return ((s1c w : [] ) ++ tail w)
-  {--let s1f x = do
-      w <- x
-      let l = length w
-      if l > 14 then do
-         p1 <- wnPartPOS wne (w!!12)
-         p2 <- wnPartPOS wne (w!!13)
-         if p1 /= UnknownEPos && p2 /= UnknownEPos then
-            return ((take 13 w) ++ ["fnord.  ", "The"] ++ (drop 13 w))
-           else return w else if l > 10 then do
-             p1 <- wnPartPOS wne (w!!8)
-             p2 <- wnPartPOS wne (w!!9)
-             if p1 /= UnknownEPos && p2 /= UnknownEPos then
-                return ((take 9 w) ++ ["fnord, ", "the"] ++ (drop 9 w))
-               else return w else if l > 6 then do
-                 p1 <- wnPartPOS wne (w!!4)
-                 p2 <- wnPartPOS wne (w!!5)
-                 if (p1 == POS Noun || p1 == POS Verb) && p2 == POS Noun then
-                    return ((take 5 w) ++ ["fnord, ", "and", "the"] ++ (drop 5 w)) else
-                    return w else return w--}
-  let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . {--s1f .--} s1d . s1a) (cycle msg))
+  let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
   let s2 = map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
                                       return y else return []) s1
-  -- take stries s2 ++ [gfRandom fugly 5 20]
   take stries s2
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
@@ -695,8 +675,8 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
   mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
   let ff = if isJust w && (length neigh > 0) then case mod i 3 of
         0 -> neigh!!nr
-        1 -> neighmax!!mr
-        2 -> neigh!!nr
+        1 -> neigh!!nr
+        2 -> neighmax!!mr
         _ -> "Doesn't happen!"
            else []
   return $ replace "i" "I" $ words ff
