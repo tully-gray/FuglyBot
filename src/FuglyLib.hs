@@ -392,7 +392,7 @@ listWordsCountSort2 m num = concat [[w, show c, ";"] | (c, w) <- take num $ reve
 
 listNamesCountSort2 :: Map.Map String Word -> Int -> [String]
 listNamesCountSort2 m num = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
-                            sort $ map wordGetwc $ filter (\x -> wordIs x == "name")  $ Map.elems m]
+                            sort $ map wordGetwc $ filter (\x -> wordIs x == "name") $ Map.elems m]
 
 listWordFull :: Map.Map String Word -> String -> String
 listWordFull m word =
