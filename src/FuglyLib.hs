@@ -460,7 +460,7 @@ endSentence :: [String] -> [String]
 endSentence []  = []
 endSentence msg = (init msg) ++ ((fLast "endSentence" [] msg) ++ if elem (head msg) r then "?" else ".") : []
   where
-    r = ["is", "are", "what", "when", "who", "where", "want", "am"]
+    r = ["if", "is", "are", "what", "when", "who", "where", "want", "am"]
 
 fHead a b [] = unsafePerformIO (do putStrLn ("fHead: error in " ++ a) ; return b)
 fHead a b c  = head c
@@ -637,7 +637,7 @@ gfCategories pgf = map showCId (categories pgf)
 sentence :: Fugly -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen msg = do
-  let r = ["is", "are", "what", "when", "who", "where", "want", "am"]
+  let r = ["if", "is", "are", "what", "when", "who", "where", "want", "am"]
   let s1a x = do
       w <- s1b fugly slen 0 $ findNextWord fugly x 0
       putStrLn ("DEBUG > " ++ unwords w)
