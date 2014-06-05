@@ -42,7 +42,7 @@ import qualified Data.ByteString.Char8 as ByteString
 import Data.Char
 import Data.Either
 import Data.List
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Data.Tree (flatten)
 import qualified System.Random as Random
