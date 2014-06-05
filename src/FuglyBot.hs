@@ -114,7 +114,7 @@ start args = do
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir gfdir topic
-    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 20 400 100 100 False False topic) fugly)
+    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 90 400 100 100 False False topic) fugly)
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
@@ -128,7 +128,7 @@ run args = do
     let channel = args !! 4
     let passwd  = args !! 7
     lift (forkIO (do
-                     threadDelay 40000000
+                     threadDelay 20000000
                      if not $ null passwd then privMsg bot "nickserv" ("IDENTIFY " ++ passwd) else return ()
                      joinChannel s "JOIN" [channel]
                      forever (do write s "PING" ":foo" ; threadDelay 20000000))) >> return ()
