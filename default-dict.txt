@@ -1,0 +1,2927 @@
+word: Friday
+ count: 2
+ before: this 1
+ after: we 1
+ related: 
+ pos: Noun
+ end: 
+word: I
+ count: 31
+ before: as 5 bro 6 if 3 serious 1 sometimes 1 that 3 then 1 thing 1
+ after: am 1 can 1 don't 11 frown 3 had 2 personally 1 said 5 went 3 would 2
+ related: 
+ pos: Noun
+ end: 
+word: I'll
+ count: 12
+ before: and 8 maybe 3
+ after: do 5 on 1 roll 1 say 3 think 1
+ related: 
+ pos: Noun
+ end: 
+word: I'm
+ count: 15
+ before: if 2 so 4 then 3 when 1
+ after: asking 3 being 1 going 3 learning 1 serious 1 sure 3 thinking 1 trying 1
+ related: 
+ pos: Noun
+ end: 
+word: I've
+ count: 7
+ before: however 3 man 2
+ after: got 6
+ related: 
+ pos: Noun
+ end: 
+name: Jones
+ count: 3
+ before: and 1 called 1
+ after: who 2
+ related: 
+ end: 
+word: Monday
+ count: 2
+ before: on 1
+ after: we 1
+ related: 
+ pos: Noun
+ end: 
+word: Saturday
+ count: 2
+ before: on 1
+ after: there 1
+ related: 
+ pos: Noun
+ end: 
+name: Smith
+ count: 6
+ before: called 1 named 3
+ after: and 1 does 2 who 2
+ related: 
+ end: 
+word: Sunday
+ count: 2
+ before: last 1
+ after: we 1
+ related: 
+ pos: Noun
+ end: 
+word: Thursday
+ count: 2
+ before: last 1
+ after: at 1
+ related: 
+ pos: Noun
+ end: 
+word: Tuesday
+ count: 2
+ before: on 1
+ after: they 1
+ related: 
+ pos: Noun
+ end: 
+word: Wednesday
+ count: 2
+ before: last 1
+ after: there 1
+ related: 
+ pos: Noun
+ end: 
+word: a
+ count: 30
+ before: got 1 in 3 into 1 is 4 of 2 on 1 such 1 than 1 that 1 through 2 thus 1 to 2 wherein 1 why 4 with 3
+ after: few 1 friend 1 man 1 more 1 much 6 particular 1 person's 2 pink 3 question 1 reliable 2 rogue 4 sentence 1 set 1 small 3 true 1 wrong 1
+ related: "metric linear unit" "fat-soluble vitamin" "nucleotide" "base" "purine" "current unit" "letter" "letter of the alphabet" "alphabetic character" "blood group" "blood type"
+ pos: Noun
+ end: 
+word: abandon
+ count: 3
+ before: just 3
+ after: all 3
+ related: "discard" "fling" "toss" "toss out" "toss away" "chuck out" "cast aside" "dispose" "throw out" "cast out" "throw away" "cast away" "put away"  "leave" "go forth" "go away"  "leave"
+ pos: Verb
+ end: 
+word: able
+ count: 1
+ before: was 1
+ after: to 1
+ related: 
+ pos: Adj
+ end: 
+word: about
+ count: 28
+ before: all 1 done 7 know 1 more 1 people 3 something 1 talking 1 think 10 thinking 2 you 1
+ after: doing 6 going 1 it 7 something 1 stuff 3 that 1 the 4 truth 1 what 1 you 1
+ related: 
+ pos: Adv
+ end: 
+word: acquired
+ count: 1
+ before: belief 1
+ after: through 1
+ related: 
+ pos: Adj
+ end: 
+word: actual
+ count: 1
+ before: the 1
+ after: knowledge 1
+ related: 
+ pos: Adj
+ end: 
+word: adult
+ count: 1
+ before: that 1
+ after: male 1
+ related: "person" "individual" "someone" "somebody" "mortal" "soul" "animal" "animate being" "beast" "brute" "creature" "fauna"
+ pos: Noun
+ end: 
+word: advocates
+ count: 3
+ before: 
+ after: of 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: afraid
+ count: 1
+ before: 
+ after: that 1
+ related: 
+ pos: Adj
+ end: 
+word: all
+ count: 11
+ before: abandon 3 at 2 really 3 sniff 1 why 2
+ after: about 1 hope 5 of 1 things 1
+ related: 
+ pos: Adj
+ end: 
+word: also
+ count: 2
+ before: 
+ after: why 2
+ related: 
+ pos: Adv
+ end: 
+word: am
+ count: 1
+ before: I 1
+ after: just 1
+ related: "metallic element" "metal" "master's degree" "modulation"
+ pos: Noun
+ end: 
+word: amount
+ count: 1
+ before: small 1
+ after: of 1
+ related: "assets" "magnitude" "abstraction" "abstract entity" "quantity"
+ pos: Noun
+ end: 
+word: amounts
+ count: 1
+ before: large 1
+ after: of 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: an
+ count: 4
+ before: from 3 me 1
+ after: exact 1 internal 3
+ related: "associate degree" "associate"
+ pos: Noun
+ end: 
+word: analysis
+ count: 2
+ before: particular 1 through 1
+ after: of 1
+ related: "investigation" "investigating" "reasoning" "logical thinking" "abstract thought" "criticism" "literary criticism" "expressive style" "style" "calculus" "infinitesimal calculus" "psychotherapy"
+ pos: Noun
+ end: 
+word: and
+ count: 76
+ before: Smith 1 belief 3 body 1 cheese 1 coffee 2 do 5 dollars 1 doubt 1 fish 1 foal 3 juice 1 lazy 1 pizza 1 pumpkins 1 so 7 socks 4 true 1 words 2
+ after: I'll 8 Jones 1 bacon 1 beans 1 because 3 fish 1 fried 1 fruit 1 herbs 1 his 1 if 10 it 1 just 1 must 1 prefer 1 she 4 shit 4 so 3 some 4 that 2 the 4 there's 1 thirty 1 those 2 thus 1 truth 2 wet 2 what 5 why 5 with 2 your 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: annoying
+ count: 1
+ before: be 1
+ after: 
+ related: "mistreatment"
+ pos: Noun
+ end: 
+word: another
+ count: 4
+ before: awaiting 1 possibly 2 yet 1
+ after: man 1 possible 1 solution 2
+ related: 
+ pos: Adj
+ end: 
+word: answer
+ count: 1
+ before: exact 1
+ after: to 1
+ related: "state" "say" "tell" "react" "respond" "solve" "work out" "figure out" "puzzle out" "lick" "work" "solve" "work out" "figure out" "puzzle out" "lick" "work" "refute" "rebut" "be" "satisfy" "fulfill" "fulfil" "live up to" "match" "fit" "correspond" "check" "jibe" "gibe" "tally" "agree" "meet" "satisfy" "fill" "fulfill" "fulfil" "react" "respond"
+ pos: Verb
+ end: 
+word: any
+ count: 6
+ before: belief 1 it 1 there 1 why 1
+ after: better 1 good 2 person's 2
+ related: 
+ pos: Adj
+ end: 
+word: anything
+ count: 5
+ before: be 1 find 1 have 1 than 2
+ after: else 1 if 1 that 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: applications
+ count: 1
+ before: their 1
+ after: for 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: are
+ count: 17
+ before: belief 1 cats 1 really 2 there 3 they 3 who 3 why 2
+ after: awaiting 2 certain 1 considered 1 crazy 1 definitely 1 there 1 thinking 4 times 1 you 1
+ related: "area unit" "square measure"
+ pos: Noun
+ end: 
+word: argued
+ count: 3
+ before: have 3
+ after: that 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: argues
+ count: 2
+ before: he 2
+ after: that 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: around
+ count: 3
+ before: at 1 people 1 world 1
+ after: him 1 me 1 nine 1
+ related: 
+ pos: Adv
+ end: 
+word: as
+ count: 7
+ before: because 5 described 1 regarded 1
+ after: I 5 knowledge 1 nice 1
+ related: "chemical element" "element" 
+ pos: Noun
+ end: 
+word: ask
+ count: 5
+ before: to 1 you 1
+ after: it 1 people 1 why 3
+ related: "communicate" "intercommunicate" "request" "bespeak" "call for" "quest" "give voice" "formulate" "word" "phrase" "articulate" "demand" "address" "turn to" "demand"
+ pos: Verb
+ end: 
+word: asked
+ count: 2
+ before: you 2
+ after: if 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: asking
+ count: 4
+ before: I'm 3 was 1
+ after: people 3 you 1
+ related: "speech act"
+ pos: Noun
+ end: 
+word: asks
+ count: 1
+ before: mine 1
+ after: me 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: at
+ count: 8
+ before: Thursday 1 frown 3 think 1 words 2
+ after: all 2 around 1 people 1 that 2 the 1
+ related: "chemical element" "element" "halogen" "Laotian monetary unit"
+ pos: Noun
+ end: 
+word: awaiting
+ count: 2
+ before: are 2
+ after: another 1 the 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: bacon
+ count: 3
+ before: and 1 my 1 their 1
+ after: tells 1 with 1
+ related: "cut of pork"  
+ pos: Noun
+ end: 
+word: base
+ count: 2
+ before: to 2
+ after: it 2
+ related: "military installation" "support" "baseball equipment" "part" "piece" "bottom" "control" "assumption" "supposition" "supposal" "support" "ester" "compound" "chemical compound" "flank" "part" "portion" "component part" "component" "constituent" "number" "location" "form" "word form" "signifier" "descriptor" "store" "stock" "fund" "ingredient" "bottom" "underside" "undersurface" "electrode"
+ pos: Noun
+ end: 
+word: basis
+ count: 1
+ before: the 1
+ after: of 1
+ related: "foundation" "assumption" "supposition" "supposal" "part" "portion" "component part" "component" "constituent"
+ pos: Noun
+ end: 
+word: be
+ count: 33
+ before: bird 1 can 14 cannot 1 coincidentally 3 could 3 it 3 just 1 might 2 then 2 to 2
+ after: annoying 1 anything 1 broken 1 considered 4 correct 1 described 1 done 6 dude 1 left 4 my 2 regarded 1 so 1 something 4 suspect 1
+ related: "typify" "symbolize" "symbolise" "stand for" "represent" "take" "occupy" "use up" "stay" "remain" "rest" "be"
+ pos: Verb
+ end: 
+word: beans
+ count: 1
+ before: and 1
+ after: then 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: because
+ count: 6
+ before: and 3 existence 1
+ after: as 5 he 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: being
+ count: 4
+ before: I'm 1 belief 1 in 1 one 1
+ after: formed 1 nice 2 true 1
+ related: "state" "living thing" "animate thing"
+ pos: Noun
+ end: 
+word: belief
+ count: 10
+ before: discussing 1 his 2 my 2 our 1 person's 1 their 1 true 1 your 1
+ after: acquired 1 and 3 any 1 are 1 being 1 of 1 or 1 that 1
+ related: "content" "cognitive content" "mental object" "idea" "thought"
+ pos: Noun
+ end: 
+word: believe
+ count: 3
+ before: don't 3
+ after: in 3
+ related: "accept" "evaluate" "pass judgment" "judge" "expect" "anticipate" "believe" "credit"
+ pos: Verb
+ end: 
+word: believing
+ count: 3
+ before: of 3
+ after: 
+ related: "basic cognitive process"
+ pos: Noun
+ end: 
+word: better
+ count: 6
+ before: any 1 got 3 much 2
+ after: or 1 than 1 things 4
+ related: "good" "goodness" "gambler" "superior" "higher-up" "superordinate" "good" "goodness"
+ pos: Noun
+ end: 
+word: between
+ count: 3
+ before: relationship 3
+ after: the 3
+ related: 
+ pos: Adv
+ end: 
+word: bird
+ count: 2
+ before: small 2
+ after: be 1
+ related: "vertebrate" "craniate" "meat" "girl" "miss" "missy" "young lady" "young woman" "fille" "cry" "outcry" "call" "yell" "shout" "vociferation" "badminton equipment"
+ pos: Noun
+ end: 
+word: body
+ count: 1
+ before: his 1
+ after: and 1
+ related: "natural object" "social group" "natural object" "natural object" "body part" "system" "scheme" "property" "message" "content" "subject matter" "substance" "mass" "resonator" "cavity resonator" "resonating chamber" "structure" "construction"
+ pos: Noun
+ end: 
+word: both
+ count: 1
+ before: despite 1
+ after: his 1
+ related: 
+ pos: Adj
+ end: 
+word: bro
+ count: 8
+ before: hey 6
+ after: I 6
+ related: 
+ pos: UnknownEPos
+ end: 
+word: broader
+ count: 5
+ before: much 5
+ after: sense 5
+ related: 
+ pos: UnknownEPos
+ end: 
+word: broken
+ count: 1
+ before: be 1
+ after: down 1
+ related: 
+ pos: Adj
+ end: 
+word: but
+ count: 1
+ before: yet 1
+ after: 
+ related: 
+ pos: Adv
+ end: 
+word: by
+ count: 2
+ before: fine 2
+ after: you 2
+ related: 
+ pos: Adv
+ end: 
+word: called
+ count: 2
+ before: man 1 men 1
+ after: Jones 1 Smith 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: can
+ count: 26
+ before: I 1 dolphin 3 happen 2 hard 2 humans 1 it 3 that 1 thought 3 we 4 what 5 why 1
+ after: be 14 coincidentally 3 do 1 give 1 it 2 pull 2 that 1 think 1
+ related: "container" "containerful" "buoy" "body part" "plumbing fixture" "room"
+ pos: Noun
+ end: 
+word: candidate
+ count: 1
+ before: possible 1
+ after: for 1
+ related: "politician" "politico" "pol" "political leader" "person" "individual" "someone" "somebody" "mortal" "soul"
+ pos: Noun
+ end: 
+word: cannot
+ count: 1
+ before: knowledge 1
+ after: be 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: care
+ count: 6
+ before: don't 6
+ after: that 3
+ related: "work" "judiciousness" "anxiety" "predicament" "quandary" "plight" "protection" "repair" "fix" "fixing" "fixture" "mend" "mending" "reparation"
+ pos: Noun
+ end: 
+word: carrots
+ count: 1
+ before: excess 1
+ after: 
+ related: 
+ pos: UnknownEPos
+ end: 
+word: cases
+ count: 6
+ before: my 4 the 1
+ after: deals 4 involves 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: cats
+ count: 1
+ before: why 1
+ after: are 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: certain
+ count: 1
+ before: are 1
+ after: circumstances 1
+ related: 
+ pos: Adj
+ end: 
+word: change
+ count: 1
+ before: not 1
+ after: the 1
+ related: "happening" "occurrence" "occurrent" "natural event" "relation" "action" "consequence" "effect" "outcome" "result" "event" "issue" "upshot" "cash" "hard cash" "hard currency" "thing" "clothing" "article of clothing" "vesture" "wear" "wearable" "habiliment" "coin" "cash" "hard cash" "hard currency" "difference"
+ pos: Noun
+ end: 
+word: cheese
+ count: 1
+ before: goat 1
+ after: and 1
+ related: "dairy product" "food" "solid food" "mallow"
+ pos: Noun
+ end: 
+word: circumstances
+ count: 1
+ before: certain 1
+ after: in 1
+ related: "condition" "possession"
+ pos: Noun
+ end: 
+word: coffee
+ count: 6
+ before: drink 1 produce 3 the 1 with 1
+ after: and 2 does 1 has 1 or 1
+ related: "beverage" "drink" "drinkable" "potable" "tree" "seed" "brown" "brownness"
+ pos: Noun
+ end: 
+word: coincidentally
+ count: 3
+ before: can 3
+ after: be 3
+ related: 
+ pos: Adv
+ end: 
+word: coins
+ count: 6
+ before: dollar 2 nine 1 ten 3
+ after: in 3 it's 1 then 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: comes
+ count: 4
+ before: knowledge 3 that 1
+ after: from 4
+ related: 
+ pos: UnknownEPos
+ end: 
+word: components
+ count: 2
+ before: its 2
+ after: on 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: concept
+ count: 1
+ before: the 1
+ after: of 1
+ related: "idea" "thought"
+ pos: Noun
+ end: 
+word: concepts
+ count: 1
+ before: other 1
+ after: through 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: condition
+ count: 3
+ before: fourth 2
+ after: of 3
+ related: "state" "premise" "premiss" "assumption" "state" "information" "good health" "healthiness" "illness" "unwellness" "malady" "sickness" "statement" "procedure" "process"
+ pos: Noun
+ end: 
+word: conjunction
+ count: 1
+ before: minimal 1
+ after: of 1
+ related: "simultaneity" "simultaneousness" "union" "unification" "function word" "closed-class word" "grammatical relation" "meeting" "encounter" "connection" "connexion" "connector" "connecter" "connective"
+ pos: Noun
+ end: 
+word: consider
+ count: 6
+ before: must 4 would 2
+ after: myself 2 the 4
+ related: "think" "believe" "consider" "conceive" "chew over" "think over" "meditate" "ponder" "excogitate" "contemplate" "muse" "reflect" "mull" "mull over" "ruminate" "speculate" "think about"  "hash out" "discuss" "talk over" "evaluate" "pass judgment" "judge" "look" "analyze" "analyse" "study" "examine" "canvass" "canvas" "see" "consider" "reckon" "view" "regard"
+ pos: Verb
+ end: 
+word: considered
+ count: 6
+ before: are 1 be 4
+ after: suspect 3 to 2
+ related: 
+ pos: Adj
+ end: 
+word: cool
+ count: 1
+ before: something 1
+ after: 
+ related: 
+ pos: Adj
+ end: 
+word: correct
+ count: 1
+ before: be 1
+ after: without 1
+ related: "change by reversal" "turn" "reverse" "change" "alter" "modify" "call on the carpet" "take to task" "rebuke" "rag" "trounce" "reproof" "lecture" "reprimand" "jaw" "dress down" "call down" "scold" "chide" "berate" "bawl out" "remonstrate" "chew out" "chew up" "have words" "lambaste" "lambast" "balance" "equilibrate" "equilibrize" "equilibrise" "punish" "penalize" "penalise" "descend" "fall" "go down" "come down" "change" "alter" "modify" "treat" "care for"
+ pos: Verb
+ end: 
+word: could
+ count: 7
+ before: he 4 it 2 that 1
+ after: be 3 doubt 1 not 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: count
+ count: 1
+ before: word 1
+ after: 
+ related: "determine" "find" "find out" "ascertain" "be"  "recite" "classify" "class" "sort" "assort" "sort out" "separate" "include" "be" "trust" "swear" "rely" "bank" "estimate" "gauge" "approximate" "guess" "judge"
+ pos: Verb
+ end: 
+word: crazy
+ count: 2
+ before: are 1 you're 1
+ after: then 1
+ related: 
+ pos: Adj
+ end: 
+word: damn
+ count: 3
+ before: that 3
+ after: dismal 1
+ related: 
+ pos: Adj
+ end: 
+word: deals
+ count: 4
+ before: cases 4
+ after: with 4
+ related: 
+ pos: UnknownEPos
+ end: 
+word: definitely
+ count: 1
+ before: are 1
+ after: many 1
+ related: 
+ pos: Adv
+ end: 
+word: deny
+ count: 3
+ before: not 3
+ after: his 3
+ related: "contradict" "negate" "contravene" "disown" "renounce" "repudiate" "withhold" "keep back" "keep" "hold on" "control" "hold in" "hold" "contain" "check" "curb" "moderate"  "disavow"
+ pos: Verb
+ end: 
+word: described
+ count: 1
+ before: be 1
+ after: as 1
+ related: 
+ pos: Adj
+ end: 
+word: despite
+ count: 1
+ before: 
+ after: both 1
+ related: "dislike" "disregard" "neglect"
+ pos: Noun
+ end: 
+word: develop
+ count: 1
+ before: further 1
+ after: his 1
+ related: "create" "create by mental act" "create mentally" "change" "change" "become" "better" "improve" "amend" "ameliorate" "meliorate" "speculate" "theorize" "theorise" "conjecture" "hypothesize" "hypothesise" "hypothecate" "suppose" "teach" "learn" "instruct" "happen" "hap" "go on" "pass off" "occur" "pass" "fall out" "come about" "take place" "grow" "change" "change" "alter" "modify" "generate" "bring forth" "change" "change" "alter" "modify" "superimpose" "superpose" "lay over" "play" "play" "complicate" "refine" "rarify" "elaborate" "happen" "hap" "go on" "pass off" "occur" "pass" "fall out" "come about" "take place" "expand"
+ pos: Verb
+ end: 
+word: discussing
+ count: 1
+ before: when 1
+ after: belief 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: disgusting
+ count: 1
+ before: or 1
+ after: old 1
+ related: 
+ pos: Adj
+ end: 
+word: dismal
+ count: 5
+ before: damn 1 is 2 this 2
+ after: existence 2 thing 1
+ related: 
+ pos: Adj
+ end: 
+word: disturbing
+ count: 1
+ before: it's 1
+ after: 
+ related: 
+ pos: Adj
+ end: 
+word: do
+ count: 22
+ before: I'll 5 can 1 then 1 to 12
+ after: and 5 it 5 so 1 something 5 them 5 you're 1
+ related: "carry through" "accomplish" "execute" "carry out" "action" "fulfill" "fulfil" "proceed" "go" "make" "create" "satisfy" "fulfill" "fulfil" "live up to" "create" "make" "spend" "pass" "groom" "neaten" "travel" "go" "move" "locomote"
+ pos: Verb
+ end: 
+word: does
+ count: 6
+ before: Smith 2 coffee 1 he 1 it 1 one 1
+ after: not 6
+ related: 
+ pos: UnknownEPos
+ end: 
+word: dog
+ count: 1
+ before: why 1
+ after: sniff 1
+ related: "canine" "canid" "domestic animal" "domesticated animal" "unpleasant woman" "disagreeable woman" "chap" "fellow" "feller" "fella" "lad" "gent" "blighter" "cuss" "bloke" "villain" "scoundrel" "sausage" "catch" "stop" "support"
+ pos: Noun
+ end: 
+word: doing
+ count: 13
+ before: about 6 of 1 place 3 they 1 were 2
+ after: dude 1 it 1 something 7 things 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: dollar
+ count: 2
+ before: seven 2
+ after: coins 2
+ related: "monetary unit" "bill" "note" "government note" "bank bill" "banker's bill" "bank note" "banknote" "Federal Reserve note" "greenback" "coin" "symbol"
+ pos: Noun
+ end: 
+word: dollars
+ count: 2
+ before: eight 1 six 1
+ after: and 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: dolphin
+ count: 3
+ before: pink 3
+ after: can 3
+ related: "percoid fish" "percoid" "percoidean" "toothed whale"
+ pos: Noun
+ end: 
+word: don't
+ count: 18
+ before: I 11 personally 1 you 6
+ after: believe 3 care 6 drink 2 know 1 think 6
+ related: 
+ pos: UnknownEPos
+ end: 
+word: done
+ count: 9
+ before: be 6 haven't 1 nicely 2
+ after: about 7 it 1 up 1
+ related: 
+ pos: Adj
+ end: 
+word: donkeys
+ count: 1
+ before: why 1
+ after: goo 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: doubt
+ count: 3
+ before: could 1 order 1 to 1
+ after: and 1 his 2
+ related: "cognitive state" "state of mind" "uncertainty" "uncertainness" "precariousness"
+ pos: Noun
+ end: 
+word: down
+ count: 1
+ before: broken 1
+ after: into 1
+ related: 
+ pos: Adj
+ end: 
+word: drink
+ count: 4
+ before: don't 2
+ after: coffee 1 juice 1 milk 1
+ related: "helping" "portion" "serving" "intemperance" "intemperateness" "food" "nutrient" "liquid" "body of water" "water" "consumption" "ingestion" "intake" "uptake"
+ pos: Noun
+ end: 
+word: dude
+ count: 19
+ before: be 1 doing 1 hey 1 it 4 so 2 that 1 this 1
+ after: goes 1 how 1 maybe 3 over 2 what 1 you're 5
+ related: "man" "adult male" "man" "adult male"
+ pos: Noun
+ end: 
+word: earlier
+ count: 5
+ before: said 5
+ after: that 1 the 2 this 2
+ related: 
+ pos: Adv
+ end: 
+word: egg
+ count: 1
+ before: with 1
+ after: salad 1
+ related: "ovum" "egg cell" "foodstuff" "food product" "male reproductive gland" "gonad" "sex gland"
+ pos: Noun
+ end: 
+word: eight
+ count: 1
+ before: 
+ after: dollars 1
+ related: "digit" "figure" "school" "artistic movement" "art movement" "spot"
+ pos: Noun
+ end: 
+word: elephant
+ count: 1
+ before: with 1
+ after: sauce 1
+ related: "proboscidean" "proboscidian" "pachyderm" "emblem" "allegory"
+ pos: Noun
+ end: 
+word: else
+ count: 1
+ before: anything 1
+ after: 
+ related: 
+ pos: UnknownEPos
+ end: 
+word: embraced
+ count: 3
+ before: eventually 3
+ after: the 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: end
+ count: 1
+ before: the 1
+ after: of 1
+ related: "extremity" "point" "point in time" "ending" "conclusion" "finish" "content" "cognitive content" "mental object" "part" "section" "division" "state" "surface" "lineman" "boundary" "bound" "bounds" "topographic point" "place" "spot" "contribution" "part" "share" "section" "subdivision" "piece of cloth" "piece of material" "lineman"
+ pos: Noun
+ end: 
+word: epistemology
+ count: 3
+ before: virtue 3
+ after: have 3
+ related: "philosophy"
+ pos: Noun
+ end: 
+word: eventually
+ count: 3
+ before: idea 1
+ after: embraced 3
+ related: 
+ pos: Adv
+ end: 
+word: exact
+ count: 1
+ before: an 1
+ after: answer 1
+ related: "claim" "necessitate" "ask" "postulate" "need" "require" "take" "involve" "call for" "demand"
+ pos: Verb
+ end: 
+word: example
+ count: 1
+ before: this 1
+ after: is 1
+ related: "information" "representation" "mental representation" "internal representation" "ideal" "admonition" "monition" "warning" "word of advice" "happening" "occurrence" "occurrent" "natural event" "lesson"
+ pos: Noun
+ end: 
+word: excess
+ count: 1
+ before: her 1
+ after: carrots 1
+ related: "overabundance" "overmuch" "overmuchness" "superabundance" "immoderation" "immoderateness" "fullness" "indulgence" "indulging" "pampering" "humoring"
+ pos: Noun
+ end: 
+word: exist
+ count: 1
+ before: must 1
+ after: in 1
+ related: 
+ pos: Verb
+ end: 
+word: existed
+ count: 2
+ before: solution 2
+ after: to 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: existence
+ count: 5
+ before: dismal 2 own 3
+ after: because 1 is 2
+ related: "state" "natural object"
+ pos: Noun
+ end: 
+word: export
+ count: 1
+ before: to 1
+ after: her 1
+ related: "trade" "merchandise" "transfer" "spread" "distribute"
+ pos: Verb
+ end: 
+word: fact
+ count: 1
+ before: the 1
+ after: that 1
+ related: "information" "information" "info" "reality" "realness" "realism" "concept" "conception" "construct"
+ pos: Noun
+ end: 
+word: fairly
+ count: 1
+ before: is 1
+ after: large 1
+ related: 
+ pos: Adv
+ end: 
+word: few
+ count: 1
+ before: a 1
+ after: men 1
+ related: "elite" "elite group"
+ pos: Noun
+ end: 
+word: find
+ count: 1
+ before: to 1
+ after: anything 1
+ related:  "spy" "sight" "get" "acquire"  "reason" "reason out" "conclude" "experience" "see" "go through" "get" "acquire" "gestate" "conceive" "conceptualize" "conceptualise" "learn" "hear" "get word" "get wind" "pick up" "find out" "get a line" "discover" "see" "get" "acquire" "pronounce" "label" "judge" "change" "perceive" "comprehend" "get" "acquire" "reach" "make" "attain" "hit" "arrive at" "gain" "mature" "maturate" "grow"
+ pos: Verb
+ end: 
+word: fine
+ count: 3
+ before: it's 3
+ after: by 2 with 1
+ related: 
+ pos: Adj
+ end: 
+word: fish
+ count: 3
+ before: and 1 fried 1 more 1
+ after: and 1 with 2
+ related: "aquatic vertebrate" "food" "solid food" "person" "individual" "someone" "somebody" "mortal" "soul" 
+ pos: Noun
+ end: 
+word: foal
+ count: 3
+ before: the 3
+ after: and 3
+ related: "young mammal"
+ pos: Noun
+ end: 
+word: follow
+ count: 1
+ before: perhaps 1
+ after: their 1
+ related: "travel" "go" "move" "locomote" "result" "ensue" "travel" "go" "move" "locomote" "obey" "result" "ensue" "imitate" "copy" "simulate" "be" "choose" "take" "select" "pick out" "imitate" "copy" "simulate" "analyze" "analyse" "study" "examine" "canvass" "canvas" "check" "check up on" "look into" "check out" "suss out" "check over" "go over" "check into" "play" "originate" "arise" "rise" "develop" "uprise" "spring up" "grow" "act" "behave" "do" "practice" "apply" "use" "travel" "go" "move" "locomote" "understand" "persevere" "persist" "hang in" "hang on" "hold on"
+ pos: Verb
+ end: 
+word: for
+ count: 5
+ before: applications 1 candidate 1 foundation 2 nice 1
+ after: job 1 knowledge 1 the 2 you 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: forget
+ count: 2
+ before: just 2
+ after: it 2
+ related: "neglect" "pretermit" "omit" "drop" "miss" "leave out" "overlook" "overleap" "lose"
+ pos: Verb
+ end: 
+word: formed
+ count: 1
+ before: being 1
+ after: on 1
+ related: 
+ pos: Adj
+ end: 
+word: foundation
+ count: 2
+ before: his 2
+ after: for 2
+ related: "relation" "financial institution" "financial organization" "financial organisation" "support" "education" "assumption" "supposition" "supposal" "undergarment" "unmentionable" "beginning" "start" "commencement"
+ pos: Noun
+ end: 
+word: fourth
+ count: 2
+ before: just 1 the 1
+ after: condition 2
+ related: "rank" "common fraction" "simple fraction" "interval" "musical interval"
+ pos: Noun
+ end: 
+word: fried
+ count: 1
+ before: and 1
+ after: fish 1
+ related: 
+ pos: Adj
+ end: 
+word: friend
+ count: 1
+ before: a 1
+ after: of 1
+ related: "person" "individual" "someone" "somebody" "mortal" "soul" "associate" "person" "individual" "someone" "somebody" "mortal" "soul" "advocate" "advocator" "proponent" "exponent" "Christian"
+ pos: Noun
+ end: 
+word: from
+ count: 4
+ before: comes 4
+ after: an 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: frown
+ count: 3
+ before: I 3
+ after: at 3
+ related: "facial expression" "facial gesture"
+ pos: Noun
+ end: 
+word: fruit
+ count: 2
+ before: and 1 process 1
+ after: juice 1 with 1
+ related: "reproductive structure" "product" "production" "consequence" "aftermath"
+ pos: Noun
+ end: 
+word: funny
+ count: 3
+ before: they're 3
+ after: 
+ related: 
+ pos: Adj
+ end: 
+word: further
+ count: 3
+ before: seek 1 to 2
+ after: develop 1 help 2
+ related: 
+ pos: Adv
+ end: 
+word: get
+ count: 3
+ before: should 1 to 1 will 1
+ after: help 1 something 1 the 1
+ related: "change state" "turn" "make" "get" "change" "transmit" "transfer" "transport" "channel" "channelize" "channelise" "undergo" "get even" "get back" "score" "hit" "tally" "rack up" "seize" "prehend" "clutch" "change" "sicken" "come down" "communicate" "intercommunicate" "change" "alter" "modify" "mean" "intend" "understand" "attract" "pull" "pull in" "draw" "draw in" "hit" "get" "acquire" "buy" "purchase" "hear" "hurt" "ache" "suffer" "leave" "go forth" "go away" "catch" "annoy" "rag" "get to" "bother" "get at" "irritate" "rile" "nark" "nettle" "gravel" "vex" "chafe" "devil" "touch" "stir" "reproduce" "effect" "effectuate" "set up" "destroy" "ruin" "confuse" "throw" "fox" "befuddle" "fuddle" "bedevil" "confound" "discombobulate" "experience" "receive" "have" "get" "make" "create"
+ pos: Verb
+ end: 
+word: give
+ count: 1
+ before: can 1
+ after: me 1
+ related:  "supply" "provide" "render" "furnish" "transfer" "state" "say" "tell" "communicate" "intercommunicate" "direct" "communicate" "intercommunicate"  "make" "create" "think" "cogitate" "cerebrate" "produce" "make" "create" "tell" "make" "create" "pass" "hand" "reach" "pass on" "turn over" "give" "utter" "emit" "let out" "let loose" "release" "relinquish" "resign" "free" "give up" "transfer" "use" "utilize" "utilise" "apply" "employ" "administer" "dispense" "distribute" "administer" "mete out" "deal" "parcel out" "lot" "dispense" "shell out" "deal out" "dish out" "allot" "dole out" "communicate" "intercommunicate"  "move" "provide" "supply" "ply" "cater" "give" "change" "estimate" "gauge" "approximate" "guess" "judge" "execute" "compensate" "recompense" "repair" "indemnify"  "show" "perform" "stretch" "toast" "drink" "pledge" "salute" "wassail" "accord" "allot" "grant" "express" "show" "evince" "pledge" "submit" "subject" "lead" "permit" "allow" "let" "countenance" "inflict" "bring down" "visit" "impose" "happen" "hap" "go on" "pass off" "occur" "pass" "fall out" "come about" "take place" "accept" "consent" "go for" "offer" "proffer"
+ pos: Verb
+ end: 
+word: given
+ count: 1
+ before: often 1
+ after: when 1
+ related: 
+ pos: Adj
+ end: 
+word: go
+ count: 1
+ before: we 1
+ after: to 1
+ related:  "act" "move" "exit" "go out" "get out" "leave" "change state" "turn"  "be" "be" "happen" "hap" "go on" "pass off" "occur" "pass" "fall out" "come about" "take place" "disappear" "vanish" "go away" "be" "cause to be perceived"  "end" "stop" "finish" "terminate" "cease" "change"   "change state" "turn" "be" "compare"     "harmonize" "harmonise" "consort" "accord" "concord" "fit in" "agree" "be" "fit" "search"  "choose" "take" "select" "pick out" "change"
+ pos: Verb
+ end: 
+word: goat
+ count: 1
+ before: of 1
+ after: cheese 1
+ related: "bovid" "victim" "dupe" "person" "individual" "someone" "somebody" "mortal" "soul" 
+ pos: Noun
+ end: 
+word: goes
+ count: 1
+ before: dude 1
+ after: 
+ related: 
+ pos: UnknownEPos
+ end: 
+word: going
+ count: 7
+ before: I'm 3 about 1 was 2 you're 1
+ after: there 4 to 3
+ related: "act" "deed" "human action" "human activity" "death" "decease" "expiry" "accomplishment" "achievement"
+ pos: Noun
+ end: 
+word: goo
+ count: 1
+ before: donkeys 1
+ after: to 1
+ related: "matter"
+ pos: Noun
+ end: 
+word: good
+ count: 4
+ before: any 2 they 1 very 1
+ after: things 1
+ related: 
+ pos: Adj
+ end: 
+word: got
+ count: 6
+ before: I've 6
+ after: a 1 better 3 large 1 some 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: guest
+ count: 2
+ before: my 2
+ after: 
+ related: "visitor" "visitant"  "customer" "client" "computer" "computing machine" "computing device" "data processor" "electronic computer" "information processing system"
+ pos: Noun
+ end: 
+word: had
+ count: 3
+ before: I 2 only 1
+ after: nine 1 seven 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: haha
+ count: 4
+ before: hey 3
+ after: dude 3
+ related: 
+ pos: Noun
+ end: 
+word: happen
+ count: 2
+ before: will 1
+ after: can 2
+ related: "happen" "hap" "go on" "pass off" "occur" "pass" "fall out" "come about" "take place" "chance" "happen" "hap" "go on" "pass off" "occur" "pass" "fall out" "come about" "take place"
+ pos: Verb
+ end: 
+word: hard
+ count: 2
+ before: how 2
+ after: can 2
+ related: 
+ pos: Adj
+ end: 
+word: has
+ count: 3
+ before: coffee 1 he 1 that 1
+ after: less 1 seen 1 to 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: hates
+ count: 5
+ before: he 1 she 4
+ after: old 4 wet 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: have
+ count: 8
+ before: epistemology 3 not 2 won't 2 you 1
+ after: anything 1 argued 3 knowledge 1 six 1 time 2
+ related: "undergo" "make" "get" "interact" "direct" "change" "suffer" "hurt" "get" "acquire" "get" "acquire" "experience" "receive" "have" "get" "score" "hit" "tally" "rack up" "produce" "bring forth" "sleep together" "roll in the hay" "love" "make out" "make love" "sleep with" "get laid" "have sex" "know" "do it" "be intimate" "have intercourse" "have it away" "have it off" "screw" "fuck" "jazz" "eff" "hump" "lie with" "bed" "have a go at it" "bang" "get it on" "bonk"
+ pos: Verb
+ end: 
+word: haven't
+ count: 1
+ before: 
+ after: done 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: having
+ count: 3
+ before: her 3
+ after: the 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: he
+ count: 11
+ before: because 1 him 1 point 1 that 1 when 1
+ after: argues 2 could 4 does 1 has 1 hates 1 only 1 was 1
+ related: "chemical element" "element" "noble gas" "inert gas" "argonon" "letter" "letter of the alphabet" "alphabetic character"
+ pos: Noun
+ end: 
+word: help
+ count: 3
+ before: further 2 get 1
+ after: 
+ related: "support" "back up" "better" "improve" "amend" "ameliorate" "meliorate" "serve" "refrain" "forbear" "provide" "supply" "ply" "cater" "promote" "advance" "boost" "further" "encourage" "exploit" "work" "better" "improve" "amend" "ameliorate" "meliorate"
+ pos: Verb
+ end: 
+word: her
+ count: 4
+ before: export 1 or 3
+ after: excess 1 having 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: herbs
+ count: 1
+ before: and 1
+ after: or 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: here
+ count: 2
+ before: over 2
+ after: 
+ related: 
+ pos: Adv
+ end: 
+word: hey
+ count: 17
+ before: 
+ after: bro 6 dude 1 man 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: him
+ count: 1
+ before: around 1
+ after: he 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: his
+ count: 11
+ before: and 1 both 1 deny 3 develop 1 doubt 2 in 1 senses 1 without 1
+ after: belief 2 body 1 foundation 2 or 1 own 3 pocket 1 senses 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: hope
+ count: 8
+ before: all 5 no 1 of 2
+ after: left 5
+ related: "anticipation" "expectancy" "feeling" "expectation" "outlook" "prospect" "person" "individual" "someone" "somebody" "mortal" "soul" "theological virtue" "supernatural virtue"
+ pos: Noun
+ end: 
+word: how
+ count: 3
+ before: dude 1 me 1
+ after: hard 2 to 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: however
+ count: 3
+ before: 
+ after: I've 3
+ related: 
+ pos: Adv
+ end: 
+word: humans
+ count: 1
+ before: why 1
+ after: can 1
+ related: "homo" "man" "human being" "human" "group" "grouping"
+ pos: Noun
+ end: 
+word: idea
+ count: 1
+ before: that 1
+ after: eventually 1
+ related: "content" "cognitive content" "mental object" "purpose" "intent" "intention" "aim" "design" "opinion" "sentiment" "persuasion" "view" "thought" "calculation" "computation" "figuring" "reckoning" "tune" "melody" "air" "strain" "melodic line" "line" "melodic phrase"
+ pos: Noun
+ end: 
+word: if
+ count: 48
+ before: and 10 anything 1 asked 2 it 5 or 2 that 2 then 2 what 1
+ after: I 3 I'm 2 it 8 it's 1 possibly 2 so 5 that 1 that's 7 there's 2 they 3 we 2 you 7 you're 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: important
+ count: 1
+ before: is 1
+ after: too 1
+ related: 
+ pos: Adj
+ end: 
+word: in
+ count: 12
+ before: believe 3 circumstances 1 coins 3 exist 1 trader 2
+ after: a 3 being 1 his 1 order 3 some 3 which 1
+ related: "linear unit" "linear measure" "metallic element" "metal"
+ pos: Noun
+ end: 
+word: internal
+ count: 3
+ before: an 3
+ after: relationship 3
+ related: 
+ pos: Adj
+ end: 
+word: into
+ count: 1
+ before: down 1
+ after: a 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: involves
+ count: 3
+ before: cases 2
+ after: two 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: is
+ count: 49
+ before: example 1 existence 2 it 10 male 1 there 1 thing 1 truth 3 what 2 whatever 3 who 2 why 10
+ after: a 4 dismal 2 fairly 1 important 1 it 14 necessary 3 nicely 2 okay 1 our 1 similar 1 so 7 that 8 this 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: isn't
+ count: 2
+ before: it 1
+ after: much 1 very 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: it
+ count: 63
+ before: about 7 and 1 ask 1 base 2 can 2 do 5 doing 1 done 1 forget 2 if 8 is 14 of 1 or 1 that 2 think 1 truth 1 was 2 will 1
+ after: any 1 be 3 can 3 could 2 does 1 dude 4 if 5 is 10 isn't 1 large 1 means 1 meant 2 might 2 nicely 1 okay 2 on 1 really 3 small 1 so 7 then 2 with 2 yet 1 yours 1
+ related: "engineering" "engineering science" "applied science" "technology"
+ pos: Noun
+ end: 
+word: it's
+ count: 6
+ before: coins 1 if 1 then 1
+ after: disturbing 1 fine 3 just 1 more 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: its
+ count: 3
+ before: of 2
+ after: components 2 marshmallows 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: job
+ count: 3
+ before: for 1 same 1 the 1
+ after: 
+ related: "activity" "duty" "workplace" "work" "product" "production" "duty" "responsibility" "obligation" "work" "work" "difficulty" "unfortunate" "unfortunate person" "application" "application program" "applications programme" "robbery"
+ pos: Noun
+ end: 
+word: journey
+ count: 5
+ before: our 1 possibility 1 the 3
+ after: to 4
+ related: "travel" "trip" "jaunt" "travel" "go" "move" "locomote"
+ pos: Verb
+ end: 
+word: juice
+ count: 5
+ before: drink 1 fruit 1 noodle 2
+ after: and 1
+ related: "foodstuff" "food product" "energy" "vim" "vitality" "current" "electric current" "liquid body substance" "bodily fluid" "body fluid" "humor" "humour"
+ pos: Noun
+ end: 
+word: just
+ count: 14
+ before: am 1 and 1 it's 1 may 1 said 1 then 3 we 3
+ after: abandon 3 be 1 forget 2 fourth 1 lazy 1 say 2 that 2 think 1 why 1
+ related: 
+ pos: Adv
+ end: 
+word: know
+ count: 2
+ before: don't 1 not 1
+ after: about 1 that 1
+ related: "experience" "see" "go through" "accept" "copulate" "mate" "pair" "couple" "recognize" "recognise" "realize" "realise" "agnize" "agnise" "distinguish" "separate" "differentiate" "secern" "secernate" "severalize" "severalise" "tell" "tell apart" "remember" "retrieve" "recall" "call back" "call up" "recollect" "think"
+ pos: Verb
+ end: 
+word: knowledge
+ count: 13
+ before: actual 1 as 1 for 1 have 1 makes 1 of 8
+ after: cannot 1 comes 3 more 1 that 1 to 2
+ related: "psychological feature"
+ pos: Noun
+ end: 
+word: large
+ count: 4
+ before: fairly 1 got 1 it 1 so 1
+ after: amounts 1
+ related: 
+ pos: Adj
+ end: 
+word: last
+ count: 3
+ before: 
+ after: Sunday 1 Thursday 1 Wednesday 1
+ related: 
+ pos: Adj
+ end: 
+word: laugh
+ count: 2
+ before: me 2
+ after: 
+ related: "utterance" "vocalization" "facial expression" "facial gesture" "wit" "humor" "humour" "witticism" "wittiness"
+ pos: Noun
+ end: 
+word: lazy
+ count: 1
+ before: just 1
+ after: and 1
+ related: 
+ pos: Adj
+ end: 
+word: leaders
+ count: 1
+ before: their 1
+ after: 
+ related: "body"
+ pos: Noun
+ end: 
+word: learning
+ count: 1
+ before: I'm 1
+ after: to 1
+ related: "basic cognitive process" "education"
+ pos: Noun
+ end: 
+word: left
+ count: 9
+ before: be 4 hope 5
+ after: 
+ related: "position" "place" "faction" "sect" "hand" "manus" "mitt" "paw" "tract" "piece of land" "piece of ground" "parcel of land" "parcel" "turn" "turning"
+ pos: Noun
+ end: 
+word: less
+ count: 6
+ before: has 1 other 5
+ after: obvious 5 value 1
+ related: 
+ pos: Adj
+ end: 
+word: little
+ count: 1
+ before: nice 1
+ after: thing 1
+ related: 
+ pos: Adj
+ end: 
+word: lol
+ count: 7
+ before: hey 3
+ after: man 3 they're 3
+ related: 
+ pos: Noun
+ end: 
+word: lolcat
+ count: 4
+ before: damn 2 that 1
+ after: it's 1 makes 2
+ related: 
+ pos: Noun
+ end: 
+word: lolcats
+ count: 5
+ before: those 3 which 1
+ after: are 1
+ related: 
+ pos: Noun
+ end: 
+word: lose
+ count: 2
+ before: you 2
+ after: 
+ related:   "suffer" "put" "set" "place" "pose" "position" "lay"     "regress" "retrograde" "retrogress"  "worsen" "decline"
+ pos: Verb
+ end: 
+word: lots
+ count: 1
+ before: there's 1
+ after: of 1
+ related: "large indefinite quantity" "large indefinite amount"
+ pos: Noun
+ end: 
+word: machine
+ count: 1
+ before: the 1
+ after: you 1
+ related: "device" "person" "individual" "someone" "somebody" "mortal" "soul" "organization" "organisation" "mechanical device" "organization" "organisation" "motor vehicle" "automotive vehicle"
+ pos: Noun
+ end: 
+word: makes
+ count: 3
+ before: that 1
+ after: knowledge 1 me 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: male
+ count: 1
+ before: adult 1
+ after: is 1
+ related: "animal" "animate being" "beast" "brute" "creature" "fauna" "person" "individual" "someone" "somebody" "mortal" "soul" 
+ pos: Noun
+ end: 
+word: man
+ count: 7
+ before: a 1 another 1 hey 2
+ after: I've 2 called 1 that's 3 with 1
+ related: "male" "male person" "adult" "grownup" "skilled worker" "trained worker" "skilled workman" "person" "individual" "someone" "somebody" "mortal" "soul" "hominid" "subordinate" "subsidiary" "underling" "foot soldier" "male" "male person" "manservant" "body servant" "male" "male person" "lover" "game equipment" "homo" "man" "human being" "human" "group" "grouping"
+ pos: Noun
+ end: 
+word: many
+ count: 1
+ before: definitely 1
+ after: other 1
+ related: 
+ pos: Adj
+ end: 
+word: marshmallows
+ count: 1
+ before: its 1
+ after: might 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: may
+ count: 1
+ before: route 1
+ after: just 1
+ related: "Gregorian calendar month" "hawthorn" "haw"
+ pos: Noun
+ end: 
+word: maybe
+ count: 7
+ before: dude 3 that 1 then 3
+ after: I'll 3 you're 2
+ related: 
+ pos: Adv
+ end: 
+word: me
+ count: 9
+ before: around 1 asks 1 give 1 makes 2 tells 1 than 1 with 2
+ after: an 1 how 1 laugh 2 otherwise 1
+ related: 
+ pos: Noun
+ end: 
+word: means
+ count: 1
+ before: it 1
+ after: that 1
+ related: "implementation" "effectuation" "instrumentality" "instrumentation" "capital"
+ pos: Noun
+ end: 
+word: meant
+ count: 2
+ before: it 2
+ after: that 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: men
+ count: 4
+ before: few 1 two 3
+ after: called 1 named 3
+ related: "force" "personnel"
+ pos: Noun
+ end: 
+word: mental
+ count: 3
+ before: the 3
+ after: state 3
+ related: 
+ pos: Adj
+ end: 
+word: might
+ count: 4
+ before: it 2 marshmallows 1 use 1
+ after: be 2 not 1 reliably 1
+ related: "strength"
+ pos: Noun
+ end: 
+word: milk
+ count: 1
+ before: drink 1
+ after: 
+ related: "dairy product" "beverage" "drink" "drinkable" "potable" "liquid body substance" "bodily fluid" "body fluid" "humor" "humour" "nutriment" "nourishment" "nutrition" "sustenance" "aliment" "alimentation" "victuals"  "foodstuff" "food product"
+ pos: Noun
+ end: 
+word: mine
+ count: 1
+ before: of 1
+ after: asks 1
+ related: "excavation" "explosive device"
+ pos: Noun
+ end: 
+word: minimal
+ count: 1
+ before: more 1
+ after: conjunction 1
+ related: 
+ pos: Adj
+ end: 
+word: mode
+ count: 2
+ before: person's 2
+ after: of 2
+ related: "property" "condition" "status" "logical relation" "grammatical relation" "diatonic scale" "average" "norm"
+ pos: Noun
+ end: 
+word: more
+ count: 5
+ before: a 1 it's 1 knowledge 1 or 1 there's 1
+ after: about 1 fish 1 minimal 1 valuable 1
+ related: 
+ pos: Adj
+ end: 
+word: much
+ count: 7
+ before: a 6 isn't 1
+ after: better 2 broader 5
+ related: 
+ pos: Adv
+ end: 
+word: must
+ count: 5
+ before: and 1 we 3
+ after: consider 4 exist 1
+ related: "necessity" "essential" "requirement" "requisite" "necessary" "grape juice" "staleness"
+ pos: Noun
+ end: 
+word: my
+ count: 9
+ before: be 2 of 4
+ after: bacon 1 belief 2 cases 4 guest 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: myself
+ count: 2
+ before: consider 2
+ after: rich 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: named
+ count: 3
+ before: men 3
+ after: Smith 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: necessary
+ count: 3
+ before: is 3
+ after: 
+ related: 
+ pos: Adj
+ end: 
+word: need
+ count: 1
+ before: you 1
+ after: to 1
+ related: "condition" "status" "necessity" "essential" "requirement" "requisite" "necessary" "psychological feature" "poverty" "poorness" "impoverishment"
+ pos: Noun
+ end: 
+word: nice
+ count: 6
+ before: as 1 being 2 some 1 that's 1 this 1
+ after: for 1 little 1 things 1 to 1
+ related: 
+ pos: Adj
+ end: 
+word: nicely
+ count: 3
+ before: is 2 it 1
+ after: done 2
+ related: 
+ pos: Adv
+ end: 
+word: nine
+ count: 2
+ before: around 1 had 1
+ after: coins 1
+ related: "digit" "figure" "baseball team" "spot"
+ pos: Noun
+ end: 
+word: no
+ count: 2
+ before: there's 1
+ after: hope 1 particular 1
+ related: 
+ pos: Adv
+ end: 
+word: noob
+ count: 3
+ before: up 2
+ after: you 2
+ related: 
+ pos: Noun
+ end: 
+word: noodle
+ count: 8
+ before: overcooked 4 some 2 wet 2
+ after: juice 2 with 4
+ related: "pasta" "alimentary paste" "human head"
+ pos: Noun
+ end: 
+word: noodles
+ count: 3
+ before: wet 3
+ after: 
+ related: 
+ pos: UnknownEPos
+ end: 
+word: not
+ count: 11
+ before: could 3 does 6 might 1 perhaps 1
+ after: change 1 deny 3 have 2 know 1 reliably 2 think 1
+ related: 
+ pos: Adv
+ end: 
+word: oblivion
+ count: 2
+ before: ultimate 2
+ after: 
+ related: "obscurity" "forgetfulness"
+ pos: Noun
+ end: 
+word: obvious
+ count: 5
+ before: less 5
+ after: things 5
+ related: 
+ pos: Adj
+ end: 
+word: of
+ count: 41
+ before: advocates 3 all 1 amount 1 amounts 1 analysis 1 basis 1 belief 1 concept 1 condition 3 conjunction 1 end 1 friend 1 lots 1 mode 2 one 2 percent 1 possibility 3 results 2 set 1 state 3 thinking 3 value 4 way 1 whole 2
+ after: a 2 believing 3 doing 1 goat 1 hope 2 it 1 its 2 knowledge 8 mine 1 my 4 other 1 pizza 1 pumpkins 1 the 2 their 1 thinking 2 thought 3 virtue 3 what 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: off
+ count: 3
+ before: something 3
+ after: then 3
+ related: 
+ pos: Adj
+ end: 
+word: often
+ count: 1
+ before: those 1
+ after: given 1
+ related: 
+ pos: Adv
+ end: 
+word: okay
+ count: 6
+ before: is 1 it 2 that's 2
+ after: then 5
+ related: "sanction" "countenance" "endorsement" "indorsement" "warrant" "imprimatur"
+ pos: Noun
+ end: 
+word: old
+ count: 13
+ before: disgusting 1 hates 4 some 4 your 4
+ after: overcooked 4 socks 4 stuff 3 wet 2
+ related: 
+ pos: Adj
+ end: 
+word: on
+ count: 12
+ before: I'll 1 components 2 formed 1 it 1 roll 1
+ after: Monday 1 Saturday 1 Tuesday 1 a 1 our 1 the 4
+ related: 
+ pos: Adv
+ end: 
+word: one
+ count: 5
+ before: seen 1 than 1 which 1
+ after: being 1 does 1 of 2 produced 1
+ related: 
+ pos: Adj
+ end: 
+word: only
+ count: 2
+ before: he 1 the 1
+ after: had 1 way 1
+ related: 
+ pos: Adv
+ end: 
+word: or
+ count: 19
+ before: belief 1 better 1 coffee 1 herbs 1 his 1 something 6
+ after: disgusting 1 her 3 if 2 it 1 more 1 perhaps 2 some 5 that 1 their 1 worse 1
+ related: "hospital room"
+ pos: Noun
+ end: 
+word: order
+ count: 3
+ before: in 3
+ after: doubt 1 to 2
+ related: "command" "bid" "bidding" "dictation" "magnitude" "state" "arrangement" "condition" "status" "act" "enactment" "commercial document" "commercial instrument" "association" "rule" "prescript" "status" "position" "sect" "religious sect" "religious order" "taxonomic group" "taxonomic category" "taxon" "request" "asking" "artistic style" "idiom" "organization" "organisation"
+ pos: Noun
+ end: 
+word: other
+ count: 9
+ before: many 1 of 1 some 4 the 3
+ after: concepts 1 less 5 things 2 way 1
+ related: 
+ pos: Adj
+ end: 
+word: otherwise
+ count: 1
+ before: me 1
+ after: 
+ related: 
+ pos: Adv
+ end: 
+word: our
+ count: 5
+ before: is 1 on 1 to 3
+ after: belief 1 journey 1 problem 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: over
+ count: 3
+ before: dude 2
+ after: here 2 seventy 1
+ related: 
+ pos: Adv
+ end: 
+word: overcooked
+ count: 4
+ before: old 4
+ after: noodle 4
+ related: 
+ pos: UnknownEPos
+ end: 
+word: own
+ count: 3
+ before: his 3
+ after: existence 3
+ related: 
+ pos: Verb
+ end: 
+word: particular
+ count: 2
+ before: a 1 no 1
+ after: analysis 1 reason 1
+ related: 
+ pos: Adj
+ end: 
+word: party
+ count: 1
+ before: we 1
+ after: 
+ related: "organization" "organisation" "social gathering" "social affair" "set" "circle" "band" "lot" "affair" "occasion" "social occasion" "function" "social function" "person" "individual" "someone" "somebody" "mortal" "soul"
+ pos: Noun
+ end: 
+word: people
+ count: 6
+ before: ask 1 asking 3 at 1 to 1
+ after: about 3 around 1 that 1
+ related: "group" "grouping" "group" "grouping" "family" "family line" "folk" "kinfolk" "kinsfolk" "sept" "phratry" "group" "grouping"
+ pos: Noun
+ end: 
+word: percent
+ count: 2
+ before: seventy 1 thirty 1
+ after: of 1
+ related: "proportion"
+ pos: Noun
+ end: 
+word: perhaps
+ count: 4
+ before: or 2
+ after: follow 1 not 1 why 2
+ related: 
+ pos: Adv
+ end: 
+word: person's
+ count: 4
+ before: a 2 any 2
+ after: belief 1 mode 2 way 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: personally
+ count: 3
+ before: I 1 you 2
+ after: don't 1 think 2
+ related: 
+ pos: Adv
+ end: 
+word: pink
+ count: 3
+ before: a 3
+ after: dolphin 3
+ related: "chromatic color" "chromatic colour" "spectral color" "spectral colour" "flower" "collectivist" "leftist" "left-winger"
+ pos: Noun
+ end: 
+word: pizza
+ count: 1
+ before: of 1
+ after: and 1
+ related: "dish"
+ pos: Noun
+ end: 
+word: place
+ count: 3
+ before: weird 3
+ after: doing 3
+ related: "point" "geographical area" "geographic area" "geographical region" "geographic region" "cognition" "knowledge" "noesis" "vicinity" "locality" "neighborhood" "neighbourhood" "neck of the woods" "function" "office" "part" "role" "situation" "position" "residence" "abode" "occupation" "business" "job" "line of work" "line" "point" "social station" "social status" "social rank" "rank" "space" "passage" "condition" "status" "public square" "square" "item" "point" "area" "expanse" "surface area"
+ pos: Noun
+ end: 
+word: pocket
+ count: 1
+ before: his 1
+ after: will 1
+ related: "pouch" "cavity" "enclosed space" "funds" "finances" "monetary resource" "cash in hand" "pecuniary resource" "space" "concave shape" "concavity" "incurvation" "incurvature" "atmospheric phenomenon" "people" "sac" "opening" "gap"
+ pos: Noun
+ end: 
+word: point
+ count: 1
+ before: that 1
+ after: he 1
+ related: "component" "constituent" "element" "factor" "ingredient" "location" "meaning" "significance" "signification" "import" "fact" "state" "measure" "quantity" "amount" "aim" "object" "objective" "target" "convex shape" "convexity" "disk" "disc" "saucer" "unit of measurement" "unit" "promontory" "headland" "head" "foreland" "part" "portion" "component part" "component" "constituent" "relevance" "relevancy" "characteristic" "end" "terminal" "direction" "linear unit" "linear measure" "loan" "punctuation" "punctuation mark" "mark" "mathematical notation" "taper" "characteristic" "gun muzzle" "muzzle" "wall socket" "wall plug" "electric outlet" "electrical outlet" "outlet" "electric receptacle" "contact" "tangency"
+ pos: Noun
+ end: 
+word: population
+ count: 4
+ before: the 4
+ after: 
+ related: "people" "group" "grouping" "collection" "aggregation" "accumulation" "assemblage" "integer" "whole number" "colonization" "colonisation" "settlement"
+ pos: Noun
+ end: 
+word: possibility
+ count: 7
+ before: that 3 the 3
+ after: journey 1 of 3 that 3
+ related: "expectation" "outlook" "prospect" "being" "beingness" "existence" "concept" "conception" "construct" "option" "alternative" "choice"
+ pos: Noun
+ end: 
+word: possible
+ count: 1
+ before: another 1
+ after: candidate 1
+ related: "possibility" "possible action" "opening" "applicant" "applier"
+ pos: Noun
+ end: 
+word: possibly
+ count: 2
+ before: if 2
+ after: another 2
+ related: 
+ pos: Adv
+ end: 
+word: prefer
+ count: 1
+ before: and 1
+ after: to 1
+ related: "like"  "promote" "upgrade" "advance" "kick upstairs" "raise" "elevate" "pay"
+ pos: Verb
+ end: 
+word: problem
+ count: 3
+ before: our 3
+ after: 
+ related: "difficulty" "question" "head" "difficulty"
+ pos: Noun
+ end: 
+word: process
+ count: 3
+ before: reliable 2 to 1
+ after: fruit 1
+ related: "affect" "impact" "bear upon" "bear on" "touch on" "touch" "manage" "deal" "care" "handle" "calculate" "cipher" "cypher" "compute" "work out" "reckon" "figure" "challenge" "walk" "transform" "transmute" "transubstantiate" "deliver"
+ pos: Verb
+ end: 
+word: produce
+ count: 3
+ before: reliably 3
+ after: coffee 3
+ related: "make" "create"  "make" "create" "expose" "exhibit" "display" "cultivate"  "change"
+ pos: Verb
+ end: 
+word: produced
+ count: 1
+ before: one 1
+ after: through 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: pull
+ count: 2
+ before: can 2
+ after: something 2
+ related: "move" "displace" "pull" "draw" "force" "drive" "force" "act" "move" "remove" "take" "take away" "withdraw" "drive" "injure" "wound" "move" "displace" "row" "rein" "rein in" "tear" "rupture" "snap" "bust" "hit" "strip" "remove" "take" "take away" "withdraw" "side" "remove" "take" "take away" "withdraw"
+ pos: Verb
+ end: 
+word: pumpkins
+ count: 1
+ before: of 1
+ after: and 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: question
+ count: 1
+ before: a 1
+ after: 
+ related: "questioning" "inquiring" "subject" "topic" "theme" "sentence" "uncertainty" "uncertainness" "precariousness" "proposal" "marriage proposal" "proposal of marriage" "marriage offer" "proposal"
+ pos: Noun
+ end: 
+word: ready
+ count: 2
+ before: 
+ after: to 2
+ related: 
+ pos: Adj
+ end: 
+word: really
+ count: 5
+ before: it 3 that 1 you 1
+ after: all 3 are 2
+ related: 
+ pos: Adv
+ end: 
+word: reason
+ count: 3
+ before: particular 1
+ after: that 1 why 2
+ related: "rational motive" "explanation" "account" "faculty" "mental faculty" "module" "sanity" "saneness" "justification" "fact"
+ pos: Noun
+ end: 
+word: regarded
+ count: 1
+ before: be 1
+ after: as 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: relationship
+ count: 3
+ before: internal 3
+ after: between 3
+ related: "relation" "state" "state" "relation"
+ pos: Noun
+ end: 
+word: reliable
+ count: 2
+ before: a 2
+ after: process 2
+ related: 
+ pos: Adj
+ end: 
+word: reliably
+ count: 3
+ before: might 1 not 2
+ after: produce 3
+ related: 
+ pos: Adv
+ end: 
+word: replace
+ count: 2
+ before: to 2
+ after: words 2
+ related: "regenerate" "renew" "succeed" "come after" "follow" "put" "set" "place" "pose" "position" "lay" "change" "alter" "modify"
+ pos: Verb
+ end: 
+word: resetting
+ count: 1
+ before: were 1
+ after: the 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: results
+ count: 2
+ before: the 1
+ after: of 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: rich
+ count: 2
+ before: myself 2
+ after: 
+ related: 
+ pos: Adj
+ end: 
+word: rogue
+ count: 4
+ before: a 4
+ after: trader 4
+ related: "villain" "scoundrel"
+ pos: Noun
+ end: 
+word: roll
+ count: 1
+ before: I'll 1
+ after: on 1
+ related: "turn" "travel" "go" "move" "locomote"  "flatten" "sound" "go" "move" "displace" "function" "work" "operate" "go" "run" "shape" "form" "tumble" "steal" "move" "travel" "go" "move" "locomote" "rock" "sway" "shake" "move" "displace" "pronounce" "articulate" "enounce" "sound out" "enunciate" "say" "churn" "boil" "moil" "roil" "change shape" "change form" "deform" "change"
+ pos: Verb
+ end: 
+word: route
+ count: 1
+ before: wrong 1
+ after: may 1
+ related: "dispatch" "despatch" "send off" "send" "direct" "divert"
+ pos: Verb
+ end: 
+word: said
+ count: 7
+ before: I 5
+ after: earlier 5 just 1 something 1
+ related: 
+ pos: Adj
+ end: 
+word: salad
+ count: 1
+ before: egg 1
+ after: 
+ related: "dish"
+ pos: Noun
+ end: 
+word: same
+ count: 1
+ before: the 1
+ after: job 1
+ related: 
+ pos: Adj
+ end: 
+word: sauce
+ count: 1
+ before: elephant 1
+ after: 
+ related: "act" "behave" "do" "season" "flavor" "flavour" "change" "alter" "modify"
+ pos: Verb
+ end: 
+word: say
+ count: 6
+ before: I'll 3 just 2 you 1
+ after: so 3 whatever 3
+ related: "express" "verbalize" "verbalise" "utter" "give tongue to" "assert" "asseverate" "maintain" "speculate" "have" "feature" "request" "convey" "express" "verbalize" "verbalise" "utter" "give tongue to" "recite" "read" "register" "show" "record"
+ pos: Verb
+ end: 
+word: second
+ count: 1
+ before: the 1
+ after: thing 1
+ related: "time unit" "unit of time" "time" "position" "point" "point in time" "rank" "angular unit" "attendant" "attender" "tender" "agreement" "gear" "gear mechanism" "merchandise" "ware" "product"
+ pos: Noun
+ end: 
+word: seek
+ count: 1
+ before: to 1
+ after: further 1
+ related: "desire" "want"  "act" "move" "travel" "go" "move" "locomote" "request"
+ pos: Verb
+ end: 
+word: seen
+ count: 1
+ before: has 1
+ after: one 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: sense
+ count: 5
+ before: broader 5
+ after: 
+ related: "awareness" "consciousness" "cognizance" "cognisance" "knowingness" "meaning" "significance" "signification" "import" "faculty" "mental faculty" "module" "sagacity" "sagaciousness" "judgment" "judgement" "discernment" "appreciation" "grasp" "hold"
+ pos: Noun
+ end: 
+word: senses
+ count: 1
+ before: his 1
+ after: his 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: sentence
+ count: 1
+ before: a 1
+ after: were 1
+ related: "string of words" "word string" "linguistic string" "final judgment" "final decision" "term"
+ pos: Noun
+ end: 
+word: serious
+ count: 1
+ before: I'm 1
+ after: I 1
+ related: 
+ pos: Adj
+ end: 
+word: set
+ count: 1
+ before: a 1
+ after: of 1
+ related: "move" "displace"  "choose" "take" "select" "pick out" "lay down" "establish" "make" "change" "alter" "modify" "arrange" "set up" "change" "alter" "modify" "adjust" "set" "correct" "stage" "present" "represent" "descend" "fall" "go down" "come down" "compose" "write" "put" "set" "place" "pose" "position" "lay" "originate" "initiate" "start" "solidify" "print" "impress" "put" "set" "place" "pose" "position" "lay" "bury" "sink" "hone" "assail" "assault" "set on" "attack" "estimate" "gauge" "approximate" "guess" "judge" "equip" "fit" "fit out" "outfit" "fix" "prepare" "set up" "ready" "gear up" "set" "change" "alter" "modify" "reproduce" "procreate" "multiply" "groom" "neaten"
+ pos: Verb
+ end: 
+word: seven
+ count: 2
+ before: had 2
+ after: dollar 2
+ related: "digit" "figure" "spot"
+ pos: Noun
+ end: 
+word: seventy
+ count: 1
+ before: over 1
+ after: percent 1
+ related: "large integer"
+ pos: Noun
+ end: 
+word: she
+ count: 4
+ before: and 4
+ after: hates 4
+ related: 
+ pos: UnknownEPos
+ end: 
+word: shit
+ count: 4
+ before: and 4
+ after: 
+ related: "fecal matter" "faecal matter" "feces" "faeces" "BM" "stool" "ordure" "dejection" "bunk" "bunkum" "buncombe" "guff" "rot" "hogwash" "small indefinite quantity" "small indefinite amount" "defecation" "laxation" "shitting" "unpleasant person" "disagreeable person" "worthlessness" "ineptitude"
+ pos: Noun
+ end: 
+word: should
+ count: 1
+ before: you 1
+ after: get 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: similar
+ count: 1
+ before: is 1
+ after: to 1
+ related: 
+ pos: Adj
+ end: 
+word: six
+ count: 1
+ before: have 1
+ after: dollars 1
+ related: "digit" "figure" "spot" "domino" "die" "dice"
+ pos: Noun
+ end: 
+word: small
+ count: 6
+ before: a 3 it 1 so 1 that 1
+ after: amount 1 bird 2
+ related: 
+ pos: Adj
+ end: 
+word: sniff
+ count: 1
+ before: dog 1
+ after: all 1
+ related: "smell" "inhale" "inspire" "breathe in"
+ pos: Verb
+ end: 
+word: so
+ count: 40
+ before: and 3 be 1 do 1 if 5 is 7 it 7 say 3 that's 3 think 3 why 1
+ after: I'm 4 and 7 dude 2 large 1 small 1 that's 3 why 7 wrong 3
+ related: 
+ pos: Adv
+ end: 
+word: socks
+ count: 4
+ before: old 4
+ after: and 4
+ related: 
+ pos: UnknownEPos
+ end: 
+word: solution
+ count: 2
+ before: another 2
+ after: existed 2
+ related: "mixture" "statement" "method" "set" "success"
+ pos: Noun
+ end: 
+word: some
+ count: 16
+ before: and 4 got 1 in 3 or 5 there's 1 why 2
+ after: nice 1 noodle 2 old 4 other 4 things 1 weird 3
+ related: 
+ pos: Adj
+ end: 
+word: something
+ count: 21
+ before: about 1 be 4 do 5 doing 7 get 1 pull 2 said 1
+ after: about 1 cool 1 off 3 or 6 then 3 too 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: sometimes
+ count: 1
+ before: 
+ after: I 1
+ related: 
+ pos: Adv
+ end: 
+word: state
+ count: 3
+ before: mental 3
+ after: of 3
+ related: "administrative district" "administrative division" "territorial division" "attribute" "government" "authorities" "regime" "political unit" "political entity" "chemical phenomenon" "emotional state" "spirit" "administrative district" "administrative division" "territorial division" "executive department"
+ pos: Noun
+ end: 
+word: stuff
+ count: 6
+ before: about 3 old 3
+ after: 
+ related: "substance" "object" "physical object" "personal property" "personal estate" "personalty" "private property" "nonsense" "bunk" "nonsensicality" "meaninglessness" "hokum" "quality" "information" "info" "kernel" "substance" "core" "center" "centre" "essence" "gist" "heart" "heart and soul" "inwardness" "marrow" "meat" "nub" "pith" "sum" "nitty-gritty"
+ pos: Noun
+ end: 
+word: such
+ count: 1
+ before: 
+ after: a 1
+ related: 
+ pos: Adj
+ end: 
+word: sure
+ count: 3
+ before: I'm 3
+ after: you 3
+ related: 
+ pos: Adj
+ end: 
+word: suspect
+ count: 4
+ before: be 1 considered 3
+ after: 
+ related: "guess" "venture" "pretend" "hazard" "disbelieve" "discredit" "think" "opine" "suppose" "imagine" "reckon" "guess"
+ pos: Verb
+ end: 
+word: talking
+ count: 1
+ before: you 1
+ after: about 1
+ related: "conversation"
+ pos: Noun
+ end: 
+word: tells
+ count: 1
+ before: bacon 1
+ after: me 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: ten
+ count: 3
+ before: with 3
+ after: coins 3
+ related: "large integer" "spot"
+ pos: Noun
+ end: 
+word: than
+ count: 7
+ before: better 1 valuable 1 value 2 worse 1 you 1
+ after: a 1 anything 2 me 1 one 1 their 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: that
+ count: 53
+ before: about 1 afraid 1 and 2 anything 2 argued 3 argues 2 at 2 belief 1 can 1 care 3 earlier 1 fact 1 if 1 is 8 just 2 know 1 knowledge 1 means 1 meant 2 or 1 people 1 possibility 3 reason 1 things 1 think 2 value 1 why 1
+ after: I 3 a 1 adult 1 can 1 comes 1 could 1 damn 3 dude 1 has 1 he 1 idea 1 if 2 it 2 makes 1 maybe 1 point 1 possibility 3 really 1 small 1 the 6 there's 1 why 8 words 2 you're 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: that's
+ count: 16
+ before: if 7 man 3 so 3 think 2
+ after: nice 1 okay 2 so 3 true 3 why 7
+ related: 
+ pos: UnknownEPos
+ end: 
+word: the
+ count: 53
+ before: about 4 and 4 at 1 awaiting 1 between 3 change 1 consider 4 earlier 2 embraced 3 for 2 get 1 having 3 of 2 on 4 resetting 1 that 6 this 2 why 4
+ after: actual 1 basis 1 cases 1 coffee 1 concept 1 end 1 fact 1 foal 3 fourth 1 job 1 journey 3 machine 1 mental 3 only 1 other 3 population 4 possibility 3 results 1 same 1 second 1 truth 4 value 6 whole 2 word 1 world 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: their
+ count: 4
+ before: follow 1 of 1 or 1 than 1
+ after: applications 1 bacon 1 belief 1 leaders 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: them
+ count: 5
+ before: do 5
+ after: tomorrow 5
+ related: 
+ pos: UnknownEPos
+ end: 
+word: then
+ count: 26
+ before: beans 1 coins 1 crazy 1 it 2 off 3 okay 5 something 3 thinking 2 true 3 you 2
+ after: I 1 I'm 3 be 2 do 1 if 2 it's 1 just 3 maybe 3 we 4 you 1
+ related: 
+ pos: Adv
+ end: 
+word: there
+ count: 10
+ before: Saturday 1 Wednesday 1 are 1 going 4
+ after: any 1 are 3 is 1 was 1
+ related: 
+ pos: Adv
+ end: 
+word: there's
+ count: 4
+ before: and 1 if 2 that 1
+ after: lots 1 more 1 no 1 some 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: these
+ count: 1
+ before: why 1
+ after: 
+ related: 
+ pos: UnknownEPos
+ end: 
+word: they
+ count: 9
+ before: Tuesday 1 if 3 were 2 what 1
+ after: are 3 doing 1 good 1 were 2 work 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: they're
+ count: 3
+ before: 
+ after: funny 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: thing
+ count: 4
+ before: dismal 1 little 1 second 1 this 1
+ after: I 1 is 1
+ related: "situation" "state of affairs" "action" "abstraction" "abstract" "artifact" "artefact" "happening" "occurrence" "occurrent" "natural event" "concern" "statement" "entity" "attribute" "aim" "object" "objective" "target" "feeling" "physical entity"
+ pos: Noun
+ end: 
+word: things
+ count: 20
+ before: all 1 better 4 doing 2 good 1 nice 1 obvious 5 other 2 some 1 why 3
+ after: that 1 to 7
+ related: "property" "belongings" "holding"
+ pos: Noun
+ end: 
+word: think
+ count: 22
+ before: I'll 1 can 1 don't 6 just 1 not 1 personally 2 to 4
+ after: about 10 at 1 it 1 so 3 that 2 that's 2 we 2
+ related: "evaluate" "pass judgment" "judge" "expect" "anticipate" "imagine" "conceive of" "ideate" "envisage" "concentrate" "focus" "center" "centre" "pore" "rivet" "think" "cogitate" "cerebrate" "think" "cogitate" "cerebrate" "think" "believe" "consider" "conceive" "think" "cogitate" "cerebrate" "change" "alter" "modify"
+ pos: Verb
+ end: 
+word: thinking
+ count: 7
+ before: I'm 1 are 4 of 2
+ after: about 2 of 3 then 2
+ related: "higher cognitive process"
+ pos: Noun
+ end: 
+word: thirty
+ count: 1
+ before: and 1
+ after: percent 1
+ related: "large integer"
+ pos: Noun
+ end: 
+word: this
+ count: 12
+ before: earlier 2 is 2 why 1 with 2
+ after: Friday 1 dismal 2 dude 1 example 1 nice 1 the 2 thing 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: those
+ count: 4
+ before: and 2 to 1
+ after: often 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: thought
+ count: 3
+ before: of 3
+ after: can 3
+ related: "content" "cognitive content" "mental object" "higher cognitive process" "belief" "belief"
+ pos: Noun
+ end: 
+word: through
+ count: 3
+ before: acquired 1 concepts 1 produced 1
+ after: a 2 analysis 1
+ related: 
+ pos: Adv
+ end: 
+word: thus
+ count: 1
+ before: and 1
+ after: a 1
+ related: 
+ pos: Adv
+ end: 
+word: time
+ count: 2
+ before: have 2
+ after: to 2
+ related: "case" "instance" "example" "time period" "period of time" "period" "time period" "period of time" "period" "moment" "minute" "second" "instant" "attribute" "experience" "reading" "meter reading" "indication" "dimension" "rhythmicity" "term"
+ pos: Noun
+ end: 
+word: time's
+ count: 2
+ before: 
+ after: up 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: times
+ count: 1
+ before: are 1
+ after: when 1
+ related: "time period" "period of time" "period" "arithmetic operation"
+ pos: Noun
+ end: 
+word: to
+ count: 44
+ before: able 1 answer 1 considered 2 existed 2 go 1 going 3 goo 1 has 1 how 1 journey 4 knowledge 2 learning 1 need 1 nice 1 order 2 prefer 1 ready 2 similar 1 things 7 time 2 way 2 went 3
+ after: a 2 ask 1 base 2 be 2 do 12 doubt 1 export 1 find 1 further 2 get 1 our 3 people 1 process 1 replace 2 seek 1 think 4 those 1 ultimate 2 you 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: tomorrow
+ count: 5
+ before: them 5
+ after: 
+ related: "day" "twenty-four hours" "twenty-four hour period" "24-hour interval" "solar day" "mean solar day" "future" "hereafter" "futurity" "time to come"
+ pos: Noun
+ end: 
+word: too
+ count: 4
+ before: important 1 something 3
+ after: 
+ related: 
+ pos: Adv
+ end: 
+word: trader
+ count: 4
+ before: rogue 4
+ after: in 2
+ related: "merchant" "merchandiser"
+ pos: Noun
+ end: 
+word: true
+ count: 5
+ before: a 1 being 1 that's 3
+ after: and 1 belief 1 then 3
+ related: 
+ pos: Adj
+ end: 
+word: truth
+ count: 8
+ before: about 1 and 2 the 4
+ after: is 3 it 1 when 1 wherein 1
+ related: "fact" "actuality" "statement" "quality"
+ pos: Noun
+ end: 
+word: trying
+ count: 1
+ before: I'm 1
+ after: 
+ related: 
+ pos: Adj
+ end: 
+word: two
+ count: 3
+ before: involves 3
+ after: men 3
+ related: "digit" "figure" "playing card"
+ pos: Noun
+ end: 
+word: ultimate
+ count: 2
+ before: to 2
+ after: oblivion 2
+ related: 
+ pos: Adj
+ end: 
+word: up
+ count: 3
+ before: done 1 time's 2
+ after: 
+ related: 
+ pos: Adj
+ end: 
+word: use
+ count: 1
+ before: you 1
+ after: might 1
+ related: "activity" "utility" "usefulness" "utility" "usefulness" "demand" "custom" "usage" "usance" "influence" "legal right"
+ pos: Noun
+ end: 
+word: valuable
+ count: 1
+ before: more 1
+ after: than 1
+ related: 
+ pos: Adj
+ end: 
+word: value
+ count: 7
+ before: less 1 the 6
+ after: of 4 than 2 that 1
+ related: "numerical quantity" "worth" "measure" "quantity" "amount" "color property" "duration" "continuance" "ideal"
+ pos: Noun
+ end: 
+word: vegetables
+ count: 1
+ before: with 1
+ after: 
+ related: 
+ pos: UnknownEPos
+ end: 
+word: very
+ count: 1
+ before: isn't 1
+ after: good 1
+ related: 
+ pos: Adj
+ end: 
+word: virtue
+ count: 3
+ before: of 3
+ after: epistemology 3
+ related: "good" "goodness" "worth" "morality" "good" "goodness"
+ pos: Noun
+ end: 
+word: was
+ count: 7
+ before: he 1 there 1 what 1
+ after: able 1 asking 1 going 2 it 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: way
+ count: 3
+ before: only 1 other 1 person's 1
+ after: of 1 to 2
+ related: "property" "implementation" "effectuation" "path" "route" "itinerary" "condition" "status" "course" "course of action" "artifact" "artefact" "journey" "journeying" "position" "spatial relation" "distance" "choice" "pick" "selection" "category" "share" "portion" "part" "percentage"
+ pos: Noun
+ end: 
+word: we
+ count: 14
+ before: Friday 1 Monday 1 Sunday 1 if 2 then 4 think 2 why 2
+ after: can 4 go 1 just 3 must 3 party 1 went 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: weird
+ count: 3
+ before: some 3
+ after: place 3
+ related: 
+ pos: Adj
+ end: 
+word: went
+ count: 5
+ before: I 3 we 1
+ after: to 3
+ related: 
+ pos: UnknownEPos
+ end: 
+word: were
+ count: 5
+ before: sentence 1 they 2 what 1
+ after: doing 2 resetting 1 they 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: wet
+ count: 5
+ before: and 2 hates 1 old 2
+ after: noodle 2 noodles 3
+ related: 
+ pos: Adj
+ end: 
+word: what
+ count: 13
+ before: about 1 and 5 dude 1 of 1
+ after: can 5 if 1 is 2 they 1 was 1 were 1 will 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: whatever
+ count: 3
+ before: say 3
+ after: is 3
+ related: 
+ pos: Adj
+ end: 
+word: when
+ count: 8
+ before: given 1 times 1 truth 1
+ after: I'm 1 discussing 1 he 1 you 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: wherein
+ count: 1
+ before: truth 1
+ after: a 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: which
+ count: 2
+ before: in 1
+ after: one 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: who
+ count: 5
+ before: Jones 2 Smith 2
+ after: are 3 is 2
+ related: "United Nations agency" "UN agency"
+ pos: Noun
+ end: 
+word: whole
+ count: 2
+ before: the 2
+ after: of 2
+ related: 
+ pos: Adj
+ end: 
+word: why
+ count: 56
+ before: also 2 and 5 ask 3 just 1 perhaps 2 reason 2 so 7 that 8 that's 7
+ after: a 4 all 2 any 1 are 2 can 1 cats 1 dog 1 donkeys 1 humans 1 is 10 so 1 some 2 that 1 the 4 these 1 things 3 this 1 we 2
+ related: "reason" "ground"
+ pos: Noun
+ end: 
+word: will
+ count: 3
+ before: pocket 1 what 2
+ after: get 1 happen 1 it 1
+ related: "faculty" "mental faculty" "module" "purpose" "intent" "intention" "aim" "design" "legal document" "legal instrument" "official document" "instrument"
+ pos: Noun
+ end: 
+word: with
+ count: 18
+ before: and 2 bacon 1 deals 4 fine 1 fish 2 fruit 1 it 2 man 1 noodle 4
+ after: a 3 coffee 1 egg 1 elephant 1 me 2 ten 3 this 2 vegetables 1 your 4
+ related: 
+ pos: UnknownEPos
+ end: 
+word: without
+ count: 1
+ before: correct 1
+ after: his 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: won't
+ count: 2
+ before: 
+ after: have 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: word
+ count: 1
+ before: the 1
+ after: count 1
+ related: "language unit" "linguistic unit" "statement" "information" "info" "order" "speech" "speech communication" "spoken communication" "spoken language" "language" "voice communication" "oral communication" "promise" "computer memory unit"  "positive identification" "secret" "arcanum" "sacred text" "sacred writing" "religious writing" "religious text"
+ pos: Noun
+ end: 
+word: words
+ count: 4
+ before: replace 2 that 2
+ after: and 2 at 2
+ related: "speech" "speech communication" "spoken communication" "spoken language" "language" "voice communication" "oral communication" "text" "textual matter" "language" "linguistic communication" "dispute" "difference" "difference of opinion" "conflict" "line"
+ pos: Noun
+ end: 
+word: work
+ count: 1
+ before: they 1
+ after: 
+ related:   "succeed" "win" "come through" "bring home the bacon" "deliver the goods"  "transform" "transmute" "transubstantiate" "work" "put to work" "pass" "go through" "go across" "work" "go" "proceed" "move" "move" "displace" "make" "create" "use" "utilize" "utilise" "apply" "employ" "fix" "prepare" "set up" "ready" "gear up" "set" "be" "affect" "impact" "bear upon" "bear on" "touch on" "touch" "operate" "run" "manage" "deal" "care" "handle" "stimulate" "excite" "stir" "capture" "enamour" "trance" "catch" "becharm" "enamor" "captivate" "beguile" "charm" "fascinate" "bewitch" "entrance" "enchant" "create from raw material" "create from raw stuff" "move" "displace" "manipulate" "use" "utilize" "utilise" "apply" "employ" "understand" "convert" "change state" "turn" "become" "go" "get"
+ pos: Verb
+ end: 
+word: world
+ count: 1
+ before: the 1
+ after: around 1
+ related: "natural object" "class" "stratum" "social class" "socio-economic class" "experience"  "people" "part" "piece" "concern" "homo" "man" "human being" "human" "group" "grouping"
+ pos: Noun
+ end: 
+word: worse
+ count: 1
+ before: or 1
+ after: than 1
+ related: 
+ pos: Adj
+ end: 
+word: would
+ count: 2
+ before: I 2
+ after: consider 2
+ related: 
+ pos: UnknownEPos
+ end: 
+word: wrong
+ count: 12
+ before: a 1 so 3 you're 8
+ after: route 1
+ related: 
+ pos: Adj
+ end: 
+word: yet
+ count: 2
+ before: it 1
+ after: another 1 but 1
+ related: 
+ pos: Adv
+ end: 
+word: you
+ count: 25
+ before: about 1 are 1 asking 1 by 2 for 1 if 7 machine 1 sure 3 then 1 to 1 when 1
+ after: about 1 ask 1 asked 2 don't 6 have 1 lose 2 need 1 personally 2 really 1 say 1 should 1 talking 1 than 1 then 2 use 1
+ related: 
+ pos: UnknownEPos
+ end: 
+word: you're
+ count: 10
+ before: do 1 dude 5 if 1 maybe 2 that 1
+ after: crazy 1 going 1 wrong 8
+ related: 
+ pos: UnknownEPos
+ end: 
+word: your
+ count: 5
+ before: and 1 with 4
+ after: belief 1 old 4
+ related: 
+ pos: UnknownEPos
+ end: 
+word: yours
+ count: 1
+ before: it 1
+ after: 
+ related: 
+ pos: UnknownEPos
+ end: 
+>END<
+
+
