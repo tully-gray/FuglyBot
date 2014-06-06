@@ -207,6 +207,8 @@ loadDict fuglydir topic = do
                   else
                     ff h ww nm
 
+qWords = ["if", "is", "are", "why", "what", "when", "who", "where", "want", "am"]
+
 wordIs         (Word w c b a r p) = "word"
 wordIs         (Name n c b a r)   = "name"
 wordIs         (Place p c b a r)  = "place"
@@ -247,15 +249,16 @@ insertWord fugly@(Fugly dict pgf wne aspell allow ban) [] _ _ _ = return dict
 insertWord fugly@(Fugly dict pgf wne aspell allow ban) word before after pos =
     if elem word ban || elem before ban || elem after ban then return dict
     else if isJust w then f $ fromJust w
-         else if isJust ww then insertWordRaw' fugly ww (map toLower word) bi ai pos
-              else insertWordRaw' fugly w (map toLower word) bi ai pos
+         else if isJust ww then insertWordRaw' fugly ww (cw word) bi ai pos
+              else insertWordRaw' fugly w (cw word) bi ai pos
   where
+    cw m = map toLower $ strip ',' $ strip '.' $ strip '!' $ strip '?' m
     w = Map.lookup word dict
-    ww = Map.lookup (map toLower word) dict
+    ww = Map.lookup (cw word) dict
     a = Map.lookup after dict
     b = Map.lookup before dict
-    ai = if isJust a then after else map toLower after
-    bi = if isJust b then before else map toLower before
+    ai = if isJust a then after else cw after
+    bi = if isJust b then before else cw before
     f (Word {})  = insertWordRaw' fugly w word bi ai pos
     f (Name {})  = insertName'    fugly w word bi ai
 
@@ -268,8 +271,6 @@ insertWordRaw' (Fugly dict _ wne aspell allow _) w word before after pos = do
   pa <- wnPartPOS wne after
   pb <- wnPartPOS wne before
   rel <- wnRelated wne word "Hypernym" pp
-  as <- asSuggest aspell word
-  let asw = words as
   let nn x y  = if elem x allow then x
                 else if y == UnknownEPos && Aspell.check aspell (ByteString.pack x) == False then [] else x
   let i x = Map.insert x (Word x 1 (e (nn before pb)) (e (nn after pa)) rel pp) dict
@@ -281,9 +282,8 @@ insertWordRaw' (Fugly dict _ wne aspell allow _) w word before after pos = do
            return $ i word
            else if pp /= UnknownEPos || Aspell.check aspell (ByteString.pack word) then
                   return $ i word
-                  else if (length asw) > 0 then return $ i (fHead "insertWordRaw" [] asw)
-                       else
-                         return dict
+                else
+                  return dict
   where
     e [] = Map.empty
     e x = Map.singleton x 1
@@ -464,9 +464,7 @@ toUpperSentence msg = (up' msg : [] ) ++ tail msg
 
 endSentence :: [String] -> [String]
 endSentence []  = []
-endSentence msg = (init msg) ++ ((fLast "endSentence" [] msg) ++ if elem (head msg) r then "?" else ".") : []
-  where
-    r = ["if", "is", "are", "what", "when", "who", "where", "want", "am"]
+endSentence msg = (init msg) ++ ((fLast "endSentence" [] msg) ++ if elem (head msg) qWords then "?" else ".") : []
 
 fHead a b [] = unsafePerformIO (do putStrLn ("fHead: error in " ++ a) ; return b)
 fHead a b c  = head c
@@ -643,7 +641,6 @@ gfCategories pgf = map showCId (categories pgf)
 sentence :: Fugly -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen msg = do
-  let r = ["if", "is", "are", "what", "when", "who", "where", "want", "am"]
   let s1a x = do
       w <- s1b fugly slen 0 $ findNextWord fugly x 0
       putStrLn ("DEBUG > " ++ unwords w)
@@ -652,7 +649,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen msg = do
       w <- x
       if null w then return []
         else return ((init w) ++ ((fLast "sentence: s1d" [] w) ++
-                                  if elem (head w) r then "?" else ".") : [])
+                                  if elem (head w) qWords then "?" else ".") : [])
   let s1e x = do
       w <- x
       if null w then return []
