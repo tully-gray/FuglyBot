@@ -252,7 +252,8 @@ insertWord fugly@(Fugly dict pgf wne aspell allow ban) word before after pos =
          else if isJust ww then insertWordRaw' fugly ww (cw word) bi ai pos
               else insertWordRaw' fugly w (cw word) bi ai pos
   where
-    cw m = map toLower $ strip ',' $ strip '.' $ strip '!' $ strip '?' m
+    -- cw m = map toLower $ strip ':' $ strip ';' $ strip ',' $ strip '.' $ strip '!' $ strip '?' m
+    cw m = strip ':' $ strip ';' $ strip ',' $ strip '.' $ strip '!' $ strip '?' m
     w = Map.lookup word dict
     ww = Map.lookup (cw word) dict
     a = Map.lookup after dict
