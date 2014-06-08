@@ -207,9 +207,9 @@ loadDict fuglydir topic = do
                   else
                     ff h ww nm
 
-qWords = ["if", "is", "are", "why", "what", "when", "who", "where", "want", "am"]
-badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "i", "and", "are", "your", "you're", "you", "with", "was",
-               "to", "in", "is", "as", "if", "do", "so", "am", "of", "for", "or", "he", "she", "they", "it's", "its"]
+qWords = ["if", "is", "are", "why", "what", "when", "who", "where", "want", "am", "can", "will"]
+badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "i", "and", "are", "your", "you're", "you", "who", "with", "was",
+               "to", "in", "is", "as", "if", "do", "so", "am", "of", "for", "or", "he", "she", "they", "we", "it's", "its"]
 
 wordIs         (Word w c b a r p) = "word"
 wordIs         (Name n c b a r)   = "name"
@@ -608,7 +608,7 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
   | elem (last w) badEndWords = False
-  | length w > 5  = (gfParseBoolA pgf $ take 5 w) && (gfParseBool pgf (unwords $ drop 5 w))
+  | length w > 10 = (gfParseBoolA pgf $ take 10 w) && (gfParseBool pgf (unwords $ drop 10 w))
   | otherwise     = gfParseBoolA pgf w
     where
       w = words msg
