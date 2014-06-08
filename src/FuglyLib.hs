@@ -608,7 +608,7 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
   | elem (last w) badEndWords = False
-  | length w > 10 = (gfParseBoolA pgf $ take 10 w) && (gfParseBool pgf (unwords $ drop 10 w))
+  | length w > 7  = (gfParseBoolA pgf $ take 7 w) && (gfParseBool pgf (unwords $ drop 7 w))
   | otherwise     = gfParseBoolA pgf w
     where
       w = words msg
@@ -658,7 +658,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen msg = do
       w <- x
       if null w then return []
         else return ((init w) ++ ((fLast "sentence: s1d" [] w) ++
-                                  if elem (head w) qWords then "?" else ".") : [])
+                                  if elem (map toLower $ head w) qWords then "?" else ".") : [])
   let s1e x = do
       w <- x
       if null w then return []
