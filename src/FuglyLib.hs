@@ -208,6 +208,7 @@ loadDict fuglydir topic = do
                     ff h ww nm
 
 qWords = ["if", "is", "are", "why", "what", "when", "who", "where", "want", "am"]
+badEndWords = ["the", "I", "I've", "I'll", "I'm", "i", "and", "are", "your", "you", "with", "was", "to", "in", "is", "do", "so", "am", "of", "for"]
 
 wordIs         (Word w c b a r p) = "word"
 wordIs         (Name n c b a r)   = "name"
@@ -380,6 +381,9 @@ listNeighMax m = [w | (w, c) <- Map.toList m, c == maximum [c | (w, c) <- Map.to
 listNeighMax2 :: Map.Map String Int -> [String]
 listNeighMax2 m = concat [[w, show c] | (w, c) <- Map.toList m,
                           c == maximum [c | (w, c) <- Map.toList m]]
+
+listNeighLeast :: Map.Map String Int -> [String]
+listNeighLeast m = [w | (w, c) <- Map.toList m, c == minimum [c | (w, c) <- Map.toList m]]
 
 listWords :: Map.Map String Word -> [String]
 listWords m = map wordGetWord $ Map.elems m
@@ -602,6 +606,7 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 
 gfParseBool :: PGF -> String -> Bool
 gfParseBool pgf msg
+  | elem (last w) badEndWords = False
   | length w > 5  = (gfParseBoolA pgf $ take 5 w) && (gfParseBool pgf (unwords $ drop 5 w))
   | otherwise     = gfParseBoolA pgf w
     where
@@ -642,10 +647,12 @@ gfCategories pgf = map showCId (categories pgf)
 sentence :: Fugly -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen msg = do
+  let s1f x = if null x then return []
+              else if gfParseBool pgf (unwords x) then return x else return []
   let s1a x = do
-      w <- s1b fugly slen 0 $ findNextWord fugly x 0
+      w <- s1b fugly slen 2 $ findNextWord fugly x 0
       putStrLn ("DEBUG > " ++ unwords w)
-      return ([x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
+      s1f ([x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
   let s1d x = do
       w <- x
       if null w then return []
@@ -655,10 +662,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen msg = do
       w <- x
       if null w then return []
         else return ((s1c w : [] ) ++ tail w)
-  let s1 = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
-  let s2 = map (\x -> do y <- x ; if gfParseBool pgf y && (length $ words y) > 1 then
-                                      return y else return []) s1
-  take stries s2
+  take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do
@@ -675,19 +679,24 @@ findNextWord :: Fugly -> String -> Int -> IO [String]
 findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
   let ln       = if isJust w then length neigh else 0
   let lm       = if isJust w then length neighmax else 0
+  let ll       = if isJust w then length neighleast else 0
   nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
   mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
-  let ff = if isJust w && (length neigh > 0) then case mod i 3 of
+  lr <- Random.getStdRandom (Random.randomR (0, ll - 1))
+  let ff = if isJust w && (length neigh > 0) then case mod i 5 of
         0 -> neigh!!nr
-        1 -> neigh!!nr
+        1 -> neighleast!!lr
         2 -> neighmax!!mr
+        3 -> neigh!!nr
+        4 -> neighleast!!lr
         _ -> "Doesn't happen!"
            else []
   return $ replace "i" "I" $ words ff
     where
-      w        = Map.lookup word dict
-      neigh    = listNeigh $ wordGetAfter (fromJust w)
-      neighmax = listNeighMax $ wordGetAfter (fromJust w)
+      w          = Map.lookup word dict
+      neigh      = listNeigh $ wordGetAfter (fromJust w)
+      neighmax   = listNeighMax $ wordGetAfter (fromJust w)
+      neighleast = listNeighLeast $ wordGetAfter (fromJust w)
 
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup fugly@(Fugly _ _ wne aspell _ _) word pos = do
