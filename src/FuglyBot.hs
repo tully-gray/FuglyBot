@@ -114,7 +114,7 @@ start args = do
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir gfdir topic
-    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 90 400 100 100 False False topic) fugly)
+    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 90 400 100 10 False False topic) fugly)
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")

@@ -208,7 +208,8 @@ loadDict fuglydir topic = do
                     ff h ww nm
 
 qWords = ["if", "is", "are", "why", "what", "when", "who", "where", "want", "am"]
-badEndWords = ["the", "I", "I've", "I'll", "I'm", "i", "and", "are", "your", "you", "with", "was", "to", "in", "is", "do", "so", "am", "of", "for"]
+badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "i", "and", "are", "your", "you're", "you", "with", "was",
+               "to", "in", "is", "as", "if", "do", "so", "am", "of", "for", "or", "he", "she", "they", "it's", "its"]
 
 wordIs         (Word w c b a r p) = "word"
 wordIs         (Name n c b a r)   = "name"
@@ -648,7 +649,7 @@ sentence :: Fugly -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen msg = do
   let s1f x = if null x then return []
-              else if gfParseBool pgf (unwords x) then return x else return []
+              else if gfParseBool pgf (unwords x) && length x > 2 then return x else return []
   let s1a x = do
       w <- s1b fugly slen 2 $ findNextWord fugly x 0
       putStrLn ("DEBUG > " ++ unwords w)
