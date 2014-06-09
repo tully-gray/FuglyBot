@@ -107,10 +107,10 @@ start args = do
     let port     = read $ args !! 1 :: Integer
     let nick     = cleanStringWhite isAscii (args !! 2)
     let owner    = args !! 3
-    let fuglydir = args !! 5 :: FilePath
-    let wndir    = args !! 6 :: FilePath
-    let gfdir    = args !! 7 :: FilePath
-    let topic    = "default"
+    let topic    = args !! 5
+    let fuglydir = args !! 6 :: FilePath
+    let wndir    = args !! 7 :: FilePath
+    let gfdir    = args !! 8 :: FilePath
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir gfdir topic
@@ -126,7 +126,7 @@ run args = do
     bot <- lift $ readMVar b
     let s = (\(Bot s _ _) -> s) bot
     let channel = args !! 4
-    let passwd  = args !! 8
+    let passwd  = args !! 9
     lift (forkIO (do
                      threadDelay 20000000
                      if not $ null passwd then privMsg bot "nickserv" ("IDENTIFY " ++ passwd) else return ()
@@ -161,6 +161,8 @@ cmdLine = do
     let owner        = if l > ownerPos then args !! ownerPos else "shadowdaemon"
     let channelPos   = (maximum' $ elemIndices "-channel" args) + 1
     let channel      = if l > channelPos then args !! channelPos else "#fuglybot"
+    let topicPos     = (maximum' $ elemIndices "-topic" args) + 1
+    let topic        = if l > topicPos then args !! topicPos else "default"
     let fuglydirPos  = (maximum' $ elemIndices "-fuglydir" args) + 1
     let fuglydir     = if l > fuglydirPos then args !! fuglydirPos
                                             else "/var/lib/fuglybot"
@@ -172,7 +174,7 @@ cmdLine = do
                                             else "/var/lib/fuglybot"
     let passwdPos    = (maximum' $ elemIndices "-passwd" args) + 1
     let passwd       = if l > passwdPos then args !! passwdPos else ""
-    return (server : port : nick : owner : channel : fuglydir : wndir : gfdir : passwd : [])
+    return (server : port : nick : owner : channel : topic : fuglydir : wndir : gfdir : passwd : [])
   where
     maximum' [] = 1000
     maximum' a  = maximum a
