@@ -210,7 +210,8 @@ loadDict fuglydir topic = do
 qWords = ["if", "is", "are", "why", "what", "when", "who", "where", "want", "am", "can", "will"]
 badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "i", "and", "are", "an", "your", "you're", "you", "who", "with", "was", "into",
                "to", "in", "is", "as", "if", "do", "so", "am", "of", "for", "or", "he", "she", "they", "they're", "we", "it", "it's",
-               "its", "from", "go", "my", "that", "that's", "whose", "when", "what", "has", "had", "make", "makes", "person's"]
+               "its", "from", "go", "my", "that", "that's", "whose", "when", "what", "has", "had", "make", "makes", "person's", "but",
+               "our", "at", "on"]
 
 wordIs         (Word w c b a r p) = "word"
 wordIs         (Name n c b a r)   = "name"
@@ -218,12 +219,16 @@ wordIs         (Place p c b a r)  = "place"
 wordIs         (Phrase p c b a r) = "phrase"
 wordGetWord    (Word w c b a r p) = w
 wordGetWord    (Name n c b a r)   = n
+wordGetWord    _                  = []
 wordGetAfter   (Word w c b a r p) = a
 wordGetAfter   (Name n c b a r)   = a
+wordGetAfter   _                  = Map.empty
 wordGetBefore  (Word w c b a r p) = b
 wordGetBefore  (Name n c b a r)   = b
+wordGetBefore  _                  = Map.empty
 wordGetRelated (Word w c b a r p) = r
 wordGetRelated (Name n c b a r)   = r
+wordGetRelated _                  = []
 wordGetwc      (Word w c _ _ _ _) = (c, w)
 wordGetwc      (Name w c _ _ _)   = (c, w)
 
