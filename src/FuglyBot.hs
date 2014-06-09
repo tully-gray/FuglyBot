@@ -126,7 +126,7 @@ run args = do
     bot <- lift $ readMVar b
     let s = (\(Bot s _ _) -> s) bot
     let channel = args !! 4
-    let passwd  = args !! 7
+    let passwd  = args !! 8
     lift (forkIO (do
                      threadDelay 20000000
                      if not $ null passwd then privMsg bot "nickserv" ("IDENTIFY " ++ passwd) else return ()
