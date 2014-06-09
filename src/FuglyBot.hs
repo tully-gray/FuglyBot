@@ -78,12 +78,15 @@ readParam :: String -> Parameter
 readParam a | (map toLower a) == "nick"            = Nick
 readParam a | (map toLower a) == "owner"           = Owner
 readParam a | (map toLower a) == "usercmd"         = UserCommands
+readParam a | (map toLower a) == "usercmds"        = UserCommands
 readParam a | (map toLower a) == "usercommands"    = UserCommands
 readParam a | (map toLower a) == "rejoinkick"      = RejoinKick
 readParam a | (map toLower a) == "threadtime"      = ThreadTime
 readParam a | (map toLower a) == "maxchanmsg"      = MaxChanMsg
 readParam a | (map toLower a) == "stries"          = STries
+readParam a | (map toLower a) == "sentencetries"   = STries
 readParam a | (map toLower a) == "slength"         = SLength
+readParam a | (map toLower a) == "sentencelength"  = SLength
 readParam a | (map toLower a) == "learning"        = Learning
 readParam a | (map toLower a) == "allowpm"         = AllowPM
 readParam a | (map toLower a) == "topic"           = Topic
