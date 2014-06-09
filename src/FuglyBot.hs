@@ -22,7 +22,7 @@ data Bot = Bot {
     }
 
 data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
-               | STries | SLength | Learning | AllowPM | Topic | UnknownParam
+               | SentenceTries | SentenceLength | Learning | AllowPM | Topic | UnknownParam
                | Parameter {
                  nick        :: String,
                  owner       :: String,
@@ -51,8 +51,8 @@ instance Enum Parameter where
     toEnum 4 = RejoinKick
     toEnum 5 = ThreadTime
     toEnum 6 = MaxChanMsg
-    toEnum 7 = STries
-    toEnum 8 = SLength
+    toEnum 7 = SentenceTries
+    toEnum 8 = SentenceLength
     toEnum 9 = Learning
     toEnum 10 = AllowPM
     toEnum 11 = Topic
@@ -64,8 +64,8 @@ instance Enum Parameter where
     fromEnum RejoinKick     = 4
     fromEnum ThreadTime     = 5
     fromEnum MaxChanMsg     = 6
-    fromEnum STries         = 7
-    fromEnum SLength        = 8
+    fromEnum SentenceTries  = 7
+    fromEnum SentenceLength = 8
     fromEnum Learning       = 9
     fromEnum AllowPM        = 10
     fromEnum Topic          = 11
@@ -83,10 +83,11 @@ readParam a | (map toLower a) == "usercommands"    = UserCommands
 readParam a | (map toLower a) == "rejoinkick"      = RejoinKick
 readParam a | (map toLower a) == "threadtime"      = ThreadTime
 readParam a | (map toLower a) == "maxchanmsg"      = MaxChanMsg
-readParam a | (map toLower a) == "stries"          = STries
-readParam a | (map toLower a) == "sentencetries"   = STries
-readParam a | (map toLower a) == "slength"         = SLength
-readParam a | (map toLower a) == "sentencelength"  = SLength
+readParam a | (map toLower a) == "stries"          = SentenceTries
+readParam a | (map toLower a) == "sentencetries"   = SentenceTries
+readParam a | (map toLower a) == "slen"            = SentenceLength
+readParam a | (map toLower a) == "slength"         = SentenceLength
+readParam a | (map toLower a) == "sentencelength"  = SentenceLength
 readParam a | (map toLower a) == "learning"        = Learning
 readParam a | (map toLower a) == "allowpm"         = AllowPM
 readParam a | (map toLower a) == "topic"           = Topic
@@ -232,8 +233,8 @@ changeParam bot@(Bot _ p@(Parameter {fuglydir=fd, topic=t}) f) chan nick param v
       RejoinKick   -> replyMsg' "Rejoin kick time"    >> return bot{params=p{rejoinkick=read value}}
       ThreadTime   -> replyMsg' "Thread time"         >> return bot{params=p{threadtime=read value}}
       MaxChanMsg   -> replyMsg' "Max channel message" >> return bot{params=p{maxchanmsg=read value}}
-      STries       -> replyMsg' "Sentence tries"      >> return bot{params=p{stries=read value}}
-      SLength      -> replyMsg' "Sentence length"     >> return bot{params=p{slength=read value}}
+      SentenceTries  -> replyMsg' "Sentence tries"      >> return bot{params=p{stries=read value}}
+      SentenceLength -> replyMsg' "Sentence length"     >> return bot{params=p{slength=read value}}
       Learning     -> replyMsg' "Learning"            >> return bot{params=p{learning=readBool value}}
       AllowPM      -> replyMsg' "Allow PM"            >> return bot{params=p{allowpm=readBool value}}
       Topic        -> do (d, a, b) <- catchIOError (loadDict fd value) (const $ return (Map.empty, [], []))
