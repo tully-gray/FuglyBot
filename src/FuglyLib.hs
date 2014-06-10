@@ -658,7 +658,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
               else if gfParseBool pgf plen (unwords x) && length x > 2 then return x else return []
   let s1a x = do
       w <- s1b fugly slen 2 $ findNextWord fugly x 0
-      putStrLn ("DEBUG > " ++ unwords w)
+      -- putStrLn ("DEBUG > " ++ unwords w)
       s1f ([x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
   let s1d x = do
       w <- x
