@@ -229,6 +229,9 @@ wordGetBefore  _                  = Map.empty
 wordGetRelated (Word w c b a r p) = r
 wordGetRelated (Name n c b a r)   = r
 wordGetRelated _                  = []
+wordGetPos     (Word w c b a r p) = p
+wordGetPos     (Name n c b a r)   = UnknownEPos
+wordGetPos     _                  = UnknownEPos
 wordGetwc      (Word w c _ _ _ _) = (c, w)
 wordGetwc      (Name w c _ _ _)   = (c, w)
 
@@ -285,8 +288,8 @@ insertWordRaw' (Fugly dict _ wne aspell allow _) w word before after pos = do
   let i x = Map.insert x (Word x 1 (e (nn before pb)) (e (nn after pa)) rel pp) dict
   if isJust w then
     return $ Map.insert word (Word word c (nb before pb) (na after pa)
-                            (wordGetRelated (fromJust w))
-                            (((\x@(Word _ _ _ _ _ p) -> p)) (fromJust w))) dict
+                            (wordGetRelated $ fromJust w)
+                            (wordGetPos $ fromJust w)) dict
          else if elem word allow then
            return $ i word
            else if pp /= UnknownEPos || Aspell.check aspell (ByteString.pack word) then
