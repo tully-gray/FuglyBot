@@ -611,11 +611,11 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
     _          -> "Me no understand Engrish."
 --}
 
-gfParseBool :: PGF -> String -> Bool
-gfParseBool pgf msg
+gfParseBool :: PGF -> Int -> String -> Bool
+gfParseBool pgf len msg
   | elem (last w) badEndWords = False
-  | length w > 7  = (gfParseBoolA pgf $ take 7 w) && (gfParseBool pgf (unwords $ drop 7 w))
-  | otherwise     = gfParseBoolA pgf w
+  | length w > len = (gfParseBoolA pgf $ take len w) && (gfParseBool pgf len (unwords $ drop len w))
+  | otherwise      = gfParseBoolA pgf w
     where
       w = words msg
 
@@ -651,11 +651,11 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
 gfCategories :: PGF -> [String]
 gfCategories pgf = map showCId (categories pgf)
 
-sentence :: Fugly -> Int -> Int -> [String] -> [IO String]
-sentence _ _ _ [] = [return []] :: [IO String]
-sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen msg = do
+sentence :: Fugly -> Int -> Int -> Int -> [String] -> [IO String]
+sentence _ _ _ _ [] = [return []] :: [IO String]
+sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
   let s1f x = if null x then return []
-              else if gfParseBool pgf (unwords x) && length x > 2 then return x else return []
+              else if gfParseBool pgf plen (unwords x) && length x > 2 then return x else return []
   let s1a x = do
       w <- s1b fugly slen 2 $ findNextWord fugly x 0
       putStrLn ("DEBUG > " ++ unwords w)
