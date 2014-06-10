@@ -336,23 +336,17 @@ processLine line = do
 
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
-reply bot@(Bot socket params fugly@(Fugly _ pgf _ _ _ _)) chan nick msg = do
-    let owner = (\(Parameter {owner = o}) -> o) params
-    let bnick = (\(Parameter {nick = n}) -> n) params
-    let apm   = (\(Parameter {allowpm = a}) -> a) params
-    let learn = (\(Parameter {learning = l}) -> l) params
-    let stries = (\(Parameter {stries = s}) -> s) params
-    let slen = (\(Parameter {slength = s}) -> s) params
-    let plen = (\(Parameter {plength = p}) -> p) params
+reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen plen learning allowpm _)
+           fugly@(Fugly _ pgf _ _ _ _)) chan nick msg = do
     let parse = gfParseBool pgf plen $ unwords msg
-    _ <- if null chan then if apm then lift $ sentencePriv socket fugly nick stries slen plen msg
+    _ <- if null chan then if allowpm then lift $ sentencePriv socket fugly nick stries slen plen msg
                            else return ()
-         else if null nick then if {--parse &&--} length msg > 3 && (unwords msg) =~ bnick then
+         else if null nick then if {--parse &&--} length msg > 3 && (unwords msg) =~ botnick then
                                    {--(elem True $ map (elem bnick) $ map subsequences msg) then--}
                                   lift $ sentenceReply socket fugly chan chan stries slen plen msg
                                 else return ()
            else lift $ sentenceReply socket fugly chan nick stries slen plen msg
-    if (nick == owner && null chan) || (learn && parse) then do
+    if (nick == owner && null chan) || (learning && parse) then do
       nd <- lift $ insertWords fugly msg
       lift $ putStrLn ">parse<"
       return (Bot socket params fugly{dict=nd}) else
