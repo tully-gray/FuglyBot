@@ -660,10 +660,6 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
   let s1f x = if null x then return []
               else if gfParseBool pgf plen (unwords x) && length x > 2 then return x else return []
   let s1a x = do
-      w <- s1b fugly slen 2 $ findNextWord fugly 0 False x
-      -- putStrLn ("DEBUG > " ++ unwords w)
-      s1f ([x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
-  let s1a2 x = do
       z <- findNextWord fugly 0 True x
       let zz = if null z then [] else head z
       let z1 = if null zz then 2 else 3
@@ -679,7 +675,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
       w <- x
       if null w then return []
         else return ((s1c w : [] ) ++ tail w)
-  take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a2) (cycle msg))
+  take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do
