@@ -10,6 +10,7 @@ import Network
 import System.Environment (getArgs)
 import System.IO
 import System.IO.Error
+import qualified System.Random as Random
 import Text.Regex.Posix
 import Prelude
 
@@ -556,11 +557,12 @@ sentenceReply h f chan nick stries slen plen m = p h (sentence f stries slen ple
     p _ []     = return ()
     p h (x:xs) = do
       ww <- x
+      r <- Random.getStdRandom (Random.randomR (0, 4)) :: IO Int
       if null ww then p h xs
-        else if nick == chan then hPutStr h ("PRIVMSG " ++
-                                             (chan ++ " :" ++ ww) ++ "\r\n") >>
-                                  hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :"
-                                                                   ++ ww) ++ "\n")
+        else if nick == chan || r == 1 then hPutStr h ("PRIVMSG " ++
+                                                       (chan ++ " :" ++ ww) ++ "\r\n") >>
+                                            hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :"
+                                                                             ++ ww) ++ "\n")
           else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick
                                          ++ ": " ++ ww) ++ "\r\n") >>
                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": "
