@@ -140,19 +140,19 @@ saveDict fugly@(Fugly dict _ _ _ allow ban) fuglydir topic = do
       saveDict' h xs
     format' m@(Word w c b a r p)
       | null w    = []
-      | otherwise = unwords [("word: " ++ cleanString w ++ "\n"),
+      | otherwise = unwords [("word: " ++ w ++ "\n"),
                              ("count: " ++ (show c) ++ "\n"),
-                             ("before: " ++ (cleanString $ unwords $ listNeigh2 b) ++ "\n"),
-                             ("after: " ++ (cleanString $ unwords $ listNeigh2 a) ++ "\n"),
+                             ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
+                             ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("pos: " ++ (show p) ++ "\n"),
                              ("end: \n")]
     format' m@(Name w c b a r)
       | null w    = []
-      | otherwise = unwords [("name: " ++ cleanString w ++ "\n"),
+      | otherwise = unwords [("name: " ++ w ++ "\n"),
                              ("count: " ++ (show c) ++ "\n"),
-                             ("before: " ++ (cleanString $ unwords $ listNeigh2 b) ++ "\n"),
-                             ("after: " ++ (cleanString $ unwords $ listNeigh2 a) ++ "\n"),
+                             ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
+                             ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("end: \n")]
 
@@ -437,7 +437,12 @@ cleanStringBlack f (x:xs)
         | otherwise = x : cleanStringBlack f xs
 
 cleanString :: String -> String
-cleanString = filter (\x -> isDigit x || isAlpha x || x == '\'' || x == '-' || x == ' ')
+cleanString [] = []
+cleanString "i" = "I"
+cleanString x
+    | length x > 1 = filter (\x -> isAlpha x || x == '\'' || x == '-' || x == ' ') x
+    | x == "I" || map toLower x == "a" = x
+    | otherwise = []
 
 dePlenk :: String -> String
 dePlenk []  = []
