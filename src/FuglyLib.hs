@@ -28,6 +28,7 @@ module FuglyLib
          -- gfTranslate,
          sentence,
          chooseWord,
+         findRelated,
          joinWords,
          toUpperSentence,
          endSentence,
@@ -465,10 +466,14 @@ replace a b (x:xs)
 
 joinWords :: Char -> [String] -> [String]
 joinWords _ [] = []
-joinWords a (x:xs)
-    | (fHead "joinWords" ' ' x) == a = unwords (x : (take num xs)) : joinWords a (drop num xs)
-    | otherwise                     = x : joinWords a xs
-  where num = (fromMaybe 0 (elemIndex a $ map (\x -> fLast "joinWords" '!' x) xs)) + 1
+joinWords a s = joinWords' a $ filter (not . null) s
+  where
+    joinWords' _ [] = []
+    joinWords' a (x:xs)
+      | (fHead "joinWords" ' ' x) == a = unwords (x : (take num xs)) : joinWords a (drop num xs)
+      | otherwise                      = x : joinWords a xs
+      where
+        num = (fromMaybe 0 (elemIndex a $ map (\x -> fLast "joinWords" '!' x) xs)) + 1
 
 fixUnderscore :: String -> String
 fixUnderscore = strip '"' . replace ' ' '_'
@@ -714,13 +719,16 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) i prev word = do
   nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
   mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
   lr <- Random.getStdRandom (Random.randomR (0, ll - 1))
-  let ff = if isJust w && (length neigh > 0) then case mod i 7 of
+  let gw = isJust w && length neigh > 0
+  rel1 <- if gw then findRelated wne "Hypernym" $ neigh!!nr else return []
+  rel2 <- if gw then findRelated wne "Antonym" $ neighleast!!lr else return []
+  let ff = if gw then case mod i 7 of
         0 -> neigh!!nr
         1 -> neighleast!!lr
         2 -> neighmax!!mr
-        3 -> neigh!!nr
-        4 -> neighleast!!lr
-        5 -> neighmax!!mr
+        3 -> rel1
+        4 -> neigh!!nr
+        5 -> rel2
         6 -> neighmax!!mr
         _ -> "Doesn't happen!"
            else []
@@ -731,6 +739,14 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) i prev word = do
       neigh      = listNeigh $ wordGet' (fromJust w)
       neighmax   = listNeighMax $ wordGet' (fromJust w)
       neighleast = listNeighLeast $ wordGet' (fromJust w)
+
+findRelated :: WordNetEnv -> String -> String -> IO String
+findRelated wne form word = do
+  pp <- wnPartPOS wne word
+  rel <- wnRelated wne word form pp
+  let re = map (strip '"') $ joinWords '"' rel
+  r <- Random.getStdRandom (Random.randomR (0, (length re) - 1))
+  if null rel then return word else return (re!!r)
 
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup fugly@(Fugly _ _ wne aspell _ _) word pos = do
