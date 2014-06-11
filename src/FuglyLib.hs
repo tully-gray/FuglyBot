@@ -446,7 +446,7 @@ dePlenk s   = dePlenk' s []
     dePlenk' [x] l = l ++ x:[]
     dePlenk' a@(x:xs) l
       | length a == 1                             = l ++ x:[]
-      | x == ' ' && (h == ' ' || isPunctuation h) = dePlenk' (tail xs) (l ++ h:[])
+      | x == ' ' && (h == ' ' || isPunctuation h) = dePlenk' (fTail "dePlenk" [] xs) (l ++ h:[])
       | otherwise                                 = dePlenk' xs (l ++ x:[])
       where
         h = fHead "dePlenk" '!' xs
@@ -487,9 +487,11 @@ fHead a b [] = unsafePerformIO (do putStrLn ("fHead: error in " ++ a) ; return b
 fHead a b c  = head c
 fLast a b [] = unsafePerformIO (do putStrLn ("fLast: error in " ++ a) ; return b)
 fLast a b c  = last c
+fTail a b [] = unsafePerformIO (do putStrLn ("fTail: error in " ++ a) ; return b)
+fTail a b c  = tail c
 
-wnLength :: [[a]] -> Int
-wnLength a = (length a) - (length $ elemIndices True (map null a))
+-- wnLength :: [[a]] -> Int
+-- wnLength a = (length a) - (length $ elemIndices True (map null a))
 
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
@@ -677,7 +679,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
   let s1e x = do
       w <- x
       if null w then return []
-        else return ((s1c w : [] ) ++ tail w)
+        else return ((s1c w : [] ) ++ fTail "sentence: s1e" [] w)
   take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
@@ -689,7 +691,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
                s1b f n (i + 1) (return $ ww ++ www)
     s1c :: [String] -> String
     s1c [] = []
-    s1c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
+    s1c w = ((toUpper $ head $ head w) : []) ++ (fTail "sentence: s1c" [] $ head w)
 
 chooseWord :: WordNetEnv -> [String] -> IO [String]
 chooseWord _ [] = return []
