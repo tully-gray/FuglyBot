@@ -139,19 +139,19 @@ saveDict fugly@(Fugly dict _ _ _ allow ban) fuglydir topic = do
       saveDict' h xs
     format' m@(Word w c b a r p)
       | null w    = []
-      | otherwise = unwords [("word: " ++ w ++ "\n"),
+      | otherwise = unwords [("word: " ++ cleanString w ++ "\n"),
                              ("count: " ++ (show c) ++ "\n"),
-                             ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
-                             ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
+                             ("before: " ++ (cleanString $ unwords $ listNeigh2 b) ++ "\n"),
+                             ("after: " ++ (cleanString $ unwords $ listNeigh2 a) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("pos: " ++ (show p) ++ "\n"),
                              ("end: \n")]
     format' m@(Name w c b a r)
       | null w    = []
-      | otherwise = unwords [("name: " ++ w ++ "\n"),
+      | otherwise = unwords [("name: " ++ cleanString w ++ "\n"),
                              ("count: " ++ (show c) ++ "\n"),
-                             ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
-                             ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
+                             ("before: " ++ (cleanString $ unwords $ listNeigh2 b) ++ "\n"),
+                             ("after: " ++ (cleanString $ unwords $ listNeigh2 a) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("end: \n")]
 
@@ -261,16 +261,15 @@ insertWord fugly@(Fugly dict pgf wne aspell allow ban) [] _ _ _ = return dict
 insertWord fugly@(Fugly dict pgf wne aspell allow ban) word before after pos =
     if elem word ban || elem before ban || elem after ban then return dict
     else if isJust w then f $ fromJust w
-         else if isJust ww then insertWordRaw' fugly ww (cw word) bi ai pos
-              else insertWordRaw' fugly w (cw word) bi ai pos
+         else if isJust ww then insertWordRaw' fugly ww (cleanString word) bi ai pos
+              else insertWordRaw' fugly w (cleanString word) bi ai pos
   where
-    cw = filter (\x -> isDigit x || isAlpha x || x == '\'' )
     w = Map.lookup word dict
-    ww = Map.lookup (cw word) dict
+    ww = Map.lookup (cleanString word) dict
     a = Map.lookup after dict
     b = Map.lookup before dict
-    ai = if isJust a then after else cw after
-    bi = if isJust b then before else cw before
+    ai = if isJust a then after else cleanString after
+    bi = if isJust b then before else cleanString before
     f (Word {})  = insertWordRaw' fugly w word bi ai pos
     f (Name {})  = insertName'    fugly w word bi ai
 
@@ -435,6 +434,9 @@ cleanStringBlack _ [] = []
 cleanStringBlack f (x:xs)
         | f x       =     cleanStringBlack f xs
         | otherwise = x : cleanStringBlack f xs
+
+cleanString :: String -> String
+cleanString = filter (\x -> isDigit x || isAlpha x || x == '\'' || x == ' ')
 
 dePlenk :: String -> String
 dePlenk []  = []
@@ -662,10 +664,11 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
   let s1a x = do
       z <- findNextWord fugly 0 True x
       let zz = if null z then [] else head z
-      let z1 = if null zz then 2 else 3
-      w <- s1b fugly slen z1 $ findNextWord fugly 1 False x
-      -- putStrLn ("DEBUG > " ++ unwords w)
-      s1f ([zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
+      y <- findNextWord fugly 1 True zz
+      let yy = if null y then [] else head y
+      let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
+      w <- s1b fugly slen c $ findNextWord fugly 1 False x
+      s1f ([yy] ++ [zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
   let s1d x = do
       w <- x
       if null w then return []
