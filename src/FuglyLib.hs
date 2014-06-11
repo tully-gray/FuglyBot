@@ -670,7 +670,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
       let yy = if null y then [] else head y
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 False x
-      s1f ([yy] ++ [zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
+      s1f $ filter (not . null) ([yy] ++ [zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
   let s1d x = do
       w <- x
       if null w then return []
