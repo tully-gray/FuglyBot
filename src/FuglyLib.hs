@@ -27,6 +27,7 @@ module FuglyLib
          gfCategories,
          -- gfTranslate,
          sentence,
+         chooseWord,
          joinWords,
          toUpperSentence,
          endSentence,
@@ -660,9 +661,16 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
   let s1f x = if null x then return []
               else if gfParseBool pgf plen (unwords x) && length x > 2 then return x else return []
   let s1a x = do
-      w <- s1b fugly slen 2 $ findNextWord fugly x 0
+      w <- s1b fugly slen 2 $ findNextWord fugly 0 False x
       -- putStrLn ("DEBUG > " ++ unwords w)
       s1f ([x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
+  let s1a2 x = do
+      z <- findNextWord fugly 0 True x
+      let zz = if null z then [] else head z
+      let z1 = if null zz then 2 else 3
+      w <- s1b fugly slen z1 $ findNextWord fugly 1 False x
+      -- putStrLn ("DEBUG > " ++ unwords w)
+      s1f ([zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
   let s1d x = do
       w <- x
       if null w then return []
@@ -672,21 +680,34 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
       w <- x
       if null w then return []
         else return ((s1c w : [] ) ++ tail w)
-  take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
+  take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a2) (cycle msg))
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do
       ww <- msg
       if null ww then return []
         else if i >= n then return $ nub ww else do
-               www <- findNextWord f (fLast "sentence: s1b" [] ww) i
+               www <- findNextWord f i False (fLast "sentence: s1b" [] ww)
                s1b f n (i + 1) (return $ ww ++ www)
     s1c :: [String] -> String
     s1c [] = []
     s1c w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
 
-findNextWord :: Fugly -> String -> Int -> IO [String]
-findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
+chooseWord :: WordNetEnv -> [String] -> IO [String]
+chooseWord _ [] = return []
+chooseWord wne msg = do
+  cc <- c1 msg []
+  if null cc then return msg else c1 msg []
+  where
+    c1 [] m = return m
+    c1 msg@(x:xs) m = do
+      p <- wnPartPOS wne x
+      if p /= UnknownEPos then c1 xs (m ++ [x])
+        else c1 xs m
+
+findNextWord :: Fugly -> Int -> Bool -> String -> IO [String]
+findNextWord _ _ _ [] = return []
+findNextWord fugly@(Fugly dict pgf wne aspell _ _) i prev word = do
   let ln       = if isJust w then length neigh else 0
   let lm       = if isJust w then length neighmax else 0
   let ll       = if isJust w then length neighleast else 0
@@ -706,9 +727,10 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) word i = do
   return $ replace "i" "I" $ words ff
     where
       w          = Map.lookup word dict
-      neigh      = listNeigh $ wordGetAfter (fromJust w)
-      neighmax   = listNeighMax $ wordGetAfter (fromJust w)
-      neighleast = listNeighLeast $ wordGetAfter (fromJust w)
+      wordGet'   = if prev then wordGetBefore else wordGetAfter
+      neigh      = listNeigh $ wordGet' (fromJust w)
+      neighmax   = listNeighMax $ wordGet' (fromJust w)
+      neighleast = listNeighLeast $ wordGet' (fromJust w)
 
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup fugly@(Fugly _ _ wne aspell _ _) word pos = do

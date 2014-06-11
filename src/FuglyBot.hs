@@ -337,15 +337,16 @@ processLine line = do
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen plen learning allowpm _)
-           fugly@(Fugly _ pgf _ _ _ _)) chan nick msg = do
+           fugly@(Fugly _ pgf wne _ _ _)) chan nick msg = do
     let parse = gfParseBool pgf plen $ unwords msg
-    _ <- if null chan then if allowpm then lift $ sentencePriv socket fugly nick stries slen plen msg
+    mm <- lift $ chooseWord wne msg
+    _ <- if null chan then if allowpm then lift $ sentencePriv socket fugly nick stries slen plen mm
                            else return ()
          else if null nick then if {--parse &&--} length msg > 3 && (unwords msg) =~ botnick then
                                    {--(elem True $ map (elem bnick) $ map subsequences msg) then--}
-                                  lift $ sentenceReply socket fugly chan chan stries slen plen msg
+                                  lift $ sentenceReply socket fugly chan chan stries slen plen mm
                                 else return ()
-           else lift $ sentenceReply socket fugly chan nick stries slen plen msg
+           else lift $ sentenceReply socket fugly chan nick stries slen plen mm
     if (nick == owner && null chan) || (learning && parse) then do
       nd <- lift $ insertWords fugly msg
       lift $ putStrLn ">parse<"
