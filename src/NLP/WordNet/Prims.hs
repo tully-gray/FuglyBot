@@ -160,8 +160,10 @@ getSynsetForSense wne key = do
 readSynset :: WordNetEnv -> POS -> Offset -> String -> IO Synset
 readSynset wne searchPos offset w = do
   let h = snd (dataHandles wne ! searchPos)
+  hh <- hIsEOF h
+  let safeLine h = if hh then return [] else hGetLine h
   hSeek h AbsoluteSeek offset
-  toks <- liftM words $ hGetLine h
+  toks <- liftM words $ safeLine h
   --print toks
   (ptrTokS:fnumS:posS:numWordsS:rest1) <- matchN 4 toks
   hiam <- maybeRead ptrTokS
