@@ -377,7 +377,8 @@ execCmd bot chan nick (x:xs) = do
           -- _ -> do write socket "QUIT" (":" ++ unwords xs) >> return bot
         else return bot
       | x == "!save" = if nick == owner then catchIOError (saveDict fugly fuglydir topic)
-                                       (const $ return ()) >> return bot else return bot
+                                       (const $ return ()) >> replyMsg bot chan nick "Saved dict file!"
+                                             >> return bot else return bot
       | x == "!load" = if nick == owner then do
            (nd, na, nb) <- catchIOError (loadDict fuglydir topic) (const $ return (dict, [], []))
            return (Bot socket params (Fugly nd pgf wne aspell na nb))
