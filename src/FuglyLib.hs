@@ -437,7 +437,7 @@ cleanStringBlack f (x:xs)
         | otherwise = x : cleanStringBlack f xs
 
 cleanString :: String -> String
-cleanString = filter (\x -> isDigit x || isAlpha x || x == '\'' || x == ' ')
+cleanString = filter (\x -> isDigit x || isAlpha x || x == '\'' || x == '-' || x == ' ')
 
 dePlenk :: String -> String
 dePlenk []  = []
@@ -675,7 +675,8 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
       let yy = if null y then [] else head y
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 False x
-      s1f $ filter (not . null) ([yy] ++ [zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) w))
+      ww <- replaceWords fugly "Hypernym" w
+      s1f $ filter (not . null) ([yy] ++ [zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) ww))
   let s1d x = do
       w <- x
       if null w then return []
@@ -710,6 +711,14 @@ chooseWord wne msg = do
       if p /= UnknownEPos then c1 xs (m ++ [x])
         else c1 xs m
 
+replaceWords :: Fugly -> String -> [String] -> IO [String]
+replaceWords _ _ [] = return []
+replaceWords fugly@(Fugly dict pgf wne aspell _ _) form msg = do
+  cw <- chooseWord wne msg
+  cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
+  w <- if not $ null cw then findRelated wne form (cw!!cr) else return []
+  return (filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++ [w] ++ (tail $ dropWhile (/= (cw!!cr)) msg)))
+
 findNextWord :: Fugly -> Int -> Bool -> String -> IO [String]
 findNextWord _ _ _ [] = return []
 findNextWord fugly@(Fugly dict pgf wne aspell _ _) i prev word = do
@@ -719,17 +728,14 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) i prev word = do
   nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
   mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
   lr <- Random.getStdRandom (Random.randomR (0, ll - 1))
-  let gw = isJust w && length neigh > 0
-  rel1 <- if gw then findRelated wne "Hypernym" $ neigh!!nr else return []
-  rel2 <- if gw then findRelated wne "Antonym" $ neighleast!!lr else return []
-  let ff = if gw then case mod i 7 of
+  let ff = if isJust w && length neigh > 0 then case mod i 7 of
         0 -> neigh!!nr
         1 -> neighleast!!lr
         2 -> neighmax!!mr
-        3 -> rel1
-        4 -> neigh!!nr
-        5 -> rel2
-        6 -> neighmax!!mr
+        3 -> neigh!!nr
+        4 -> neighmax!!mr
+        5 -> neigh!!nr
+        6 -> neighleast!!lr
         _ -> "Doesn't happen!"
            else []
   return $ replace "i" "I" $ words ff
@@ -744,9 +750,9 @@ findRelated :: WordNetEnv -> String -> String -> IO String
 findRelated wne form word = do
   pp <- wnPartPOS wne word
   rel <- wnRelated wne word form pp
-  let re = map (strip '"') $ joinWords '"' rel
+  let re = filter (\x -> not $ elem ' ' x) $ filter (not . null) $ map (strip '"') rel
   r <- Random.getStdRandom (Random.randomR (0, (length re) - 1))
-  if null rel then return word else return (re!!r)
+  if null re then return word else return (re!!r)
 
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup fugly@(Fugly _ _ wne aspell _ _) word pos = do
