@@ -212,7 +212,7 @@ qWords = ["if", "is", "are", "why", "what", "when", "who", "where", "want", "am"
 badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "I'd", "i", "and", "are", "an", "your", "you're", "you", "who", "with", "was",
                "to", "in", "is", "as", "if", "do", "so", "am", "of", "for", "or", "he", "she", "they", "they're", "we", "it", "it's",
                "its", "from", "go", "my", "that", "that's", "whose", "when", "what", "has", "had", "make", "makes", "person's", "but",
-               "our", "their", "at", "on", "into", "just"]
+               "our", "their", "at", "on", "into", "just", "by"]
 
 wordIs         (Word w c b a r p) = "word"
 wordIs         (Name n c b a r)   = "name"
@@ -699,7 +699,7 @@ chooseWord wne msg = do
   cc <- c1 msg []
   if null cc then return msg else c1 msg []
   where
-    c1 [] m = return m
+    c1 [] m = return $ reverse m
     c1 msg@(x:xs) m = do
       p <- wnPartPOS wne x
       if p /= UnknownEPos then c1 xs (m ++ [x])
