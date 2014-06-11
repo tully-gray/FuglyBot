@@ -728,14 +728,16 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) i prev word = do
   nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
   mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
   lr <- Random.getStdRandom (Random.randomR (0, ll - 1))
-  let ff = if isJust w && length neigh > 0 then case mod i 7 of
+  let ff = if isJust w && length neigh > 0 then case mod i 9 of
         0 -> neigh!!nr
         1 -> neighleast!!lr
-        2 -> neighmax!!mr
-        3 -> neigh!!nr
+        2 -> neigh!!nr
+        3 -> neighmax!!mr
         4 -> neighmax!!mr
         5 -> neigh!!nr
         6 -> neighleast!!lr
+        7 -> neigh!!nr
+        8 -> neighleast!!lr
         _ -> "Doesn't happen!"
            else []
   return $ replace "i" "I" $ words ff
