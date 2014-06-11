@@ -212,7 +212,7 @@ qWords = ["if", "is", "are", "why", "what", "when", "who", "where", "want", "am"
 badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "I'd", "i", "and", "are", "an", "your", "you're", "you", "who", "with", "was",
                "to", "in", "is", "as", "if", "do", "so", "am", "of", "for", "or", "he", "she", "they", "they're", "we", "it", "it's",
                "its", "from", "go", "my", "that", "that's", "whose", "when", "what", "has", "had", "make", "makes", "person's", "but",
-               "our", "their", "at", "on", "into", "just", "by"]
+               "our", "their", "than", "at", "on", "into", "just", "by", "he's", "she's"]
 
 wordIs         (Word w c b a r p) = "word"
 wordIs         (Name n c b a r)   = "name"
