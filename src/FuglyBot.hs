@@ -140,7 +140,7 @@ run args = do
     let passwd  = args !! 9
     lift (forkIO (do
                      threadDelay 20000000
-                     if not $ null passwd then privMsg bot "nickserv" ("IDENTIFY " ++ passwd) else return ()
+                     if not $ null passwd then replyMsg bot "nickserv" [] ("IDENTIFY " ++ passwd) else return ()
                      joinChannel s "JOIN" [channel]
                      forever (do write s "PING" ":foo" ; threadDelay 20000000))) >> return ()
     forever $ do
@@ -213,9 +213,9 @@ changeNick [] line = do
     testNick bot _ [] = return bot
     testNick bot@(Bot socket params@(Parameter {owner = o}) fugly)
       old line
-        | (x == "NICK") = return ("Nick change successful.") >>= privMsg bot o
+        | (x == "NICK") = return ("Nick change successful.") >>= replyMsg bot o []
                           >> return (Bot socket params{nick = drop 1 y} fugly)
-        | otherwise     = return ("Nick change failed!") >>= privMsg bot o
+        | otherwise     = return ("Nick change failed!") >>= replyMsg bot o []
                           >> return (Bot socket params{nick = old} fugly)
       where
         x = head line
@@ -573,6 +573,10 @@ sentenceReply h f chan nick stries slen plen m = p h (sentence f stries slen ple
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan nick msg
+    | null nick      = if length msg > mcm then do
+      write socket "PRIVMSG" (chan ++ " :" ++ (take mcm msg))
+      replyMsg bot chan [] (drop mcm msg) else
+        write socket "PRIVMSG" (nick ++ " :" ++ msg)
     | chan == nick   = if length msg > mcm then do
       write socket "PRIVMSG" (nick ++ " :" ++ (take mcm msg))
       replyMsg bot chan nick (drop mcm msg) else
@@ -582,15 +586,6 @@ replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan nick msg
       replyMsg bot chan nick (drop mcm msg) else
         write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ msg)
 replyMsg _ _ _ _ = return ()
-
-privMsg :: Bot -> String -> String -> IO ()
-privMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) nick msg =
-  if length msg > mcm then do
-    write socket "PRIVMSG" (nick ++ " :" ++ (take mcm msg))
-    privMsg bot nick (drop mcm msg)
-    else
-    write socket "PRIVMSG" (nick ++ " :" ++ msg)
-privMsg _ _ _ = return ()
 
 write :: Handle -> String -> String -> IO ()
 write socket s msg = do
