@@ -576,7 +576,7 @@ replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan nick msg
     | null nick      = if length msg > mcm then do
       write socket "PRIVMSG" (chan ++ " :" ++ (take mcm msg))
       replyMsg bot chan [] (drop mcm msg) else
-        write socket "PRIVMSG" (nick ++ " :" ++ msg)
+        write socket "PRIVMSG" (chan ++ " :" ++ msg)
     | chan == nick   = if length msg > mcm then do
       write socket "PRIVMSG" (nick ++ " :" ++ (take mcm msg))
       replyMsg bot chan nick (drop mcm msg) else
