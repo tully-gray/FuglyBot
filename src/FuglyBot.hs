@@ -345,8 +345,7 @@ reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen 
     mm <- lift $ chooseWord wne msg
     _ <- if null chan then if allowpm then lift $ sentenceReply socket fugly nick [] stries slen plen mm
                            else return ()
-         else if null nick then if {--parse &&--} length msg > 2 && (unwords msg) =~ botnick then
-                                   {--(elem True $ map (elem bnick) $ map subsequences msg) then--}
+         else if null nick then if length msg > 2 && (unwords msg) =~ botnick then
                                   lift $ sentenceReply socket fugly chan chan stries slen plen mm
                                 else return ()
            else lift $ sentenceReply socket fugly chan nick stries slen plen mm
@@ -375,8 +374,6 @@ execCmd bot chan nick (x:xs) = do
                     write socket "QUIT" ":Bye" >> return bot
           _ -> do stopFugly fuglydir fugly topic >>
                     write socket "QUIT" (":" ++ unwords xs) >> return bot
-          -- 0 -> do write socket "QUIT" ":Bye" >> return bot
-          -- _ -> do write socket "QUIT" (":" ++ unwords xs) >> return bot
         else return bot
       | x == "!save" = if nick == owner then catchIOError (saveDict fugly fuglydir topic)
                                        (const $ return ()) >> replyMsg bot chan nick "Saved dict file!"
