@@ -149,11 +149,13 @@ run args = do
       listenIRC b s l
     where
       listenIRC b s l = do
+        bot <- lift $ readMVar b
         let ll = words l
         let lll = take 2 $ drop 1 ll
+        let botnick = (\(Bot _ (Parameter {nick=n}) _) -> n) bot
         if "PING :" `isPrefixOf` l then do
           lift (write s "PONG" (':' : drop 6 l)) >> return ()
-          else if (length ll > 2) && (head lll) == "NICK" then do
+          else if (length ll > 2) && (head lll) == "NICK" && getNick ll == botnick then do
             lift (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
               else do
                 lift (forkIO (runInBoundThread $ evalStateT (processLine $ words l) b)) >> return ()
