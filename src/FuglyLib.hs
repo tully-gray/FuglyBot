@@ -18,6 +18,7 @@ module FuglyLib
          wordIs,
          cleanStringWhite,
          cleanStringBlack,
+         cleanString,
          wnClosure,
          wnMeet,
          -- gfAll,

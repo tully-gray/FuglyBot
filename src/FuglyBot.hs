@@ -341,16 +341,16 @@ reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen plen learning allowpm _)
            fugly@(Fugly _ pgf wne _ _ _)) chan nick msg = do
-    let parse = gfParseBool pgf plen $ unwords msg
+    let parse = gfParseBool pgf plen $ unwords $ map cleanString $ tail msg
     mm <- lift $ chooseWord wne msg
     _ <- if null chan then if allowpm then lift $ sentenceReply socket fugly nick [] stries slen plen mm
                            else return ()
-         else if null nick then if {--parse &&--} length msg > 3 && (unwords msg) =~ botnick then
+         else if null nick then if {--parse &&--} length msg > 2 && (unwords msg) =~ botnick then
                                    {--(elem True $ map (elem bnick) $ map subsequences msg) then--}
                                   lift $ sentenceReply socket fugly chan chan stries slen plen mm
                                 else return ()
            else lift $ sentenceReply socket fugly chan nick stries slen plen mm
-    if (nick == owner && null chan) || (learning && parse) then do
+    if learning && parse then do
       nd <- lift $ insertWords fugly msg
       lift $ putStrLn ">parse<"
       return (Bot socket params fugly{dict=nd}) else
@@ -560,7 +560,7 @@ sentenceReply h f chan nick stries slen plen m = p h (sentence f stries slen ple
     p _ []     = return ()
     p h (x:xs) = do
       ww <- x
-      r <- Random.getStdRandom (Random.randomR (0, 4)) :: IO Int
+      r <- Random.getStdRandom (Random.randomR (0, 11)) :: IO Int
       if null ww then p h xs
         else if null nick then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
                                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
