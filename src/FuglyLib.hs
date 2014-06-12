@@ -757,7 +757,7 @@ findRelated :: WordNetEnv -> String -> String -> IO String
 findRelated wne form word = do
   pp <- wnPartPOS wne word
   rel <- wnRelated wne word form pp
-  let re = filter (\x -> not $ elem ' ' x) $ filter (not . null) $ map (strip '"') rel
+  let re = filter (\x -> not $ elem ' ' x && length x > 2) $ filter (not . null) $ map (strip '"') rel
   r <- Random.getStdRandom (Random.randomR (0, (length re) - 1))
   if null re then return word else return (re!!r)
 
