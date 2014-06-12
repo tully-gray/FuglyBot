@@ -388,9 +388,9 @@ listNeigh2 m = concat [[w, show c] | (w, c) <- Map.toList m]
 listNeighMax :: Map.Map String Int -> [String]
 listNeighMax m = [w | (w, c) <- Map.toList m, c == maximum [c | (w, c) <- Map.toList m]]
 
-listNeighMax2 :: Map.Map String Int -> [String]
-listNeighMax2 m = concat [[w, show c] | (w, c) <- Map.toList m,
-                          c == maximum [c | (w, c) <- Map.toList m]]
+-- listNeighMax2 :: Map.Map String Int -> [String]
+-- listNeighMax2 m = concat [[w, show c] | (w, c) <- Map.toList m,
+--                           c == maximum [c | (w, c) <- Map.toList m]]
 
 listNeighLeast :: Map.Map String Int -> [String]
 listNeighLeast m = [w | (w, c) <- Map.toList m, c == minimum [c | (w, c) <- Map.toList m]]
