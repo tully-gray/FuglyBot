@@ -341,7 +341,7 @@ reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen 
            fugly@(Fugly _ pgf wne _ _ _)) chan nick msg = do
     let parse = gfParseBool pgf plen $ unwords msg
     mm <- lift $ chooseWord wne msg
-    _ <- if null chan then if allowpm then lift $ sentencePriv socket fugly nick stries slen plen mm
+    _ <- if null chan then if allowpm then lift $ sentenceReply socket fugly nick [] stries slen plen mm
                            else return ()
          else if null nick then if {--parse &&--} length msg > 3 && (unwords msg) =~ botnick then
                                    {--(elem True $ map (elem bnick) $ map subsequences msg) then--}
@@ -560,24 +560,16 @@ sentenceReply h f chan nick stries slen plen m = p h (sentence f stries slen ple
       ww <- x
       r <- Random.getStdRandom (Random.randomR (0, 4)) :: IO Int
       if null ww then p h xs
-        else if nick == chan || r == 1 then hPutStr h ("PRIVMSG " ++
-                                                       (chan ++ " :" ++ ww) ++ "\r\n") >>
-                                            hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :"
-                                                                             ++ ww) ++ "\n")
-          else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick
-                                         ++ ": " ++ ww) ++ "\r\n") >>
+        else if null nick then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
+                               hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
+             else if nick == chan || r == 1 then hPutStr h ("PRIVMSG " ++
+                                                            (chan ++ " :" ++ ww) ++ "\r\n") >>
+                                                 hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :"
+                                                                                  ++ ww) ++ "\n")
+                  else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick
+                                                 ++ ": " ++ ww) ++ "\r\n") >>
                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": "
                                                 ++ ww) ++ "\n")
-
-sentencePriv :: Handle -> Fugly -> String -> Int -> Int -> Int -> [String] -> IO ()
-sentencePriv h f nick stries slen plen m = p h (sentence f stries slen plen m)
-  where
-    p _ []     = return ()
-    p h (x:xs) = do
-      xx <- x
-      if null xx then p h xs
-        else hPutStr h ("PRIVMSG " ++ (nick ++ " :" ++ xx) ++ "\r\n") >>
-             hPutStr stdout ("> PRIVMSG " ++ (nick ++ " :" ++ xx) ++ "\n")
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan nick msg
