@@ -562,14 +562,10 @@ sentenceReply h f chan nick stries slen plen m = p h (sentence f stries slen ple
       if null ww then p h xs
         else if null nick then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
                                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
-             else if nick == chan || r == 1 then hPutStr h ("PRIVMSG " ++
-                                                            (chan ++ " :" ++ ww) ++ "\r\n") >>
-                                                 hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :"
-                                                                                  ++ ww) ++ "\n")
-                  else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick
-                                                 ++ ": " ++ ww) ++ "\r\n") >>
-               hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": "
-                                                ++ ww) ++ "\n")
+             else if nick == chan || r == 1 then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
+                                                 hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
+                  else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\r\n") >>
+                       hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\n")
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan nick msg
