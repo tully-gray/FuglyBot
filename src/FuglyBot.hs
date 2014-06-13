@@ -24,7 +24,7 @@ data Bot = Bot {
 
 data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
                | SentenceTries | SentenceLength | ParseLength | Learning | AllowPM
-               | Topic | UnknownParam
+               | Topic | Randoms | UnknownParam
                | Parameter {
                  nick        :: String,
                  owner       :: String,
@@ -40,7 +40,8 @@ data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChan
                  plength     :: Int,
                  learning    :: Bool,
                  allowpm     :: Bool,
-                 topic       :: String
+                 topic       :: String,
+                 randoms     :: Int
                  }
                deriving (Eq, Ord, Show)
 
@@ -60,7 +61,8 @@ instance Enum Parameter where
     toEnum 10 = Learning
     toEnum 11 = AllowPM
     toEnum 12 = Topic
-    toEnum 13 = UnknownParam
+    toEnum 13 = Randoms
+    toEnum 14 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
@@ -74,8 +76,9 @@ instance Enum Parameter where
     fromEnum Learning       = 10
     fromEnum AllowPM        = 11
     fromEnum Topic          = 12
-    fromEnum UnknownParam   = 13
-    fromEnum _              = 13
+    fromEnum Randoms        = 13
+    fromEnum UnknownParam   = 14
+    fromEnum _              = 14
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -98,6 +101,7 @@ readParam a | (map toLower a) == "parselength"     = ParseLength
 readParam a | (map toLower a) == "learning"        = Learning
 readParam a | (map toLower a) == "allowpm"         = AllowPM
 readParam a | (map toLower a) == "topic"           = Topic
+readParam a | (map toLower a) == "randoms"         = Randoms
 readParam _                                        = UnknownParam
 
 main :: IO ()
@@ -125,7 +129,7 @@ start args = do
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir gfdir topic
-    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 90 400 100 10 7 False False topic) fugly)
+    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 90 400 100 10 7 False False topic 0) fugly)
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
@@ -250,6 +254,7 @@ changeParam bot@(Bot _ p@(Parameter {fuglydir=fd, topic=t}) f) chan nick param v
       Topic          -> do (d, a, b) <- catchIOError (loadDict fd value) (const $ return (Map.empty, [], []))
                            saveDict f fd t >> replyMsg' "Topic"
                            return bot{params=p{topic=value},fugly=f{dict=d,allow=a,ban=b}}
+      Randoms        -> replyMsg' "Randoms"             >> return bot{params=p{randoms=read value}}
       _              -> return bot
   where
     replyMsg' msg = replyMsg bot chan nick (msg ++ " set to " ++ show value ++ ".")
@@ -339,7 +344,7 @@ processLine line = do
 
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
-reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen plen learning allowpm _)
+reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen plen learning allowpm _ _)
            fugly@(Fugly _ pgf wne _ _ _)) chan nick msg = do
     let parse = gfParseBool pgf plen $ unwords $ map cleanString $ tail msg
     mm <- lift $ chooseWord wne msg
@@ -365,7 +370,7 @@ execCmd bot chan nick (x:xs) = do
     execCmd' :: Bot -> IO Bot
     execCmd' bot@(Bot socket params@(Parameter botnick owner fuglydir _ _
                                      usercmd rejoinkick threadtime maxchanmsg
-                                     stries slen plen learning allowpm topic)
+                                     stries slen plen learning allowpm topic randoms)
                   fugly@(Fugly dict pgf wne aspell allow ban))
       | usercmd == False && nick /= owner = return bot
       | x == "!quit" =
@@ -399,7 +404,7 @@ execCmd bot chan nick (x:xs) = do
                    ++ show rejoinkick ++ "  threadtime: " ++ show threadtime ++ "  maxchanmsg: " ++ show maxchanmsg
                    ++ "  sentencetries: " ++ show stries ++ "  sentencelength: " ++ show slen ++ "  parselength: " ++ show plen
                    ++ "  learning: " ++ show learning ++ "  allowpm: " ++ show allowpm
-                   ++ "  topic: " ++ topic) >> return bot
+                   ++ "  topic: " ++ topic ++ "  randoms: " ++ show randoms) >> return bot
             _ -> replyMsg bot chan nick "Usage: !showparams" >> return bot
           else return bot
       | x == "!setparam" =
