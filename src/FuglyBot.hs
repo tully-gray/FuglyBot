@@ -571,14 +571,17 @@ replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan nick msg
     | null nick      = if length msg > mcm then do
       write socket "PRIVMSG" (chan ++ " :" ++ (take mcm msg))
+      threadDelay 2000000
       replyMsg bot chan [] (drop mcm msg) else
         write socket "PRIVMSG" (chan ++ " :" ++ msg)
     | chan == nick   = if length msg > mcm then do
       write socket "PRIVMSG" (nick ++ " :" ++ (take mcm msg))
+      threadDelay 2000000
       replyMsg bot chan nick (drop mcm msg) else
         write socket "PRIVMSG" (nick ++ " :" ++ msg)
     | otherwise      = if length msg > mcm then do
       write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ (take mcm msg))
+      threadDelay 2000000
       replyMsg bot chan nick (drop mcm msg) else
         write socket "PRIVMSG" (chan ++ " :" ++ nick ++ ": " ++ msg)
 replyMsg _ _ _ _ = return ()
