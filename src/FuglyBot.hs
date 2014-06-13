@@ -557,7 +557,7 @@ sentenceReply h f chan nick stries slen plen m = p h (sentence f stries slen ple
     p _ []     = return ()
     p h (x:xs) = do
       ww <- x
-      r <- Random.getStdRandom (Random.randomR (0, 11)) :: IO Int
+      r <- Random.getStdRandom (Random.randomR (0, 5)) :: IO Int
       if null ww then p h xs
         else if null nick then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
                                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")

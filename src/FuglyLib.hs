@@ -681,7 +681,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
       let yy = if null y then [] else head y
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 False x
-      ww <- replaceWords fugly "Hyponym" w
+      ww <- replaceWords fugly w
       s1f $ filter (not . null) ([yy] ++ [zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) ww))
   let s1d x = do
       w <- x
@@ -717,13 +717,14 @@ chooseWord wne msg = do
       if p /= UnknownEPos then c1 xs (m ++ [x])
         else c1 xs m
 
-replaceWords :: Fugly -> String -> [String] -> IO [String]
-replaceWords _ _ [] = return []
-replaceWords fugly@(Fugly dict pgf wne aspell _ _) form msg = do
+replaceWords :: Fugly -> [String] -> IO [String]
+replaceWords _ [] = return []
+replaceWords fugly@(Fugly dict pgf wne aspell _ _) msg = do
   cw <- chooseWord wne msg
   cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
   w <- if not $ null cw then findRelated wne form (cw!!cr) else return []
   return (filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++ [w] ++ (tail $ dropWhile (/= (cw!!cr)) msg)))
+  -- sequence $ map (\x -> findRelated wne x) msg
 
 findNextWord :: Fugly -> Int -> Bool -> String -> IO [String]
 findNextWord _ _ _ [] = return []
@@ -754,13 +755,30 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) i prev word = do
       neighmax   = listNeighMax $ wordGet' (fromJust w)
       neighleast = listNeighLeast $ wordGet' (fromJust w)
 
-findRelated :: WordNetEnv -> String -> String -> IO String
-findRelated wne form word = do
+findRelated :: WordNetEnv -> String -> IO String
+findRelated wne word = do
   pp <- wnPartPOS wne word
-  rel <- wnRelated wne word form pp
-  let re = filter (\x -> not $ elem ' ' x && length x > 2) $ filter (not . null) $ map (strip '"') rel
-  r <- Random.getStdRandom (Random.randomR (0, (length re) - 1))
-  if null re then return word else return (re!!r)
+  if pp /= UnknownEPos then do
+    hyper <- wnRelated wne word "Hypernym" pp
+    hypo  <- wnRelated wne word "Hyponym" pp
+    anto  <- wnRelated wne word "Antonym" pp
+    let hyper' = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') hyper
+    let hypo'  = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') hypo
+    let anto'  = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') anto
+    if null anto' then
+      if null hypo' then
+        if null hyper' then
+          return word
+          else do
+            r <- Random.getStdRandom (Random.randomR (0, (length hyper') - 1))
+            return (hyper'!!r)
+        else do
+          r <- Random.getStdRandom (Random.randomR (0, (length hypo') - 1))
+          return (hypo'!!r)
+      else do
+        r <- Random.getStdRandom (Random.randomR (0, (length anto') - 1))
+        return (anto'!!r)
+    else return word
 
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup fugly@(Fugly _ _ wne aspell _ _) word pos = do
