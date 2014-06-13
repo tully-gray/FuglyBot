@@ -241,23 +241,29 @@ changeParam :: Bot -> String -> String -> String -> String -> IO Bot
 changeParam bot@(Bot _ p@(Parameter {fuglydir=fd, topic=t}) f) chan nick param value = do
     case (readParam param) of
       Nick           -> do nb <- newMVar bot ; evalStateT (changeNick (value : "" : []) []) nb
-      Owner          -> replyMsg' "Owner"               >> return bot{params=p{owner=value}}
-      UserCommands   -> replyMsg' "User commands"       >> return bot{params=p{usercmd=readBool value}}
-      RejoinKick     -> replyMsg' "Rejoin kick time"    >> return bot{params=p{rejoinkick=read value}}
-      ThreadTime     -> replyMsg' "Thread time"         >> return bot{params=p{threadtime=read value}}
-      MaxChanMsg     -> replyMsg' "Max channel message" >> return bot{params=p{maxchanmsg=read value}}
-      SentenceTries  -> replyMsg' "Sentence tries"      >> return bot{params=p{stries=read value}}
-      SentenceLength -> replyMsg' "Sentence length"     >> return bot{params=p{slength=read value}}
-      ParseLength    -> replyMsg' "Parse length"        >> return bot{params=p{plength=read value}}
-      Learning       -> replyMsg' "Learning"            >> return bot{params=p{learning=readBool value}}
-      AllowPM        -> replyMsg' "Allow PM"            >> return bot{params=p{allowpm=readBool value}}
+      Owner          -> replyMsg' value                 "Owner"               >>= (\x -> return bot{params=p{owner=x}})
+      UserCommands   -> replyMsg' (readBool value)      "User commands"       >>= (\x -> return bot{params=p{usercmd=x}})
+      RejoinKick     -> replyMsg' (readInt 1 4096 value) "Rejoin kick time"   >>= (\x -> return bot{params=p{rejoinkick=x}})
+      ThreadTime     -> replyMsg' (readInt 1 4096 value) "Thread time"        >>= (\x -> return bot{params=p{threadtime=x}})
+      MaxChanMsg     -> replyMsg' (readInt 0 450 value) "Max channel message" >>= (\x -> return bot{params=p{maxchanmsg=x}})
+      SentenceTries  -> replyMsg' (readInt 0 4096 value) "Sentence tries"     >>= (\x -> return bot{params=p{stries=x}})
+      SentenceLength -> replyMsg' (readInt 0 256 value) "Sentence length"     >>= (\x -> return bot{params=p{slength=x}})
+      ParseLength    -> replyMsg' (readInt 2 256 value) "Parse length"        >>= (\x -> return bot{params=p{plength=x}})
+      Learning       -> replyMsg' (readBool value)     "Learning"             >>= (\x -> return bot{params=p{learning=x}})
+      AllowPM        -> replyMsg' (readBool value)     "Allow PM"             >>= (\x -> return bot{params=p{allowpm=x}})
       Topic          -> do (d, a, b) <- catchIOError (loadDict fd value) (const $ return (Map.empty, [], []))
-                           saveDict f fd t >> replyMsg' "Topic"
-                           return bot{params=p{topic=value},fugly=f{dict=d,allow=a,ban=b}}
-      Randoms        -> replyMsg' "Randoms"             >> return bot{params=p{randoms=read value}}
+                           _ <- saveDict f fd t
+                           replyMsg' value "Topic" >>= (\x -> return bot{params=p{topic=x},fugly=f{dict=d,allow=a,ban=b}})
+      Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
       _              -> return bot
   where
-    replyMsg' msg = replyMsg bot chan nick (msg ++ " set to " ++ show value ++ ".")
+    replyMsg' value msg = do replyMsg bot chan nick (msg ++ " set to " ++ show value ++ ".") >> return value
+    readInt min max a
+      | aa < min = min
+      | aa > max = max
+      | otherwise = aa
+      where
+        aa = read a
     readBool a
       | (map toLower a) == "true"    = True
       | (map toLower a) == "yes"     = True
@@ -265,7 +271,7 @@ changeParam bot@(Bot _ p@(Parameter {fuglydir=fd, topic=t}) f) chan nick param v
       | (map toLower a) == "false"   = False
       | (map toLower a) == "no"      = False
       | (map toLower a) == "off"     = False
-      | otherwise                    = True
+      | otherwise                    = False
 
 getMsg :: [String] -> [String]
 getMsg [] = []
