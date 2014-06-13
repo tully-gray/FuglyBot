@@ -210,7 +210,7 @@ loadDict fuglydir topic = do
                   else
                     ff h ww nm
 
-qWords = ["if", "is", "are", "why", "what", "when", "who", "where", "want", "am", "can", "will"]
+qWords = ["if", "is", "are", "do", "why", "what", "when", "who", "where", "want", "am", "can", "will"]
 badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "I'd", "i", "and", "are", "an", "your", "you're", "you", "who", "with", "was",
                "to", "in", "is", "as", "if", "do", "so", "am", "of", "for", "or", "he", "she", "they", "they're", "we", "it", "it's",
                "its", "from", "go", "my", "that", "that's", "whose", "when", "what", "has", "had", "make", "makes", "person's", "but",
