@@ -669,19 +669,19 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
 gfCategories :: PGF -> [String]
 gfCategories pgf = map showCId (categories pgf)
 
-sentence :: Fugly -> Int -> Int -> Int -> [String] -> [IO String]
-sentence _ _ _ _ [] = [return []] :: [IO String]
-sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
+sentence :: Fugly -> Int -> Int -> Int -> Int -> [String] -> [IO String]
+sentence _ _ _ _ _ [] = [return []] :: [IO String]
+sentence fugly@(Fugly dict pgf wne aspell _ ban) randoms stries slen plen msg = do
   let s1f x = if null x then return []
               else if gfParseBool pgf plen (unwords x) && length x > 2 then return x else return []
   let s1a x = do
-      z <- findNextWord fugly 0 True x
+      z <- findNextWord fugly 0 randoms True x
       let zz = if null z then [] else head z
-      y <- findNextWord fugly 1 True zz
+      y <- findNextWord fugly 1 randoms True zz
       let yy = if null y then [] else head y
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
-      w <- s1b fugly slen c $ findNextWord fugly 1 False x
-      ww <- replaceWords fugly w
+      w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
+      ww <- replaceWords fugly randoms w
       s1f $ filter (not . null) ([yy] ++ [zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) ww))
   let s1d x = do
       w <- x
@@ -699,7 +699,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) stries slen plen msg = do
       ww <- msg
       if null ww then return []
         else if i >= n then return $ nub ww else do
-               www <- findNextWord f i False (fLast "sentence: s1b" [] ww)
+               www <- findNextWord f i randoms False (fLast "sentence: s1b" [] ww)
                s1b f n (i + 1) (return $ ww ++ www)
     s1c :: [String] -> String
     s1c [] = []
@@ -717,37 +717,57 @@ chooseWord wne msg = do
       if p /= UnknownEPos then c1 xs (m ++ [x])
         else c1 xs m
 
-replaceWords :: Fugly -> [String] -> IO [String]
-replaceWords _ [] = return []
-replaceWords fugly@(Fugly dict pgf wne aspell _ _) msg = do
+replaceWords :: Fugly -> Int -> [String] -> IO [String]
+replaceWords _ _ [] = return []
+replaceWords fugly@(Fugly dict pgf wne aspell _ _) randoms msg = do
   cw <- chooseWord wne msg
   cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
+  rr <- Random.getStdRandom (Random.randomR (0, 99))
   w <- if not $ null cw then findRelated wne (cw!!cr) else return []
-  return (filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++ [w] ++ (tail $ dropWhile (/= (cw!!cr)) msg)))
-  -- sequence $ map (\x -> findRelated wne x) msg
+  let out = filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++ [w] ++ (tail $ dropWhile (/= (cw!!cr)) msg))
+  if rr + randoms < 90 then
+    return out
+    else if randoms < 90 then
+      replaceWords fugly randoms out
+      else sequence $ map (\x -> findRelated wne x) msg
 
-findNextWord :: Fugly -> Int -> Bool -> String -> IO [String]
-findNextWord _ _ _ [] = return []
-findNextWord fugly@(Fugly dict pgf wne aspell _ _) i prev word = do
-  let ln       = if isJust w then length neigh else 0
-  let lm       = if isJust w then length neighmax else 0
-  let ll       = if isJust w then length neighleast else 0
+findNextWord :: Fugly -> Int -> Int -> Bool -> String -> IO [String]
+findNextWord _ _ _ _ [] = return []
+findNextWord fugly@(Fugly dict pgf wne aspell _ _) i randoms prev word = do
+  let ln = if isJust w then length neigh else 0
+  let lm = if isJust w then length neighmax else 0
+  let ll = if isJust w then length neighleast else 0
   nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
   mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
   lr <- Random.getStdRandom (Random.randomR (0, ll - 1))
-  let ff = if isJust w && length neigh > 0 then case mod i 9 of
+  rr <- Random.getStdRandom (Random.randomR (0, 99))
+  let f1 = if isJust w && length neigh > 0 then neighleast!!lr else []
+  let f2 = if isJust w && length neigh > 0 then case mod i 3 of
         0 -> neigh!!nr
         1 -> neighleast!!lr
-        2 -> neigh!!nr
-        3 -> neighmax!!mr
-        4 -> neighmax!!mr
-        5 -> neigh!!nr
-        6 -> neighleast!!lr
-        7 -> neigh!!nr
-        8 -> neighleast!!lr
-        _ -> "Doesn't happen!"
+        2 -> neighleast!!lr
+        _ -> []
            else []
-  return $ replace "i" "I" $ words ff
+  let f3 = if isJust w && length neigh > 0 then case mod i 5 of
+        0 -> neighleast!!lr
+        1 -> neigh!!nr
+        2 -> neighmax!!mr
+        3 -> neigh!!nr
+        4 -> neigh!!nr
+        _ -> []
+           else []
+  let f4 = if isJust w && length neigh > 0 then case mod i 3 of
+        0 -> neighmax!!mr
+        1 -> neigh!!nr
+        2 -> neighmax!!mr
+        _ -> []
+           else []
+  let f5 = if isJust w && length neigh > 0 then neighmax!!mr else []
+  if randoms > 89 then return $ replace "i" "I" $ words f1 else
+    if rr < randoms - 25 then return $ replace "i" "I" $ words f2 else
+      if rr < randoms + 35 then return $ replace "i" "I" $ words f3 else
+        if rr < randoms + 65 then return $ replace "i" "I" $ words f4 else
+          return $ replace "i" "I" $ words f5
     where
       w          = Map.lookup word dict
       wordGet'   = if prev then wordGetBefore else wordGetAfter

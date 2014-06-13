@@ -129,7 +129,7 @@ start args = do
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir gfdir topic
-    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 90 400 100 10 7 False False topic 0) fugly)
+    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 90 400 100 10 7 False False topic 50) fugly)
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
@@ -350,16 +350,16 @@ processLine line = do
 
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
-reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen plen learning allowpm _ _)
+reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen plen learning allowpm _ randoms)
            fugly@(Fugly _ pgf wne _ _ _)) chan nick msg = do
     let parse = gfParseBool pgf plen $ unwords $ map cleanString $ tail msg
     mm <- lift $ chooseWord wne msg
-    _ <- if null chan then if allowpm then lift $ sentenceReply socket fugly nick [] stries slen plen mm
+    _ <- if null chan then if allowpm then lift $ sentenceReply socket fugly nick [] randoms stries slen plen mm
                            else return ()
          else if null nick then if length msg > 2 && (unwords msg) =~ botnick then
-                                  lift $ sentenceReply socket fugly chan chan stries slen plen mm
+                                  lift $ sentenceReply socket fugly chan chan randoms stries slen plen mm
                                 else return ()
-           else lift $ sentenceReply socket fugly chan nick stries slen plen mm
+           else lift $ sentenceReply socket fugly chan nick randoms stries slen plen mm
     if learning && parse then do
       nd <- lift $ insertWords fugly msg
       lift $ putStrLn ">parse<"
@@ -510,7 +510,7 @@ execCmd bot chan nick (x:xs) = do
             _ -> replyMsg bot chan nick "Usage: !insertname <name>" >> return bot
                            else return bot
       | x == "!talk" = if nick == owner then
-          if (length xs) > 2 then sentenceReply socket fugly (xs!!0) (xs!!1) stries slen plen (drop 2 xs)
+          if (length xs) > 2 then sentenceReply socket fugly (xs!!0) (xs!!1) randoms stries slen plen (drop 2 xs)
                                   >> return bot
           else replyMsg bot chan nick "Usage: !talk <channel> <nick> <msg>" >> return bot
                      else return bot
@@ -563,8 +563,8 @@ execCmd bot chan nick (x:xs) = do
 --      else
 --      chanMsg bot chan msg
 
-sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> [String] -> IO ()
-sentenceReply h f chan nick stries slen plen m = p h (sentence f stries slen plen m)
+sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ()
+sentenceReply h f chan nick randoms stries slen plen m = p h (sentence f randoms stries slen plen m)
   where
     p _ []     = return ()
     p h (x:xs) = do
