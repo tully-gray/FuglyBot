@@ -380,6 +380,7 @@ execCmd bot chan nick (x:xs) = do
                                              >> return bot else return bot
       | x == "!load" = if nick == owner then do
            (nd, na, nb) <- catchIOError (loadDict fuglydir topic) (const $ return (dict, [], []))
+           replyMsg bot chan nick "Loaded dict file!"
            return (Bot socket params (Fugly nd pgf wne aspell na nb))
                        else return bot
       | x == "!join" = if nick == owner then joinChannel socket "JOIN" xs >>
