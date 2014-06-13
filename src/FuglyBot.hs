@@ -352,7 +352,7 @@ reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen plen learning allowpm _ randoms)
            fugly@(Fugly _ pgf wne aspell _ _)) chan nick msg = do
-    fmsg <- lift $ asReplaceWords aspell $ map cleanString msg
+    fmsg <- lift $ asReplaceWords wne aspell $ map cleanString msg
     let parse = gfParseBool pgf plen $ unwords $ tail fmsg
     mm <- lift $ chooseWord wne fmsg
     _ <- if null chan then if allowpm then lift $ sentenceReply socket fugly nick [] randoms stries slen plen mm

@@ -732,18 +732,20 @@ wnReplaceWords fugly@(Fugly dict pgf wne aspell _ _) randoms msg = do
       wnReplaceWords fugly randoms out
       else sequence $ map (\x -> findRelated wne x) msg
 
-asReplaceWords :: Aspell.SpellChecker -> [String] -> IO [String]
-asReplaceWords _ [] = return [[]]
-asReplaceWords aspell msg = do
-  sequence $ map (\x -> asReplace aspell x) msg
+asReplaceWords :: WordNetEnv -> Aspell.SpellChecker -> [String] -> IO [String]
+asReplaceWords _ _ [] = return [[]]
+asReplaceWords wne aspell msg = do
+  sequence $ map (\x -> asReplace wne aspell x) msg
 
-asReplace :: Aspell.SpellChecker -> String -> IO String
-asReplace _ [] = return []
-asReplace aspell word = do
-  w  <- asSuggest aspell word
-  let rw = words w
-  rr <- Random.getStdRandom (Random.randomR (0, (length rw) - 1))
-  if null rw then return word else return (rw!!rr)
+asReplace :: WordNetEnv -> Aspell.SpellChecker -> String -> IO String
+asReplace _ _ [] = return []
+asReplace wne aspell word = if (elem ' ' word) || (elem '\'' word) || (head word == (toUpper $ head word)) then return word
+    else do
+    w  <- asSuggest aspell word
+    p <- wnPartPOS wne word
+    let rw = words w
+    rr <- Random.getStdRandom (Random.randomR (0, (length rw) - 1))
+    if null rw || p /= UnknownEPos then return word else if head rw == word then return word else return (rw!!rr)
 
 findNextWord :: Fugly -> Int -> Int -> Bool -> String -> IO [String]
 findNextWord _ _ _ _ [] = return []
