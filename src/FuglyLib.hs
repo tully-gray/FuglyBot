@@ -722,7 +722,7 @@ replaceWords _ [] = return []
 replaceWords fugly@(Fugly dict pgf wne aspell _ _) msg = do
   cw <- chooseWord wne msg
   cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
-  w <- if not $ null cw then findRelated wne form (cw!!cr) else return []
+  w <- if not $ null cw then findRelated wne (cw!!cr) else return []
   return (filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++ [w] ++ (tail $ dropWhile (/= (cw!!cr)) msg)))
   -- sequence $ map (\x -> findRelated wne x) msg
 
