@@ -21,6 +21,7 @@ module FuglyLib
          cleanString,
          wnClosure,
          wnMeet,
+         asReplaceWords,
          -- gfAll,
          -- gfRandom,
          gfParseBool,
@@ -681,7 +682,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) randoms stries slen plen msg = 
       let yy = if null y then [] else head y
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
-      ww <- replaceWords fugly randoms w
+      ww <- wnReplaceWords fugly randoms w
       s1f $ filter (not . null) ([yy] ++ [zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) ww))
   let s1d x = do
       w <- x
@@ -717,9 +718,9 @@ chooseWord wne msg = do
       if p /= UnknownEPos then c1 xs (m ++ [x])
         else c1 xs m
 
-replaceWords :: Fugly -> Int -> [String] -> IO [String]
-replaceWords _ _ [] = return []
-replaceWords fugly@(Fugly dict pgf wne aspell _ _) randoms msg = do
+wnReplaceWords :: Fugly -> Int -> [String] -> IO [String]
+wnReplaceWords _ _ [] = return []
+wnReplaceWords fugly@(Fugly dict pgf wne aspell _ _) randoms msg = do
   cw <- chooseWord wne msg
   cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
   rr <- Random.getStdRandom (Random.randomR (0, 99))
@@ -728,8 +729,21 @@ replaceWords fugly@(Fugly dict pgf wne aspell _ _) randoms msg = do
   if rr + randoms < 90 then
     return out
     else if randoms < 90 then
-      replaceWords fugly randoms out
+      wnReplaceWords fugly randoms out
       else sequence $ map (\x -> findRelated wne x) msg
+
+asReplaceWords :: Aspell.SpellChecker -> [String] -> IO [String]
+asReplaceWords _ [] = return [[]]
+asReplaceWords aspell msg = do
+  sequence $ map (\x -> asReplace aspell x) msg
+
+asReplace :: Aspell.SpellChecker -> String -> IO String
+asReplace _ [] = return []
+asReplace aspell word = do
+  w  <- asSuggest aspell word
+  let rw = words w
+  rr <- Random.getStdRandom (Random.randomR (0, (length rw) - 1))
+  if null rw then return word else return (rw!!rr)
 
 findNextWord :: Fugly -> Int -> Int -> Bool -> String -> IO [String]
 findNextWord _ _ _ _ [] = return []
