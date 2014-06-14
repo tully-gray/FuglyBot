@@ -350,9 +350,14 @@ processLine line = do
 
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
+reply bot _ _ [] = return bot
 reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen plen learning allowpm _ randoms)
            fugly@(Fugly _ pgf wne _ _ _)) chan nick msg = do
-    fmsg <- lift $ asReplaceWords fugly $ map cleanString msg
+    let mmsg = case last $ head msg of
+                  ':' -> tail msg
+                  ',' -> tail msg
+                  _   -> msg
+    fmsg <- lift $ asReplaceWords fugly $ map cleanString mmsg
     let parse = gfParseBool pgf plen $ unwords fmsg
     mm <- lift $ chooseWord wne fmsg
     _ <- if null chan then if allowpm then lift $ sentenceReply socket fugly nick [] randoms stries slen plen mm
