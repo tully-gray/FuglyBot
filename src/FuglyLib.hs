@@ -368,9 +368,10 @@ incBefore' :: Word -> String -> Int -> Map.Map String Int
 incBefore' (Word _ _ b _ _ _) []     n = b
 incBefore' (Word _ _ b _ _ _) before n =
   if isJust w then
-    Map.insert before (if (fromJust w) + n < 0 then 0 else (fromJust w) + n) b
-    else if n < 0 then b
-      else Map.insert before n b
+    if (fromJust w) + n < 0 then Map.delete before b
+    else Map.insert before ((fromJust w) + n) b
+  else if n < 0 then b
+       else Map.insert before n b
   where
     w = Map.lookup before b
 incBefore' (Name _ _ b _ _)   []   n = b
@@ -386,9 +387,10 @@ incAfter' :: Word -> String -> Int -> Map.Map String Int
 incAfter' (Word _ _ _ a _ _) []     n = a
 incAfter' (Word _ _ _ a _ _) after  n =
   if isJust w then
-    Map.insert after (if (fromJust w) + n < 0 then 0 else (fromJust w) + n) a
-    else if n < 0 then a
-      else Map.insert after n a
+    if (fromJust w) + n < 0 then Map.delete after a
+    else Map.insert after ((fromJust w) + n) a
+  else if n < 0 then a
+       else Map.insert after n a
   where
     w = Map.lookup after a
 incAfter' (Name _ _ _ a _)   []  n = a
