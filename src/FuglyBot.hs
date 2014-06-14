@@ -643,8 +643,8 @@ internalize bot num msg = internalize' bot num 0 msg
     internalize' :: Bot -> Int -> Int -> String -> IO Bot
     internalize' bot _ _ [] = return bot
     internalize' bot@(Bot socket params@(Parameter {stries=stries,slength=slen,plength=plen,randoms=randoms})
-                      fugly@(Fugly {wne=wne})) num i msg = do
-      mm <- chooseWord wne $ words msg
+                      fugly@(Fugly {wne=wne})) num i imsg = do
+      mm <- chooseWord wne $ words imsg
       s <- getSentence $ sentence fugly randoms stries slen plen mm
       nd <- insertWords fugly $ words s
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
