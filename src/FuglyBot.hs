@@ -531,7 +531,7 @@ execCmd bot chan nick (x:xs) = do
                            else return bot
       | x == "!internalize" = if nick == owner then
                                 if length xs > 1 then do replyMsg bot chan nick ("Internalizing...")
-                                                         internalize bot (read (xs!!0)) 0 $ unwords $ tail xs
+                                                         internalize bot (read (xs!!0)) $ unwords $ tail xs
                                 else
                                   replyMsg bot chan nick "Usage: !internalize <tries> <msg>" >> return bot
                            else return bot
@@ -635,19 +635,22 @@ insertFromFile (Bot s p fugly) file = do
     n <- insertWords fugly fmsg
     return (Bot s p fugly{dict=n})
 
-internalize :: Bot -> Int -> Int -> String -> IO Bot
-internalize bot _ _ [] = return bot
-internalize bot@(Bot socket params@(Parameter _ _ _ _ _ _ _ _ _ stries slen plen _ _ _ randoms)
-                 fugly@(Fugly _ pgf wne _ _ _)) num i msg = do
-    fmsg <- asReplaceWords fugly $ map cleanString $ words msg
-    mm <- chooseWord wne fmsg
-    s <- getSentence $ sentence fugly randoms stries slen plen mm
-    nd <- insertWords fugly $ words s
-    let parse = gfParseBool pgf plen s
-    if i >= num then return bot
-      else if parse then hPutStrLn stdout ("> internalize: " ++ s) >> internalize (Bot socket params fugly{dict=nd}) num (i + 1) s
-        else internalize bot num (i + 1) s
+
+internalize :: Bot -> Int -> String -> IO Bot
+internalize bot _ [] = return bot
+internalize bot num msg = internalize' bot num 0 msg
   where
+    internalize' :: Bot -> Int -> Int -> String -> IO Bot
+    internalize' bot _ _ [] = return bot
+    internalize' bot@(Bot socket params@(Parameter {stries=stries,slength=slen,plength=plen,randoms=randoms})
+                      fugly@(Fugly {wne=wne})) num i msg = do
+      mm <- chooseWord wne $ words msg
+      s <- getSentence $ sentence fugly randoms stries slen plen mm
+      nd <- insertWords fugly $ words s
+      r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
+      if i >= num then return bot
+        else if r == 0 then hPutStrLn stdout ("> internalize: " ++ msg) >> internalize' (Bot socket params fugly{dict=nd}) num (i + 1) msg
+          else hPutStrLn stdout ("> internalize: " ++ s) >> internalize' (Bot socket params fugly{dict=nd}) num (i + 1) s
     getSentence []     = return []
     getSentence (x:xs) = do
       ww <- x
