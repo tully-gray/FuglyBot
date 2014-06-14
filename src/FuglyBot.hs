@@ -625,5 +625,6 @@ write socket s msg = do
 insertFromFile :: Bot -> FilePath -> IO Bot
 insertFromFile (Bot s p fugly) file = do
     f <- readFile file
-    n <- insertWords fugly $ words f
+    fmsg <- asReplaceWords fugly $ map cleanString $ words f
+    n <- insertWords fugly fmsg
     return (Bot s p fugly{dict=n})
