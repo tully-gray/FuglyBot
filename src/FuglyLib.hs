@@ -301,12 +301,12 @@ insertWordRaw' (Fugly dict _ wne aspell allow _) w word before after pos = do
   where
     e [] = Map.empty
     e x = Map.singleton x 1
-    c = incCount' (fromJust w)
-    na x y = if elem x allow then incAfter' (fromJust w) x
-                else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incAfter' (fromJust w) x
+    c = incCount' (fromJust w) 1
+    na x y = if elem x allow then incAfter' (fromJust w) x 1
+                else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incAfter' (fromJust w) x 1
                      else wordGetAfter (fromJust w)
-    nb x y = if elem x allow then incBefore' (fromJust w) x
-                else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incBefore' (fromJust w) x
+    nb x y = if elem x allow then incBefore' (fromJust w) x 1
+                else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incBefore' (fromJust w) x 1
                      else wordGetBefore (fromJust w)
 
 insertName f@(Fugly {dict=d}) w b a = insertName' f (Map.lookup w d) w b a
@@ -325,12 +325,12 @@ insertName' (Fugly dict _ wne aspell allow _) w name before after = do
   where
     e [] = Map.empty
     e x = Map.singleton x 1
-    c = incCount' (fromJust w)
-    na x y = if elem x allow then incAfter' (fromJust w) x
-                else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incAfter' (fromJust w) x
+    c = incCount' (fromJust w) 1
+    na x y = if elem x allow then incAfter' (fromJust w) x 1
+                else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incAfter' (fromJust w) x 1
                      else wordGetAfter (fromJust w)
-    nb x y = if elem x allow then incBefore' (fromJust w) x
-                else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incBefore' (fromJust w) x
+    nb x y = if elem x allow then incBefore' (fromJust w) x 1
+                else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incBefore' (fromJust w) x 1
                      else wordGetBefore (fromJust w)
     nn x y  = if elem x allow then x
                 else if y == UnknownEPos && Aspell.check aspell (ByteString.pack x) == False then [] else x
@@ -341,45 +341,45 @@ dropWord m word = Map.map del' (Map.delete word m)
       del' (Word w c b a r p) = (Word w c (Map.delete word b) (Map.delete word a) r p)
       del' (Name w c b a r) = (Name w c (Map.delete word b) (Map.delete word a) r)
 
-incCount' :: Word -> Int
-incCount' (Word _ c _ _ _ _) = c + 1
-incCount' (Name _ c _ _ _) = c + 1
+incCount' :: Word -> Int -> Int
+incCount' (Word _ c _ _ _ _) n = c + n
+incCount' (Name _ c _ _ _)   n = c + n
 
-incBefore' :: Word -> String -> Map.Map String Int
-incBefore' (Word _ _ b _ _ _) []     = b
-incBefore' (Word _ _ b _ _ _) before =
+incBefore' :: Word -> String -> Int -> Map.Map String Int
+incBefore' (Word _ _ b _ _ _) []     n = b
+incBefore' (Word _ _ b _ _ _) before n =
   if isJust w then
-    Map.insert before ((fromJust w) + 1) b
+    Map.insert before ((fromJust w) + n) b
     else
     Map.insert before 1 b
   where
     w = Map.lookup before b
-incBefore' (Name _ _ b _ _)   []     = b
-incBefore' (Name w c b a r) before   = incBefore' (Word w c b a r (POS Noun)) before
+incBefore' (Name _ _ b _ _)   []   n = b
+incBefore' (Name w c b a r) before n = incBefore' (Word w c b a r (POS Noun)) before n
 
-incBefore :: Map.Map String Word -> String -> String -> Map.Map String Int
-incBefore m word before = do
-  let w = Map.lookup word m
-  if isJust w then incBefore' (fromJust w) before
-    else Map.empty
+-- incBefore :: Map.Map String Word -> String -> String -> Map.Map String Int
+-- incBefore m word before = do
+--   let w = Map.lookup word m
+--   if isJust w then incBefore' (fromJust w) before
+--     else Map.empty
 
-incAfter' :: Word -> String -> Map.Map String Int
-incAfter' (Word _ _ _ a _ _) []     = a
-incAfter' (Word _ _ _ a _ _) after  =
+incAfter' :: Word -> String -> Int -> Map.Map String Int
+incAfter' (Word _ _ _ a _ _) []     n = a
+incAfter' (Word _ _ _ a _ _) after  n =
   if isJust w then
-    Map.insert after ((fromJust w) + 1) a
+    Map.insert after ((fromJust w) + n) a
     else
     Map.insert after 1 a
   where
     w = Map.lookup after a
-incAfter' (Name _ _ _ a _)   []     = a
-incAfter' (Name w c b a r) after    = incAfter' (Word w c b a r (POS Noun)) after
+incAfter' (Name _ _ _ a _)   []  n = a
+incAfter' (Name w c b a r) after n = incAfter' (Word w c b a r (POS Noun)) after n
 
-incAfter :: Map.Map String Word -> String -> String -> Map.Map String Int
-incAfter m word after = do
-  let w = Map.lookup word m
-  if isJust w then incAfter' (fromJust w) after
-    else Map.empty
+-- incAfter :: Map.Map String Word -> String -> String -> Map.Map String Int
+-- incAfter m word after = do
+--   let w = Map.lookup word m
+--   if isJust w then incAfter' (fromJust w) after
+--     else Map.empty
 
 listNeigh :: Map.Map String Int -> [String]
 listNeigh m = [w | (w, c) <- Map.toList m]
