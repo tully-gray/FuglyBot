@@ -55,6 +55,7 @@ import qualified System.Random as Random
 import System.IO
 import System.IO.Error
 import System.IO.Unsafe
+import Text.Regex.Posix
 
 import qualified Language.Aspell as Aspell
 import qualified Language.Aspell.Options as Aspell.Options
@@ -198,8 +199,8 @@ loadDict fuglydir topic = do
                            -- "place:"   -> word{place=(unwords ll)}
                            -- "phrase:"  -> word{phrase=(unwords ll)}
                            "count:"   -> word{count=(read $ unwords $ ll)}
-                           "before:"  -> word{before=(getNeigh $ ll)}
-                           "after:"   -> word{after=(getNeigh $ ll)}
+                           "before:"  -> word{FuglyLib.before=(getNeigh $ ll)}
+                           "after:"   -> word{FuglyLib.after=(getNeigh $ ll)}
                            "related:" -> word{related=(joinWords '"' ll)}
                            "pos:"     -> word{FuglyLib.pos=(readEPOS $ unwords $ ll)}
                            "end:"     -> word
@@ -621,6 +622,13 @@ wnMeet w c d e  = do
             return $ replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $
                     getWords $ getSynset $ fromJust result
         else return []
+
+wnIsName :: WordNetEnv -> String -> IO Bool
+wnIsName _ [] = return False
+wnIsName wne word = do
+    pos <- wnPartString wne word
+    gloss <- wnGloss wne word pos
+    if pos == "Noun" && gloss =~ ((toUpper $ head word) : tail word) then return True else return False
 
 -- LD_PRELOAD=/usr/lib64/libjemalloc.so.1
 asSuggest :: Aspell.SpellChecker -> String -> IO String

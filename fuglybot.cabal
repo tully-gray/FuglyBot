@@ -11,7 +11,7 @@ Build-type:      Simple
 Cabal-version:   >= 1.8
 
 Library
-    Build-depends:   base == 4.*, array, binary, bytestring, containers, filepath, gf, haspell, pretty, random, transformers
+    Build-depends:   base == 4.*, array, binary, bytestring, containers, filepath, gf, haspell, pretty, random, regex-posix, transformers
     Hs-source-dirs:  src
     Exposed-Modules: FuglyLib, NLP.WordNet
     Other-Modules:
