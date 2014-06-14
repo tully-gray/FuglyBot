@@ -342,14 +342,14 @@ dropWord m word = Map.map del' (Map.delete word m)
       del' (Name w c b a r) = (Name w c (Map.delete word b) (Map.delete word a) r)
 
 incCount' :: Word -> Int -> Int
-incCount' (Word _ c _ _ _ _) n = c + n
-incCount' (Name _ c _ _ _)   n = c + n
+incCount' (Word _ c _ _ _ _) n = if c + n < 0 then 0 else c + n
+incCount' (Name _ c _ _ _)   n = if c + n < 0 then 0 else c + n
 
 incBefore' :: Word -> String -> Int -> Map.Map String Int
 incBefore' (Word _ _ b _ _ _) []     n = b
 incBefore' (Word _ _ b _ _ _) before n =
   if isJust w then
-    Map.insert before ((fromJust w) + n) b
+    Map.insert before (if (fromJust w) + n < 0 then 0 else (fromJust w) + n) b
     else
     Map.insert before 1 b
   where
@@ -367,7 +367,7 @@ incAfter' :: Word -> String -> Int -> Map.Map String Int
 incAfter' (Word _ _ _ a _ _) []     n = a
 incAfter' (Word _ _ _ a _ _) after  n =
   if isJust w then
-    Map.insert after ((fromJust w) + n) a
+    Map.insert after (if (fromJust w) + n < 0 then 0 else (fromJust w) + n) a
     else
     Map.insert after 1 a
   where
