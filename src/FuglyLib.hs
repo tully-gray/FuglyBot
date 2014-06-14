@@ -224,6 +224,9 @@ wordIs         (Phrase p c b a r) = "phrase"
 wordGetWord    (Word w c b a r p) = w
 wordGetWord    (Name n c b a r)   = n
 wordGetWord    _                  = []
+wordGetCount   (Word w c b a r p) = c
+wordGetCount   (Name n c b a r)   = c
+wordGetCount   _                  = 0
 wordGetAfter   (Word w c b a r p) = a
 wordGetAfter   (Name n c b a r)   = a
 wordGetAfter   _                  = Map.empty
@@ -341,6 +344,19 @@ dropWord m word = Map.map del' (Map.delete word m)
       del' (Word w c b a r p) = (Word w c (Map.delete word b) (Map.delete word a) r p)
       del' (Name w c b a r) = (Name w c (Map.delete word b) (Map.delete word a) r)
 
+ageWord :: Map.Map String Word -> String -> Map.Map String Word
+ageWord m word = Map.map (\ww@(Word w c b a r p) -> (Word w (if w == word then if c - 1 < 0 then 0 else c - 1 else c)
+                                                     (incBefore' ww word (-1)) (incAfter' ww word (-1)) r p)) m
+
+ageWords :: Map.Map String Word -> Map.Map String Word
+ageWords m = cleanWords $ f m (listWords m)
+    where
+      f m []     = m
+      f m (x:xs) = f (ageWord m x) xs
+
+cleanWords :: Map.Map String Word -> Map.Map String Word
+cleanWords = Map.filter (\x -> wordGetCount x > 0)
+
 incCount' :: Word -> Int -> Int
 incCount' (Word _ c _ _ _ _) n = if c + n < 0 then 0 else c + n
 incCount' (Name _ c _ _ _)   n = if c + n < 0 then 0 else c + n
@@ -350,8 +366,8 @@ incBefore' (Word _ _ b _ _ _) []     n = b
 incBefore' (Word _ _ b _ _ _) before n =
   if isJust w then
     Map.insert before (if (fromJust w) + n < 0 then 0 else (fromJust w) + n) b
-    else
-    Map.insert before 1 b
+    else if n < 0 then b
+      else Map.insert before n b
   where
     w = Map.lookup before b
 incBefore' (Name _ _ b _ _)   []   n = b
@@ -368,8 +384,8 @@ incAfter' (Word _ _ _ a _ _) []     n = a
 incAfter' (Word _ _ _ a _ _) after  n =
   if isJust w then
     Map.insert after (if (fromJust w) + n < 0 then 0 else (fromJust w) + n) a
-    else
-    Map.insert after 1 a
+    else if n < 0 then a
+      else Map.insert after n a
   where
     w = Map.lookup after a
 incAfter' (Name _ _ _ a _)   []  n = a
