@@ -457,6 +457,20 @@ execCmd bot chan nick (x:xs) = do
             _ -> replyMsg bot chan nick "Usage: !dropword <word>"
                  >> return bot
                          else return bot
+      | x == "!ageword" = if nick == owner then
+          case (length xs) of
+            1 -> replyMsg bot chan nick ("Aged word " ++ (xs!!0)) >>
+                 return (Bot socket params fugly{dict=ageWord dict (xs!!0)})
+            _ -> replyMsg bot chan nick "Usage: !ageword <word>"
+                 >> return bot
+                         else return bot
+      | x == "!agewords" = if nick == owner then
+          case (length xs) of
+            0 -> replyMsg bot chan nick ("Aged all words...") >>
+                 return (Bot socket params fugly{dict=ageWords dict})
+            _ -> replyMsg bot chan nick "Usage: !agewords"
+                 >> return bot
+                         else return bot
       | x == "!banword" = if nick == owner then
           case (length xs) of
             2 -> if (xs!!0) == "add" then
@@ -554,7 +568,7 @@ execCmd bot chan nick (x:xs) = do
       | otherwise  = if nick == owner then replyMsg bot chan nick
                        ("Commands: !dict !wordlist !word !insertword !dropword "
                        ++ "!banword !allowword !namelist !name !insertname !closure !meet !parse "
-                       ++ "!gfcats "
+                       ++ "!gfcats !ageword(s) "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "
                        ++ "!quit !readfile !load !save") >> return bot
                      else replyMsg bot chan nick ("Commands: !dict !word !wordlist !name "

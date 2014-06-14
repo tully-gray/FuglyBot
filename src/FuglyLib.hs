@@ -10,6 +10,8 @@ module FuglyLib
          insertWordRaw,
          insertWords,
          dropWord,
+         ageWord,
+         ageWords,
          listWords,
          listWordFull,
          listWordsCountSort,
