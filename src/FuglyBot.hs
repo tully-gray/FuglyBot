@@ -320,7 +320,7 @@ processLine :: [String] -> StateT (MVar Bot) IO ()
 processLine [] = return ()
 processLine line = do
     b <- get
-    bot <- lift $ readMVar b
+    bot <- lift $ takeMVar b
     t <- lift $ myThreadId
     let socket = (\(Bot s _ _) -> s) bot
     let nick = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
@@ -328,17 +328,17 @@ processLine line = do
     let ttime = (\(Bot _ (Parameter {threadtime = t}) _) -> t * 1000000) bot
     let bk = beenKicked nick line
     {-- Kill long lived threads --}
-    lift $ forkIO (do threadDelay ttime ; killThread t) >> return ()
-    if (not $ null bk) then do lift (rejoinChannel socket bk rejoinkick)
-      else if null msg then return ()
-         else if chan == nick then do nb <- prvcmd bot ; _ <- lift $ swapMVar b nb ; return ()
-           else if spokenTo nick msg then if null (tail msg) then return ()
+    lift $ forkIO (do threadDelay ttime ; putMVar b bot ; killThread t) >> return ()
+    if (not $ null bk) then do lift (rejoinChannel socket bk rejoinkick >> putMVar b bot)
+      else if null msg then lift $ putMVar b bot
+         else if chan == nick then do nb <- prvcmd bot ; lift $ putMVar b nb
+           else if spokenTo nick msg then if null (tail msg) then lift $ putMVar b bot
                                           else if (head $ head $ tail msg) == '!'
                                             then do nb <- execCmd bot chan who (tail msg)
-                                                    _ <- lift $ swapMVar b nb ; return ()
+                                                    lift $ putMVar b nb
                                                else do nb <- reply bot chan who (tail msg)
-                                                       _ <- lift $ swapMVar b nb ; return ()
-             else do nb <- reply bot chan [] msg ; _ <- lift $ swapMVar b nb ; return ()
+                                                       lift $ putMVar b nb
+             else do nb <- reply bot chan [] msg ; lift $ putMVar b nb
   where
     msg  = getMsg line
     who  = getNick line
@@ -634,7 +634,6 @@ insertFromFile (Bot s p fugly) file = do
     fmsg <- asReplaceWords fugly $ map cleanString $ words f
     n <- insertWords fugly fmsg
     return (Bot s p fugly{dict=n})
-
 
 internalize :: Bot -> Int -> String -> IO Bot
 internalize bot _ [] = return bot
