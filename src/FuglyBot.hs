@@ -328,7 +328,7 @@ processLine line = do
     let ttime = (\(Bot _ (Parameter {threadtime = t}) _) -> t * 1000000) bot
     let bk = beenKicked nick line
     {-- Kill long lived threads --}
-    lift $ forkIO (do threadDelay ttime ; putMVar b bot ; killThread t) >> return ()
+    -- lift $ forkIO (do threadDelay ttime ; putMVar b bot ; killThread t) >> return ()
     if (not $ null bk) then do lift (rejoinChannel socket bk rejoinkick >> putMVar b bot)
       else if null msg then lift $ putMVar b bot
          else if chan == nick then do nb <- prvcmd bot ; lift $ putMVar b nb
