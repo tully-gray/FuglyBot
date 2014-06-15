@@ -38,6 +38,9 @@ module FuglyLib
          toUpperSentence,
          endSentence,
          dePlenk,
+         fHead,
+         fLast,
+         fTail,
          Word (..),
          Fugly (..)
        )
@@ -686,6 +689,7 @@ gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
 --}
 
 gfParseBool :: PGF -> Int -> String -> Bool
+gfParseBool _ _ [] = False
 gfParseBool pgf len msg
   | elem (last w) badEndWords = False
   | length w > len = (gfParseBoolA pgf $ take len w) && (gfParseBool pgf len (unwords $ drop len w))
