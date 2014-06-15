@@ -588,21 +588,6 @@ execCmd bot chan nick (x:xs) = do
                        ++ "!closure !meet !parse !related !gfcats") >> return bot
     execCmd' bot = return bot
 
--- sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ()
--- sentenceReply h f chan nick randoms stries slen plen m = p h (sentence f randoms stries slen plen m)
---   where
---     p _ []     = return ()
---     p h (x:xs) = do
---       ww <- x
---       r <- Random.getStdRandom (Random.randomR (0, 5)) :: IO Int
---       if null ww then p h xs
---         else if null nick then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
---                                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
---              else if nick == chan || r == 1 then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
---                                                  hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
---                   else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\r\n") >>
---                        hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\n")
-
 sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> Int -> [String] -> IO ()
 sentenceReply h fugly chan nick randoms stries slen plen num m = do
     x <- f (sentence fugly randoms stries slen plen m) [] num 0
@@ -620,7 +605,7 @@ sentenceReply h fugly chan nick randoms stries slen plen num m = do
       xx <- x
       if i >= n then return a
         else if null xx then f xs a n i
-        else f xs ([xx," "] ++ a) n (i + 1)
+        else f xs ([xx ++ " "] ++ a) n (i + 1)
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan nick msg
