@@ -653,6 +653,7 @@ wnIsName wne word = do
     if pos == "Noun" && w =~ toUpperWord word && length word > 1 then return True else return False
 
 asIsName :: Aspell.SpellChecker -> String -> IO Bool
+asIsName _ [] = return False
 asIsName aspell word = do
     let l = map toLower word
     let w = toUpperWord l
@@ -664,6 +665,7 @@ asIsName aspell word = do
 
 -- LD_PRELOAD=/usr/lib64/libjemalloc.so.1
 asSuggest :: Aspell.SpellChecker -> String -> IO String
+asSuggest _ [] = return []
 asSuggest aspell word = runInBoundThread (do w <- Aspell.suggest aspell (ByteString.pack word)
                                              return $ unwords $ map ByteString.unpack w)
 
