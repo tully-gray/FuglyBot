@@ -523,9 +523,6 @@ toUpperSentence :: [String] -> [String]
 toUpperSentence []     = []
 toUpperSentence [x]    = [toUpperWord x]
 toUpperSentence (x:xs) = toUpperWord x : xs
--- toUpperSentence msg = (up' msg : [] ) ++ tail msg
---   where
---     up' w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
 
 endSentence :: [String] -> [String]
 endSentence []  = []
@@ -537,9 +534,6 @@ fLast a b [] = unsafePerformIO (do putStrLn ("fLast: error in " ++ a) ; return b
 fLast a b c  = last c
 fTail a b [] = unsafePerformIO (do putStrLn ("fTail: error in " ++ a) ; return b)
 fTail a b c  = tail c
-
--- wnLength :: [[a]] -> Int
--- wnLength a = (length a) - (length $ elemIndices True (map null a))
 
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
