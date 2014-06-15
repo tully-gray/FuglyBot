@@ -652,7 +652,7 @@ wnIsName wne word = do
     pos <- wnPartString wne word
     w <- wnGloss wne word pos
     putStrLn w
-    if pos == "Noun" && w =~ toUpperWord word then return True else return False
+    if pos == "Noun" && w =~ toUpperWord word && length word > 1 then return True else return False
 
 asIsName :: Aspell.SpellChecker -> String -> IO Bool
 asIsName aspell word = do
@@ -660,8 +660,8 @@ asIsName aspell word = do
     let w = toUpperWord l
     n1 <- asSuggest aspell l
     n2 <- asSuggest aspell w
-    let nn1 = (head $ words n1) == l
-    let nn2 = (head $ words n2) == w
+    let nn1 = if null n1 then False else (head $ words n1) == l
+    let nn2 = if null n2 then False else (head $ words n2) == w
     return (if nn1 == False && nn2 == True then True else False)
 
 -- LD_PRELOAD=/usr/lib64/libjemalloc.so.1
