@@ -353,8 +353,12 @@ dropWord m word = Map.map del' (Map.delete word m)
       del' (Name w c b a r) = (Name w c (Map.delete word b) (Map.delete word a) r)
 
 ageWord :: Map.Map String Word -> String -> Map.Map String Word
-ageWord m word = Map.map (\ww@(Word w c b a r p) -> (Word w (if w == word then if c - 1 < 0 then 0 else c - 1 else c)
-                                                     (incBefore' ww word (-1)) (incAfter' ww word (-1)) r p)) m
+ageWord m word = Map.map age m
+    where
+      age ww@(Word w c b a r p) = (Word w (if w == word then if c - 1 < 0 then 0 else c - 1 else c)
+                                   (incBefore' ww word (-1)) (incAfter' ww word (-1)) r p)
+      age ww@(Name w c b a r)   = (Name w (if w == word then if c - 1 < 0 then 0 else c - 1 else c)
+                                   (incBefore' ww word (-1)) (incAfter' ww word (-1)) r)
 
 ageWords :: Map.Map String Word -> Map.Map String Word
 ageWords m = cleanWords $ f m (listWords m)
