@@ -516,6 +516,7 @@ fixUnderscore :: String -> String
 fixUnderscore = strip '"' . replace ' ' '_'
 
 toUpperWord :: String -> String
+toUpperWord [] = []
 toUpperWord w = (toUpper $ head w) : tail w
 
 toUpperSentence :: [String] -> [String]
