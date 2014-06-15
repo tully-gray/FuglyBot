@@ -588,7 +588,7 @@ wnGloss wne word pos = do
 wnRelated :: WordNetEnv -> String -> String -> String -> IO String
 wnRelated wne c d pos = do
     x <- wnRelated' wne c d $ readEPOS pos
-    f x []
+    f (filter (not . null) x) []
   where
     f []     a = return a
     f (x:xs) a = f xs (x ++ " " ++ a)
