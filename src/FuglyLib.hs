@@ -21,7 +21,7 @@ module FuglyLib
          cleanStringWhite,
          cleanStringBlack,
          cleanString,
-         wnRelated2,
+         wnRelated,
          wnClosure,
          wnMeet,
          asReplaceWords,
@@ -294,7 +294,7 @@ insertWordRaw' (Fugly dict _ wne aspell allow _) w word before after pos = do
   pp <- (if null pos then wnPartPOS wne word else return $ readEPOS pos)
   pa <- wnPartPOS wne after
   pb <- wnPartPOS wne before
-  rel <- wnRelated wne word "Hypernym" pp
+  rel <- wnRelated' wne word "Hypernym" pp
   let nn x y  = if elem x allow then x
                 else if y == UnknownEPos && Aspell.check aspell (ByteString.pack x) == False then [] else x
   let i x = Map.insert x (Word x 1 (e (nn before pb)) (e (nn after pa)) rel pp) dict
@@ -326,7 +326,7 @@ insertName' (Fugly dict _ wne aspell _ _) _ [] _ _ = return dict
 insertName' (Fugly dict _ wne aspell allow _) w name before after = do
   pa <- wnPartPOS wne after
   pb <- wnPartPOS wne before
-  rel <- wnRelated wne name "Hypernym" (POS Noun)
+  rel <- wnRelated' wne name "Hypernym" (POS Noun)
   if isJust w then
     return $ Map.insert name (Name name c (nb before pb) (na after pa)
                               (wordGetRelated (fromJust w))) dict
@@ -585,17 +585,17 @@ wnGloss wne word pos = do
     if (null result) then return "Nothing!" else
       return $ unwords result
 
-wnRelated2 :: WordNetEnv -> String -> String -> String -> IO String
-wnRelated2 wne c d pos = do
-    x <- wnRelated wne c d $ readEPOS pos
+wnRelated :: WordNetEnv -> String -> String -> String -> IO String
+wnRelated wne c d pos = do
+    x <- wnRelated' wne c d $ readEPOS pos
     f x []
   where
     f []     a = return a
     f (x:xs) a = f xs (x ++ " " ++ a)
-wnRelated :: WordNetEnv -> String -> String -> EPOS -> IO [String]
-wnRelated wne [] _ _  = return [[]] :: IO [String]
-wnRelated wne c [] pos  = wnRelated wne c "Hypernym" pos
-wnRelated wne c d pos = do
+wnRelated' :: WordNetEnv -> String -> String -> EPOS -> IO [String]
+wnRelated' wne [] _ _  = return [[]] :: IO [String]
+wnRelated' wne c [] pos  = wnRelated' wne c "Hypernym" pos
+wnRelated' wne c d pos = do
     let wnForm = readForm d
     let result = if (map toLower d) == "all" then concat $ map (fromMaybe [[]])
                     (runs wne (relatedByListAllForms (search (fixUnderscore c)
@@ -843,9 +843,9 @@ findRelated :: WordNetEnv -> String -> IO String
 findRelated wne word = do
   pp <- wnPartPOS wne word
   if pp /= UnknownEPos then do
-    hyper <- wnRelated wne word "Hypernym" pp
-    hypo  <- wnRelated wne word "Hyponym" pp
-    anto  <- wnRelated wne word "Antonym" pp
+    hyper <- wnRelated' wne word "Hypernym" pp
+    hypo  <- wnRelated' wne word "Hyponym" pp
+    anto  <- wnRelated' wne word "Antonym" pp
     let hyper' = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') hyper
     let hypo'  = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') hypo
     let anto'  = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') anto

@@ -546,9 +546,9 @@ execCmd bot chan nick (x:xs) = do
           else replyMsg bot chan nick "Usage: !raw <msg>" >> return bot
                      else return bot
       | x == "!related" = case (length xs) of
-            3 -> (wnRelated2 wne (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan nick >> return bot
-            2 -> (wnRelated2 wne (xs!!0) (xs!!1) []) >>= replyMsg bot chan nick >> return bot
-            1 -> (wnRelated2 wne (xs!!0) [] []) >>= replyMsg bot chan nick >> return bot
+            3 -> (wnRelated wne (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan nick >> return bot
+            2 -> (wnRelated wne (xs!!0) (xs!!1) []) >>= replyMsg bot chan nick >> return bot
+            1 -> (wnRelated wne (xs!!0) [] []) >>= replyMsg bot chan nick >> return bot
             _ -> replyMsg bot chan nick "Usage: !related <word> [form] [part-of-speech]"
                  >> return bot
       | x == "!closure" = case (length xs) of
