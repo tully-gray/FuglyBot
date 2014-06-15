@@ -380,7 +380,7 @@ incBefore' :: Word -> String -> Int -> Map.Map String Int
 incBefore' (Word _ _ b _ _ _) []     n = b
 incBefore' (Word _ _ b _ _ _) before n =
   if isJust w then
-    if (fromJust w) + n < 0 then Map.delete before b
+    if (fromJust w) + n < 1 then Map.delete before b
     else Map.insert before ((fromJust w) + n) b
   else if n < 0 then b
        else Map.insert before n b
@@ -399,7 +399,7 @@ incAfter' :: Word -> String -> Int -> Map.Map String Int
 incAfter' (Word _ _ _ a _ _) []     n = a
 incAfter' (Word _ _ _ a _ _) after  n =
   if isJust w then
-    if (fromJust w) + n < 0 then Map.delete after a
+    if (fromJust w) + n < 1 then Map.delete after a
     else Map.insert after ((fromJust w) + n) a
   else if n < 0 then a
        else Map.insert after n a
