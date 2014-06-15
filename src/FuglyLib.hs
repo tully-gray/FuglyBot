@@ -114,8 +114,9 @@ initFugly fuglydir wndir gfdir topic = do
     wne <- NLP.WordNet.initializeWordNetWithOptions
            (return wndir :: Maybe FilePath)
            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
-    -- a <- Aspell.spellCheckerWithOptions [Aspell.Options.Lang (ByteString.pack "en_US"), Aspell.Options.IgnoreCase False, Aspell.Options.Size Aspell.Options.Small, Aspell.Options.SuggestMode Aspell.Options.Fast]
-    a <- Aspell.spellChecker
+    a <- Aspell.spellCheckerWithOptions [Aspell.Options.Lang (ByteString.pack "en_US"),
+                                         Aspell.Options.IgnoreCase False, Aspell.Options.Size Aspell.Options.Large,
+                                         Aspell.Options.SuggestMode Aspell.Options.Normal]
     let aspell = head $ rights [a]
     return (Fugly dict pgf wne aspell allow ban)
 
@@ -269,7 +270,7 @@ insertWords fugly@(Fugly dict pgf _ _ _ _) msg@(x:y:xs) =
 insertWord :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWord fugly@(Fugly dict pgf wne aspell allow ban) [] _ _ _ = return dict
 insertWord fugly@(Fugly dict pgf wne aspell allow ban) word before after pos = do
-    n <- wnIsName wne word
+    n <- asIsName aspell word
     let out = if elem word ban || elem before ban || elem after ban then return dict
               else if isJust w then f $ fromJust w
                    else if n then insertName' fugly w (toUpperWord $ cleanString word) bi ai
@@ -648,6 +649,16 @@ wnIsName wne word = do
     w <- wnGloss wne word pos
     putStrLn w
     if pos == "Noun" && w =~ toUpperWord word then return True else return False
+
+asIsName :: Aspell.SpellChecker -> String -> IO Bool
+asIsName aspell word = do
+    let l = map toLower word
+    let w = toUpperWord l
+    n1 <- asSuggest aspell l
+    n2 <- asSuggest aspell w
+    let nn1 = (head $ words n1) == l
+    let nn2 = (head $ words n2) == w
+    return (if nn1 == False && nn2 == True then True else False)
 
 -- LD_PRELOAD=/usr/lib64/libjemalloc.so.1
 asSuggest :: Aspell.SpellChecker -> String -> IO String
