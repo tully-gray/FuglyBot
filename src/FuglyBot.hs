@@ -472,6 +472,14 @@ execCmd bot chan nick (x:xs) = do
             _ -> replyMsg bot chan nick "Usage: !agewords"
                  >> return bot
                          else return bot
+      | x == "!cleanwords" = if nick == owner then
+          case (length xs) of
+            0 -> do nd <- cleanWords aspell dict
+                    replyMsg bot chan nick ("Cleaned some words...")
+                    return (Bot socket params fugly{dict=nd})
+            _ -> replyMsg bot chan nick "Usage: !cleanwords"
+                 >> return bot
+                         else return bot
       | x == "!banword" = if nick == owner then
           case (length xs) of
             2 -> if (xs!!0) == "add" then
@@ -581,7 +589,7 @@ execCmd bot chan nick (x:xs) = do
       | otherwise  = if nick == owner then replyMsg bot chan nick
                        ("Commands: !dict !word !wordlist !insertword !dropword "
                        ++ "!banword !allowword !namelist !name !insertname !closure !meet !parse "
-                       ++ "!related !gfcats !ageword(s) !internalize "
+                       ++ "!related !gfcats !ageword(s) !cleanwords !internalize "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "
                        ++ "!quit !readfile !load !save") >> return bot
                      else replyMsg bot chan nick ("Commands: !dict !word !wordlist !name "

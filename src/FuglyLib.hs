@@ -12,6 +12,7 @@ module FuglyLib
          dropWord,
          ageWord,
          ageWords,
+         cleanWords,
          listWords,
          listWordFull,
          listWordsCountSort,
@@ -364,13 +365,29 @@ ageWord m word = Map.map age m
                                    (incBefore' ww word (-1)) (incAfter' ww word (-1)) r)
 
 ageWords :: Map.Map String Word -> Map.Map String Word
-ageWords m = cleanWords $ f m (listWords m)
+ageWords m = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m)
     where
       f m []     = m
       f m (x:xs) = f (ageWord m x) xs
 
-cleanWords :: Map.Map String Word -> Map.Map String Word
-cleanWords = Map.filter (\x -> wordGetCount x > 0)
+cleanWords :: Aspell.SpellChecker -> Map.Map String Word -> IO (Map.Map String Word)
+cleanWords aspell m = do
+    x <- sequence $ map f $ Map.toList $ Map.filter (\x -> wordGetCount x > 0) m
+    return $ Map.fromList x
+    where
+      f (s, (Word w c b a r p)) = do
+        n <- asIsName aspell w
+        if n then return (toUpperWord $ cleanString s, (Name (toUpperWord $ cleanString w) c b a r))
+          else do
+            cna <- cn a
+            cnb <- cn b
+            return (map toLower $ cleanString s, (Word (map toLower $ cleanString w) c (Map.fromList cnb) (Map.fromList cna) r p))
+      f (s, n@(Name w c b a r)) = return (s, n)
+      cn m = sequence $ map cm $ Map.toList $ Map.filter (\x -> x > 0) m
+      cm (w, c) = do
+        n <- asIsName aspell w
+        if n then return ((toUpperWord $ cleanString w), c)
+          else return ((map toLower $ cleanString w), c)
 
 incCount' :: Word -> Int -> Int
 incCount' (Word _ c _ _ _ _) n = if c + n < 0 then 0 else c + n
