@@ -274,16 +274,16 @@ insertWord fugly@(Fugly dict pgf wne aspell allow ban) word before after pos = d
     let out = if elem word ban || elem before ban || elem after ban then return dict
               else if isJust w then f $ fromJust w
                    else if n then insertName' fugly w (toUpperWord $ cleanString word) bi ai
-                        else if isJust ww then insertWordRaw' fugly ww (cleanString word) bi ai pos
-                             else insertWordRaw' fugly w (cleanString word) bi ai pos
+                        else if isJust ww then insertWordRaw' fugly ww (map toLower $ cleanString word) bi ai pos
+                             else insertWordRaw' fugly w (map toLower $ cleanString word) bi ai pos
     out
   where
     w = Map.lookup word dict
-    ww = Map.lookup (cleanString word) dict
+    ww = Map.lookup (map toLower $ cleanString word) dict
     a = Map.lookup after dict
     b = Map.lookup before dict
-    ai = if isJust a then after else cleanString after
-    bi = if isJust b then before else cleanString before
+    ai = if isJust a then after else map toLower $ cleanString after
+    bi = if isJust b then before else map toLower $ cleanString before
     f (Word {})  = insertWordRaw' fugly w word bi ai pos
     f (Name {})  = insertName'    fugly w word bi ai
 
