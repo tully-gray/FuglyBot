@@ -353,19 +353,20 @@ reply :: (Monad (t IO), MonadTrans t) =>
 reply bot _ _ [] = return bot
 reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen plen learning allowpm _ randoms)
            fugly@(Fugly _ pgf wne _ _ _)) chan nick msg = do
-    let mmsg = case last $ head msg of
-                  ':' -> tail msg
-                  ',' -> tail msg
-                  _   -> msg
+    let mmsg = if null $ head msg then msg
+                 else case fLast "reply" ' ' $ head msg of
+                   ':' -> tail msg
+                   ',' -> tail msg
+                   _   -> msg
     fmsg <- lift $ asReplaceWords fugly $ map cleanString mmsg
     let parse = gfParseBool pgf plen $ unwords fmsg
     mm <- lift $ chooseWord wne fmsg
-    _ <- if null chan then if allowpm then lift $ sentenceReply socket fugly nick [] randoms stries slen plen mm
+    _ <- if null chan then if allowpm then lift $ sentenceReply socket fugly nick [] randoms stries slen plen 2 mm
                            else return ()
          else if null nick then if length fmsg > 2 && (unwords fmsg) =~ botnick then
-                                  lift $ sentenceReply socket fugly chan chan randoms stries slen plen mm
+                                  lift $ sentenceReply socket fugly chan chan randoms stries slen plen 1 mm
                                 else return ()
-           else lift $ sentenceReply socket fugly chan nick randoms stries slen plen mm
+           else lift $ sentenceReply socket fugly chan nick randoms stries slen plen 2 mm
     if ((nick == owner && null chan) || parse) && learning then do
       nd <- lift $ insertWords fugly fmsg
       lift $ putStrLn ">parse<"
@@ -536,7 +537,7 @@ execCmd bot chan nick (x:xs) = do
                                   replyMsg bot chan nick "Usage: !internalize <tries> <msg>" >> return bot
                            else return bot
       | x == "!talk" = if nick == owner then
-          if length xs > 2 then sentenceReply socket fugly (xs!!0) (xs!!1) randoms stries slen plen (drop 2 xs)
+          if length xs > 2 then sentenceReply socket fugly (xs!!0) (xs!!1) randoms stries slen plen 2 (drop 2 xs)
                                   >> return bot
           else replyMsg bot chan nick "Usage: !talk <channel> <nick> <msg>" >> return bot
                      else return bot
@@ -587,20 +588,39 @@ execCmd bot chan nick (x:xs) = do
                        ++ "!closure !meet !parse !related !gfcats") >> return bot
     execCmd' bot = return bot
 
-sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ()
-sentenceReply h f chan nick randoms stries slen plen m = p h (sentence f randoms stries slen plen m)
+-- sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ()
+-- sentenceReply h f chan nick randoms stries slen plen m = p h (sentence f randoms stries slen plen m)
+--   where
+--     p _ []     = return ()
+--     p h (x:xs) = do
+--       ww <- x
+--       r <- Random.getStdRandom (Random.randomR (0, 5)) :: IO Int
+--       if null ww then p h xs
+--         else if null nick then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
+--                                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
+--              else if nick == chan || r == 1 then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
+--                                                  hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
+--                   else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\r\n") >>
+--                        hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\n")
+
+sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> Int -> [String] -> IO ()
+sentenceReply h fugly chan nick randoms stries slen plen num m = do
+    x <- f (sentence fugly randoms stries slen plen m) [] num 0
+    let ww = unwords x
+    if null nick then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
+                      hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
+      else if nick == chan then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
+                                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
+           else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\r\n") >>
+                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\n")
   where
-    p _ []     = return ()
-    p h (x:xs) = do
-      ww <- x
-      r <- Random.getStdRandom (Random.randomR (0, 5)) :: IO Int
-      if null ww then p h xs
-        else if null nick then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
-                               hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
-             else if nick == chan || r == 1 then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
-                                                 hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
-                  else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\r\n") >>
-                       hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick ++ ": " ++ ww) ++ "\n")
+    f :: [IO String] -> [String] -> Int -> Int -> IO [String]
+    f []     a n i = return a
+    f (x:xs) a n i = do
+      xx <- x
+      if i >= n then return a
+        else if null xx then f xs a n i
+        else f xs ([xx," "] ++ a) n (i + 1)
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
 replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan nick msg
