@@ -545,6 +545,12 @@ execCmd bot chan nick (x:xs) = do
                                   >> return bot
           else replyMsg bot chan nick "Usage: !raw <msg>" >> return bot
                      else return bot
+      | x == "!related" = case (length xs) of
+            3 -> (wnRelated2 wne (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan nick >> return bot
+            2 -> (wnRelated2 wne (xs!!0) (xs!!1) []) >>= replyMsg bot chan nick >> return bot
+            1 -> (wnRelated2 wne (xs!!0) [] []) >>= replyMsg bot chan nick >> return bot
+            _ -> replyMsg bot chan nick "Usage: !related <word> [form] [part-of-speech]"
+                 >> return bot
       | x == "!closure" = case (length xs) of
             3 -> (wnClosure wne (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan nick
                  >> return bot
@@ -572,13 +578,13 @@ execCmd bot chan nick (x:xs) = do
             replyMsg bot chan nick (unwords $ map show $ take 750 $ iterate succ (0 :: Int)) >> return bot
             else return bot
       | otherwise  = if nick == owner then replyMsg bot chan nick
-                       ("Commands: !dict !wordlist !word !insertword !dropword "
+                       ("Commands: !dict !word !wordlist !insertword !dropword "
                        ++ "!banword !allowword !namelist !name !insertname !closure !meet !parse "
-                       ++ "!gfcats !ageword(s) !internalize "
+                       ++ "!related !gfcats !ageword(s) !internalize "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "
                        ++ "!quit !readfile !load !save") >> return bot
                      else replyMsg bot chan nick ("Commands: !dict !word !wordlist !name "
-                       ++ "!closure !meet !parse !gfcats") >> return bot
+                       ++ "!closure !meet !parse !related !gfcats") >> return bot
     execCmd' bot = return bot
 
 -- chanMsg :: Bot -> String -> String -> IO ()

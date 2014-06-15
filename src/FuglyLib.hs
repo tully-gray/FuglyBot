@@ -21,6 +21,7 @@ module FuglyLib
          cleanStringWhite,
          cleanStringBlack,
          cleanString,
+         wnRelated2,
          wnClosure,
          wnMeet,
          asReplaceWords,
@@ -267,11 +268,14 @@ insertWords fugly@(Fugly dict pgf _ _ _ _) msg@(x:y:xs) =
 
 insertWord :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWord fugly@(Fugly dict pgf wne aspell allow ban) [] _ _ _ = return dict
-insertWord fugly@(Fugly dict pgf wne aspell allow ban) word before after pos =
-    if elem word ban || elem before ban || elem after ban then return dict
-    else if isJust w then f $ fromJust w
-         else if isJust ww then insertWordRaw' fugly ww (cleanString word) bi ai pos
-              else insertWordRaw' fugly w (cleanString word) bi ai pos
+insertWord fugly@(Fugly dict pgf wne aspell allow ban) word before after pos = do
+    n <- wnIsName wne word
+    let out = if elem word ban || elem before ban || elem after ban then return dict
+              else if isJust w then f $ fromJust w
+                   else if n then insertName' fugly w (toUpperWord $ cleanString word) bi ai
+                        else if isJust ww then insertWordRaw' fugly ww (cleanString word) bi ai pos
+                             else insertWordRaw' fugly w (cleanString word) bi ai pos
+    out
   where
     w = Map.lookup word dict
     ww = Map.lookup (cleanString word) dict
@@ -506,11 +510,16 @@ joinWords a s = joinWords' a $ filter (not . null) s
 fixUnderscore :: String -> String
 fixUnderscore = strip '"' . replace ' ' '_'
 
+toUpperWord :: String -> String
+toUpperWord w = (toUpper $ head w) : tail w
+
 toUpperSentence :: [String] -> [String]
-toUpperSentence []  = []
-toUpperSentence msg = (up' msg : [] ) ++ tail msg
-  where
-    up' w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
+toUpperSentence []     = []
+toUpperSentence [x]    = [toUpperWord x]
+toUpperSentence (x:xs) = toUpperWord x : xs
+-- toUpperSentence msg = (up' msg : [] ) ++ tail msg
+--   where
+--     up' w = ((toUpper $ head $ head w) : []) ++ (tail $ head w)
 
 endSentence :: [String] -> [String]
 endSentence []  = []
@@ -576,6 +585,13 @@ wnGloss wne word pos = do
     if (null result) then return "Nothing!" else
       return $ unwords result
 
+wnRelated2 :: WordNetEnv -> String -> String -> String -> IO String
+wnRelated2 wne c d pos = do
+    x <- wnRelated wne c d $ readEPOS pos
+    f x []
+  where
+    f []     a = return a
+    f (x:xs) a = f xs (x ++ " " ++ a)
 wnRelated :: WordNetEnv -> String -> String -> EPOS -> IO [String]
 wnRelated wne [] _ _  = return [[]] :: IO [String]
 wnRelated wne c [] pos  = wnRelated wne c "Hypernym" pos
@@ -629,8 +645,9 @@ wnIsName :: WordNetEnv -> String -> IO Bool
 wnIsName _ [] = return False
 wnIsName wne word = do
     pos <- wnPartString wne word
-    gloss <- wnGloss wne word pos
-    if pos == "Noun" && gloss =~ ((toUpper $ head word) : tail word) then return True else return False
+    w <- wnGloss wne word pos
+    putStrLn w
+    if pos == "Noun" && w =~ toUpperWord word then return True else return False
 
 -- LD_PRELOAD=/usr/lib64/libjemalloc.so.1
 asSuggest :: Aspell.SpellChecker -> String -> IO String
