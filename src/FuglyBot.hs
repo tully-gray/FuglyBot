@@ -587,14 +587,6 @@ execCmd bot chan nick (x:xs) = do
                        ++ "!closure !meet !parse !related !gfcats") >> return bot
     execCmd' bot = return bot
 
--- chanMsg :: Bot -> String -> String -> IO ()
--- chanMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan msg =
---   if length msg > mcm then do
---      write socket "PRIVMSG" (chan ++ " :" ++ (take mcm msg))
---      chanMsg bot chan (drop mcm msg)
---      else
---      chanMsg bot chan msg
-
 sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ()
 sentenceReply h f chan nick randoms stries slen plen m = p h (sentence f randoms stries slen plen m)
   where
