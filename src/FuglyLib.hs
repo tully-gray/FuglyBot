@@ -190,6 +190,7 @@ loadDict fuglydir topic = do
     getNeigh'        [] l = l
     getNeigh' (x:y:xs) [] = getNeigh' xs [(x, read y)]
     getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, read y) : [])
+    getNeigh'         _ l = l
     ff :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
     ff h word nm = do
       l <- hGetLine h
@@ -676,7 +677,7 @@ asIsName aspell word = do
     let w = toUpperWord l
     n1 <- asSuggest aspell l
     n2 <- asSuggest aspell w
-    let nn1 = if null n1 then False else (head $ words n1) == l
+    let nn1 = if null n1 then False else elem l $ words n1
     let nn2 = if null n2 then False else (head $ words n2) == w
     return (if nn1 == False && nn2 == True then True else False)
 
