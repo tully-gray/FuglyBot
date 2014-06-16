@@ -251,33 +251,33 @@ wordGetPos     _                  = UnknownEPos
 wordGetwc      (Word w c _ _ _ _) = (c, w)
 wordGetwc      (Name w c _ _ _)   = (c, w)
 
-insertWords :: Fugly -> [String] -> IO (Map.Map String Word)
-insertWords (Fugly {dict=d}) [] = return d
-insertWords fugly [x] = insertWord fugly x [] [] []
-insertWords fugly@(Fugly dict pgf _ _ _ _) msg@(x:y:xs) =
+insertWords :: Fugly -> Bool -> [String] -> IO (Map.Map String Word)
+insertWords (Fugly {dict=d}) _ [] = return d
+insertWords fugly autoname [x] = insertWord fugly autoname x [] [] []
+insertWords fugly@(Fugly dict pgf _ _ _ _) autoname msg@(x:y:xs) =
   case (len) of
-    2 -> do ff <- insertWord fugly x [] y []
-            insertWord fugly{dict=ff} y x [] []
-    _ -> insertWords' fugly 0 len msg
+    2 -> do ff <- insertWord fugly autoname x [] y []
+            insertWord fugly{dict=ff} autoname y x [] []
+    _ -> insertWords' fugly autoname 0 len msg
   where
     len = length msg
-    insertWords' (Fugly {dict=d}) _ _ [] = return d
-    insertWords' f@(Fugly {dict=d}) i l msg
-      | i == 0     = do ff <- insertWord f (msg!!i) [] (msg!!(i+1)) []
-                        insertWords' f{dict=ff} (i+1) l msg
+    insertWords' (Fugly {dict=d}) _ _ _ [] = return d
+    insertWords' f@(Fugly {dict=d}) a i l msg
+      | i == 0     = do ff <- insertWord f a (msg!!i) [] (msg!!(i+1)) []
+                        insertWords' f{dict=ff} a (i+1) l msg
       | i > l - 1  = return d
-      | i == l - 1 = do ff <- insertWord f (msg!!i) (msg!!(i-1)) [] []
-                        insertWords' f{dict=ff} (i+1) l msg
-      | otherwise  = do ff <- insertWord f (msg!!i) (msg!!(i-1)) (msg!!(i+1)) []
-                        insertWords' f{dict=ff} (i+1) l msg
+      | i == l - 1 = do ff <- insertWord f a (msg!!i) (msg!!(i-1)) [] []
+                        insertWords' f{dict=ff} a (i+1) l msg
+      | otherwise  = do ff <- insertWord f a (msg!!i) (msg!!(i-1)) (msg!!(i+1)) []
+                        insertWords' f{dict=ff} a (i+1) l msg
 
-insertWord :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWord fugly@(Fugly dict pgf wne aspell allow ban) [] _ _ _ = return dict
-insertWord fugly@(Fugly dict pgf wne aspell allow ban) word before after pos = do
+insertWord :: Fugly -> Bool -> String -> String -> String -> String -> IO (Map.Map String Word)
+insertWord fugly@(Fugly dict pgf wne aspell allow ban) _ [] _ _ _ = return dict
+insertWord fugly@(Fugly dict pgf wne aspell allow ban) autoname word before after pos = do
     n <- asIsName aspell word
     let out = if elem word ban || elem before ban || elem after ban then return dict
               else if isJust w then f $ fromJust w
-                   else if n then insertName' fugly w (toUpperWord $ cleanString word) bi ai
+                   else if n && autoname then insertName' fugly w (toUpperWord $ cleanString word) bi ai
                         else if isJust ww then insertWordRaw' fugly ww (map toLower $ cleanString word) bi ai pos
                              else insertWordRaw' fugly w (map toLower $ cleanString word) bi ai pos
     out

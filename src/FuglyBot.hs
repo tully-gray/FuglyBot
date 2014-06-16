@@ -23,8 +23,8 @@ data Bot = Bot {
     }
 
 data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
-               | SentenceTries | SentenceLength | ParseLength | Learning | AllowPM
-               | Topic | Randoms | UnknownParam
+               | SentenceTries | SentenceLength | ParseLength | Learning | Autoname
+               | AllowPM | Topic | Randoms | UnknownParam
                | Parameter {
                  nick        :: String,
                  owner       :: String,
@@ -39,6 +39,7 @@ data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChan
                  slength     :: Int,
                  plength     :: Int,
                  learning    :: Bool,
+                 autoname    :: Bool,
                  allowpm     :: Bool,
                  topic       :: String,
                  randoms     :: Int
@@ -59,10 +60,11 @@ instance Enum Parameter where
     toEnum 8 = SentenceLength
     toEnum 9 = ParseLength
     toEnum 10 = Learning
-    toEnum 11 = AllowPM
-    toEnum 12 = Topic
-    toEnum 13 = Randoms
-    toEnum 14 = UnknownParam
+    toEnum 11 = Autoname
+    toEnum 12 = AllowPM
+    toEnum 13 = Topic
+    toEnum 14 = Randoms
+    toEnum 15 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
@@ -74,11 +76,12 @@ instance Enum Parameter where
     fromEnum SentenceLength = 8
     fromEnum ParseLength    = 9
     fromEnum Learning       = 10
-    fromEnum AllowPM        = 11
-    fromEnum Topic          = 12
-    fromEnum Randoms        = 13
-    fromEnum UnknownParam   = 14
-    fromEnum _              = 14
+    fromEnum Autoname       = 11
+    fromEnum AllowPM        = 12
+    fromEnum Topic          = 13
+    fromEnum Randoms        = 14
+    fromEnum UnknownParam   = 15
+    fromEnum _              = 15
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -99,6 +102,7 @@ readParam a | (map toLower a) == "sentencelength"  = SentenceLength
 readParam a | (map toLower a) == "plength"         = ParseLength
 readParam a | (map toLower a) == "parselength"     = ParseLength
 readParam a | (map toLower a) == "learning"        = Learning
+readParam a | (map toLower a) == "autoname"        = Autoname
 readParam a | (map toLower a) == "allowpm"         = AllowPM
 readParam a | (map toLower a) == "topic"           = Topic
 readParam a | (map toLower a) == "randoms"         = Randoms
@@ -129,7 +133,8 @@ start args = do
     socket <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering socket NoBuffering
     fugly <- initFugly fuglydir wndir gfdir topic
-    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False 10 90 400 100 10 7 False False topic 50) fugly)
+    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False
+             10 90 400 100 10 7 False False False topic 50) fugly)
     bot <- newMVar b
     write socket "NICK" nick
     write socket "USER" (nick ++ " 0 * :user")
@@ -250,6 +255,7 @@ changeParam bot@(Bot _ p@(Parameter {fuglydir=fd, topic=t}) f) chan nick param v
       SentenceLength -> replyMsg' (readInt 0 256 value) "Sentence length"     >>= (\x -> return bot{params=p{slength=x}})
       ParseLength    -> replyMsg' (readInt 2 256 value) "Parse length"        >>= (\x -> return bot{params=p{plength=x}})
       Learning       -> replyMsg' (readBool value)     "Learning"             >>= (\x -> return bot{params=p{learning=x}})
+      Autoname       -> replyMsg' (readBool value)     "Autoname"             >>= (\x -> return bot{params=p{autoname=x}})
       AllowPM        -> replyMsg' (readBool value)     "Allow PM"             >>= (\x -> return bot{params=p{allowpm=x}})
       Topic          -> do (d, a, b) <- catchIOError (loadDict fd value) (const $ return (Map.empty, [], []))
                            _ <- saveDict f fd t
@@ -351,7 +357,8 @@ processLine line = do
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply bot _ _ [] = return bot
-reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen plen learning allowpm _ randoms)
+reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries
+                              slen plen learning autoname allowpm _ randoms)
            fugly@(Fugly _ pgf wne _ _ _)) chan nick msg = do
     let mmsg = if null $ head msg then msg
                  else case fLast "reply" ' ' $ head msg of
@@ -368,7 +375,7 @@ reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries slen 
                                 else return ()
            else lift $ sentenceReply socket fugly chan nick randoms stries slen plen 2 mm
     if ((nick == owner && null chan) || parse) && learning then do
-      nd <- lift $ insertWords fugly fmsg
+      nd <- lift $ insertWords fugly autoname fmsg
       lift $ putStrLn ">parse<"
       return (Bot socket params fugly{dict=nd}) else
       return bot
@@ -383,7 +390,7 @@ execCmd bot chan nick (x:xs) = do
     execCmd' :: Bot -> IO Bot
     execCmd' bot@(Bot socket params@(Parameter botnick owner fuglydir _ _
                                      usercmd rejoinkick threadtime maxchanmsg
-                                     stries slen plen learning allowpm topic randoms)
+                                     stries slen plen learning autoname allowpm topic randoms)
                   fugly@(Fugly dict pgf wne aspell allow ban))
       | usercmd == False && nick /= owner = return bot
       | x == "!quit" =
@@ -416,7 +423,7 @@ execCmd bot chan nick (x:xs) = do
                    "  usercommands: " ++ show usercmd ++ "  rejoinkick: "
                    ++ show rejoinkick ++ "  threadtime: " ++ show threadtime ++ "  maxchanmsg: " ++ show maxchanmsg
                    ++ "  sentencetries: " ++ show stries ++ "  sentencelength: " ++ show slen ++ "  parselength: " ++ show plen
-                   ++ "  learning: " ++ show learning ++ "  allowpm: " ++ show allowpm
+                   ++ "  learning: " ++ show learning ++ "  autoname: " ++ show autoname ++ "  allowpm: " ++ show allowpm
                    ++ "  topic: " ++ topic ++ "  randoms: " ++ show randoms) >> return bot
             _ -> replyMsg bot chan nick "Usage: !showparams" >> return bot
           else return bot
@@ -641,10 +648,10 @@ write socket s msg = do
     hPutStr stdout ("> " ++ s ++ " " ++ msg ++ "\n")
 
 insertFromFile :: Bot -> FilePath -> IO Bot
-insertFromFile (Bot s p fugly) file = do
+insertFromFile (Bot s p@(Parameter {autoname=a}) fugly) file = do
     f <- readFile file
     fmsg <- asReplaceWords fugly $ map cleanString $ words f
-    n <- insertWords fugly fmsg
+    n <- insertWords fugly a fmsg
     return (Bot s p fugly{dict=n})
 
 internalize :: Bot -> Int -> String -> IO Bot
@@ -653,11 +660,11 @@ internalize bot num msg = internalize' bot num 0 msg
   where
     internalize' :: Bot -> Int -> Int -> String -> IO Bot
     internalize' bot _ _ [] = return bot
-    internalize' bot@(Bot socket params@(Parameter {stries=stries,slength=slen,plength=plen,randoms=randoms})
+    internalize' bot@(Bot socket params@(Parameter {autoname=aname,stries=stries,slength=slen,plength=plen,randoms=randoms})
                       fugly@(Fugly {wne=wne})) num i imsg = do
       mm <- chooseWord wne $ words imsg
       s <- getSentence $ sentence fugly randoms stries slen plen mm
-      nd <- insertWords fugly $ words s
+      nd <- insertWords fugly aname $ words s
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot
         else if r == 0 then hPutStrLn stdout ("> internalize: " ++ msg) >> internalize' (Bot socket params fugly{dict=nd}) num (i + 1) msg
