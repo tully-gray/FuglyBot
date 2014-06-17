@@ -691,27 +691,6 @@ asSuggest _ [] = return []
 asSuggest aspell word = runInBoundThread (do w <- Aspell.suggest aspell (ByteString.pack word)
                                              return $ unwords $ map ByteString.unpack w)
 
-{--
-gfRandom :: Fugly -> Int -> Int -> IO String
-gfRandom fugly lim num = do r <- gfRandom' fugly lim
-                            return $ unwords $ toUpperSentence $ endSentence $ words $ cleanStringBlack isDigit $
-                              cleanStringBlack isPunctuation $ unwords $ take num r
-  where
-    gfRandom' :: Fugly -> Int -> IO [String]
-    gfRandom' (Fugly {pgf=p}) lim = do
-      r <- Random.newStdGen
-      let rr = generateRandomDepth r p (startCat p) (Just lim)
-      return (if null rr then [] else words $ linearize p (head $ languages p) (head rr))
-
-gfAll :: PGF -> Int -> String
-gfAll pgf num = unwords $ toUpperSentence $ endSentence $ take 15 $ words $ linearize pgf (head $ languages pgf) ((generateAllDepth pgf (startCat pgf) (Just 3))!!num)
-
-gfTranslate :: PGF -> String -> String
-gfTranslate pgf s = case parseAllLang pgf (startCat pgf) s of
-    (lg,t:_):_ -> unlines [linearize pgf l t | l <- languages pgf, l /= lg]
-    _          -> "Me no understand Engrish."
---}
-
 gfParseBool :: PGF -> Int -> String -> Bool
 gfParseBool _ _ [] = False
 gfParseBool pgf len msg
