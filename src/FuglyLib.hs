@@ -674,14 +674,6 @@ wnMeet w c d e  = do
                     getWords $ getSynset $ fromJust result
         else return []
 
-wnIsName :: WordNetEnv -> String -> IO Bool
-wnIsName _ [] = return False
-wnIsName wne word = do
-    pos <- wnPartString wne word
-    w <- wnGloss wne word pos
-    putStrLn w
-    if pos == "Noun" && w =~ toUpperWord word && length word > 1 then return True else return False
-
 asIsName :: Aspell.SpellChecker -> String -> IO Bool
 asIsName _ [] = return False
 asIsName aspell word = do
