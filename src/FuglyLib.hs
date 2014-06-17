@@ -801,13 +801,19 @@ chooseWord :: WordNetEnv -> [String] -> IO [String]
 chooseWord _ [] = return []
 chooseWord wne msg = do
   cc <- c1 msg []
-  if null cc then return msg else c1 msg []
+  if null cc then c2 msg [] else c2 cc []
   where
     c1 [] m = return $ reverse m
     c1 msg@(x:xs) m = do
       p <- wnPartPOS wne x
       if p /= UnknownEPos then c1 xs (m ++ [x])
         else c1 xs m
+    c2 [] m  = return m
+    c2 [x] m = return (m ++ [x])
+    c2 (x:xs) m = do
+      r <- Random.getStdRandom (Random.randomR (0, 1)) :: IO Int
+      if r == 0 then c2 xs (m ++ [x])
+        else c2 ([x] ++ tail xs) (m ++ [head xs])
 
 wnReplaceWords :: Fugly -> Int -> [String] -> IO [String]
 wnReplaceWords _ _ [] = return []
