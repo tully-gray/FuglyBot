@@ -368,12 +368,14 @@ reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries
     fmsg <- lift $ asReplaceWords fugly $ map cleanString mmsg
     let parse = gfParseBool pgf plen $ unwords fmsg
     mm <- lift $ chooseWord wne fmsg
-    _ <- if null chan then if allowpm then lift $ sentenceReply socket fugly nick [] randoms stries slen plen 2 mm
+    r <- lift $ Random.getStdRandom (Random.randomR (0, 4 :: Int))
+    let rr = if r == 2 then 2 else 1
+    _ <- if null chan then if allowpm then lift $ sentenceReply socket fugly nick [] randoms stries slen plen rr mm
                            else return ()
          else if null nick then if length msg > 2 && (unwords msg) =~ botnick then
-                                  lift $ sentenceReply socket fugly chan chan randoms stries slen plen 1 mm
+                                  lift $ sentenceReply socket fugly chan chan randoms stries slen plen rr mm
                                 else return ()
-           else lift $ sentenceReply socket fugly chan nick randoms stries slen plen 2 mm
+           else lift $ sentenceReply socket fugly chan nick randoms stries slen plen rr mm
     if ((nick == owner && null chan) || parse) && learning then do
       nd <- lift $ insertWords fugly autoname fmsg
       lift $ putStrLn ">parse<"
