@@ -370,7 +370,7 @@ reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries
     mm <- lift $ chooseWord wne fmsg
     _ <- if null chan then if allowpm then lift $ sentenceReply socket fugly nick [] randoms stries slen plen 2 mm
                            else return ()
-         else if null nick then if length fmsg > 2 && (unwords fmsg) =~ botnick then
+         else if null nick then if length msg > 2 && (unwords msg) =~ botnick then
                                   lift $ sentenceReply socket fugly chan chan randoms stries slen plen 1 mm
                                 else return ()
            else lift $ sentenceReply socket fugly chan nick randoms stries slen plen 2 mm
