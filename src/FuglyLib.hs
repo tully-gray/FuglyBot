@@ -188,8 +188,8 @@ loadDict fuglydir topic = do
     getNeigh a = Map.fromList $ getNeigh' a []
     getNeigh' :: [String] -> [(String, Int)] -> [(String, Int)]
     getNeigh'        [] l = l
-    getNeigh' (x:y:xs) [] = getNeigh' xs [(x, read {--fReadInt "getNeigh1" 0--} y)]
-    getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, read {--fReadInt "getNeigh2" 0--} y) : [])
+    getNeigh' (x:y:xs) [] = getNeigh' xs [(x, fReadInt "getNeigh1" 0 y)]
+    getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, fReadInt "getNeigh2" 0 y) : [])
     getNeigh'         _ l = l
     ff :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
     ff h word nm = do
@@ -205,7 +205,7 @@ loadDict fuglydir topic = do
                            "name:"    -> (Name (unwords ll) 0 Map.empty Map.empty [])
                            -- "place:"   -> word{place=(unwords ll)}
                            -- "phrase:"  -> word{phrase=(unwords ll)}
-                           "count:"   -> word{count=(read {--fReadInt "ff" 0--} $ unwords $ ll)}
+                           "count:"   -> word{count=(fReadInt "ff" 0 $ unwords $ ll)}
                            "before:"  -> word{FuglyLib.before=(getNeigh $ ll)}
                            "after:"   -> word{FuglyLib.after=(getNeigh $ ll)}
                            "related:" -> word{related=(joinWords '"' ll)}
