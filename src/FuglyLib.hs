@@ -12,7 +12,7 @@ module FuglyLib
          dropWord,
          ageWord,
          ageWords,
-         cleanWords,
+         fixWords,
          listWords,
          listWordFull,
          listWordsCountSort,
@@ -188,8 +188,8 @@ loadDict fuglydir topic = do
     getNeigh a = Map.fromList $ getNeigh' a []
     getNeigh' :: [String] -> [(String, Int)] -> [(String, Int)]
     getNeigh'        [] l = l
-    getNeigh' (x:y:xs) [] = getNeigh' xs [(x, read y)]
-    getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, read y) : [])
+    getNeigh' (x:y:xs) [] = getNeigh' xs [(x, read {--fReadInt "getNeigh1" 0--} y)]
+    getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, read {--fReadInt "getNeigh2" 0--} y) : [])
     getNeigh'         _ l = l
     ff :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
     ff h word nm = do
@@ -205,7 +205,7 @@ loadDict fuglydir topic = do
                            "name:"    -> (Name (unwords ll) 0 Map.empty Map.empty [])
                            -- "place:"   -> word{place=(unwords ll)}
                            -- "phrase:"  -> word{phrase=(unwords ll)}
-                           "count:"   -> word{count=(read $ unwords $ ll)}
+                           "count:"   -> word{count=(read {--fReadInt "ff" 0--} $ unwords $ ll)}
                            "before:"  -> word{FuglyLib.before=(getNeigh $ ll)}
                            "after:"   -> word{FuglyLib.after=(getNeigh $ ll)}
                            "related:" -> word{related=(joinWords '"' ll)}
@@ -371,24 +371,35 @@ ageWords m = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m)
       f m []     = m
       f m (x:xs) = f (ageWord m x) xs
 
-cleanWords :: Aspell.SpellChecker -> Map.Map String Word -> IO (Map.Map String Word)
-cleanWords aspell m = do
-    x <- sequence $ map f $ Map.toList $ Map.filter (\x -> wordGetCount x > 0) m
+cleanWords :: Map.Map String Word -> Map.Map String Word
+cleanWords m = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m)
+    where
+      f m []     = m
+      f m (x:xs) = if null $ cleanString x then f (dropWord m x) xs
+                   else f m xs
+
+fixWords :: Aspell.SpellChecker -> Map.Map String Word -> IO (Map.Map String Word)
+fixWords aspell m = do
+    x <- sequence $ map f $ Map.toList $ Map.filter (\x -> wordGetCount x > 0) $ cleanWords m
     return $ Map.fromList x
     where
       f (s, (Word w c b a r p)) = do
         n <- asIsName aspell w
-        if n then return (toUpperWord $ cleanString s, (Name (toUpperWord $ cleanString w) c b a r))
-          else do
-            cna <- cn a
-            cnb <- cn b
+        cna <- cn a
+        cnb <- cn b
+        if n then return (toUpperWord $ cleanString s, (Name (toUpperWord $ cleanString w) c (Map.fromList cnb) (Map.fromList cna) r))
+          else
             return (map toLower $ cleanString s, (Word (map toLower $ cleanString w) c (Map.fromList cnb) (Map.fromList cna) r p))
-      f (s, n@(Name w c b a r)) = return (s, n)
+      f (s, n@(Name w c b a r)) = do
+        cna <- cn a
+        cnb <- cn b
+        return (toUpperWord $ cleanString s, (Name (toUpperWord $ cleanString w) c (Map.fromList cnb) (Map.fromList cna) r))
       cn m = sequence $ map cm $ Map.toList $ Map.filter (\x -> x > 0) m
       cm (w, c) = do
         n <- asIsName aspell w
-        if n then return ((toUpperWord $ cleanString w), c)
-          else return ((map toLower $ cleanString w), c)
+        let cw = cleanString w
+        if n then return ((toUpperWord cw), c)
+          else return ((map toLower cw), c)
 
 incCount' :: Word -> Int -> Int
 incCount' (Word _ c _ _ _ _) n = if c + n < 0 then 0 else c + n
@@ -549,6 +560,7 @@ endSentence :: [String] -> [String]
 endSentence []  = []
 endSentence msg = (init msg) ++ ((fLast "endSentence" [] msg) ++ if elem (head msg) qWords then "?" else ".") : []
 
+fReadInt a b c = unsafePerformIO (do catch (evaluate (read c :: Int)) (\e -> do putStrLn ("fRead: " ++ show (e :: SomeException) ++ " in " ++ a) ; return b))
 fHead a b [] = unsafePerformIO (do putStrLn ("fHead: error in " ++ a) ; return b)
 fHead a b c  = head c
 fLast a b [] = unsafePerformIO (do putStrLn ("fLast: error in " ++ a) ; return b)

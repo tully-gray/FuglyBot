@@ -481,7 +481,7 @@ execCmd bot chan nick (x:xs) = do
                          else return bot
       | x == "!cleanwords" = if nick == owner then
           case (length xs) of
-            0 -> do nd <- cleanWords aspell dict
+            0 -> do nd <- fixWords aspell dict
                     replyMsg bot chan nick ("Cleaned some words...")
                     return (Bot socket params fugly{dict=nd})
             _ -> replyMsg bot chan nick "Usage: !cleanwords"
