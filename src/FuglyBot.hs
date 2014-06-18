@@ -7,9 +7,10 @@ import Data.Char
 import Data.List
 import qualified Data.Map.Strict as Map
 import Network
-import System.Environment (getArgs)
+import System.Environment
 import System.IO
 import System.IO.Error
+import System.Posix.Process
 import qualified System.Random as Random
 import Text.Regex.Posix
 import Prelude
@@ -187,13 +188,13 @@ cmdLine = do
     let topic        = if l > topicPos then args !! topicPos else "default"
     let fuglydirPos  = (maximum' $ elemIndices "-fuglydir" args) + 1
     let fuglydir     = if l > fuglydirPos then args !! fuglydirPos
-                                            else "/var/lib/fuglybot"
+                                            else ""
     let wndirPos     = (maximum' $ elemIndices "-wndir" args) + 1
     let wndir        = if l > wndirPos then args !! wndirPos
                                             else "/usr/share/wordnet/dict/"
     let gfdirPos     = (maximum' $ elemIndices "-gfdir" args) + 1
     let gfdir        = if l > gfdirPos then args !! gfdirPos
-                                            else "/var/lib/fuglybot"
+                                            else "gf"
     let passwdPos    = (maximum' $ elemIndices "-passwd" args) + 1
     let passwd       = if l > passwdPos then args !! passwdPos else ""
     return (server : port : nick : owner : channel : topic : fuglydir : wndir : gfdir : passwd : [])
@@ -410,6 +411,13 @@ execCmd bot chan nick (x:xs) = do
            replyMsg bot chan nick "Loaded dict file!"
            return (Bot socket params (Fugly nd pgf wne aspell na nb))
                        else return bot
+      | x == "!fork" = if nick == owner then do
+          exe <- getExecutablePath
+          args <- getArgs
+          env <- getEnvironment
+          forkProcess $ executeFile exe True args (Just env)
+          return bot
+                       else return bot
       | x == "!join" = if nick == owner then joinChannel socket "JOIN" xs >>
                                              return bot else return bot
       | x == "!part" = if nick == owner then joinChannel socket "PART" xs >>
@@ -600,7 +608,7 @@ execCmd bot chan nick (x:xs) = do
                        ++ "!banword !allowword !namelist !name !insertname !closure !meet !parse "
                        ++ "!related !gfcats !ageword(s) !cleanwords !internalize "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "
-                       ++ "!quit !readfile !load !save") >> return bot
+                       ++ "!quit !fork !readfile !load !save") >> return bot
                      else replyMsg bot chan nick ("Commands: !dict !word !wordlist !name "
                        ++ "!closure !meet !parse !related !gfcats") >> return bot
     execCmd' bot = return bot
