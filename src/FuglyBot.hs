@@ -7,6 +7,7 @@ import Data.Char
 import Data.List
 import qualified Data.Map.Strict as Map
 import Network
+import Network.Socket
 import System.Environment
 import System.IO
 import System.IO.Error
@@ -132,17 +133,21 @@ start args = do
     let wndir    = args !! 7 :: FilePath
     let gfdir    = args !! 8 :: FilePath
     let restart  = args !! 10
-    socket <- connectTo server (PortNumber (fromIntegral port))
-    hSetBuffering socket NoBuffering
+    s <- connectTo server (PortNumber (fromIntegral port))
+    hSetBuffering s NoBuffering
     fugly <- initFugly fuglydir wndir gfdir topic
-    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False
+    st <- Network.Socket.socket AF_INET Stream 6
+    ss <- socketToHandle st ReadWriteMode
+    hSetBuffering ss NoBuffering
+    let sr = if null restart then s else ss
+    let b = (Bot sr (Parameter nick owner fuglydir wndir gfdir False
              10 90 400 100 10 7 False False False topic 50) fugly)
     bot <- newMVar b
-    if restart == "yes" then
+    if null restart then do
+      write s "NICK" nick
+      write s "USER" (nick ++ " 0 * :user")
       return bot
-      else do
-      write socket "NICK" nick
-      write socket "USER" (nick ++ " 0 * :user")
+      else
       return bot
 
 run :: [String] -> StateT (MVar Bot) IO b
@@ -423,7 +428,7 @@ execCmd bot chan nick (x:xs) = do
           args <- getArgs
           env <- getEnvironment
           catchIOError (saveDict fugly fuglydir topic) (const $ return ())
-          forkProcess $ executeFile exe True (args ++ ["-restart", "yes"]) (Just env)
+          _ <- forkProcess $ executeFile exe True (args ++ ["-restart", "yes"]) (Just env)
           return bot
                        else return bot
       | x == "!join" = if nick == owner then joinChannel socket "JOIN" xs >>
