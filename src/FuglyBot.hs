@@ -7,9 +7,11 @@ import Data.Char
 import Data.List
 import qualified Data.Map.Strict as Map
 import Network
-import System.Environment (getArgs)
+import Network.Socket
+import System.Environment
 import System.IO
 import System.IO.Error
+import System.Posix.Process
 import qualified System.Random as Random
 import Text.Regex.Posix
 import Prelude
@@ -130,15 +132,23 @@ start args = do
     let fuglydir = args !! 6 :: FilePath
     let wndir    = args !! 7 :: FilePath
     let gfdir    = args !! 8 :: FilePath
-    socket <- connectTo server (PortNumber (fromIntegral port))
-    hSetBuffering socket NoBuffering
+    let restart  = args !! 10
+    s <- connectTo server (PortNumber (fromIntegral port))
+    hSetBuffering s NoBuffering
     fugly <- initFugly fuglydir wndir gfdir topic
-    let b = (Bot socket (Parameter nick owner fuglydir wndir gfdir False
+    st <- Network.Socket.socket AF_INET Stream 6
+    ss <- socketToHandle st ReadWriteMode
+    hSetBuffering ss NoBuffering
+    let sr = if null restart then s else ss
+    let b = (Bot sr (Parameter nick owner fuglydir wndir gfdir False
              10 90 400 100 10 7 False False False topic 50) fugly)
     bot <- newMVar b
-    write socket "NICK" nick
-    write socket "USER" (nick ++ " 0 * :user")
-    return bot
+    if null restart then do
+      write s "NICK" nick
+      write s "USER" (nick ++ " 0 * :user")
+      return bot
+      else
+      return bot
 
 run :: [String] -> StateT (MVar Bot) IO b
 run args = do
@@ -147,10 +157,11 @@ run args = do
     let s = (\(Bot s _ _) -> s) bot
     let channel = args !! 4
     let passwd  = args !! 9
+    let restart = args !! 10
     lift (forkIO (do
                      threadDelay 20000000
                      if not $ null passwd then replyMsg bot "nickserv" [] ("IDENTIFY " ++ passwd) else return ()
-                     joinChannel s "JOIN" [channel]
+                     if restart == "yes" then write s "PING" ":foo" else joinChannel s "JOIN" [channel]
                      forever (do write s "PING" ":foo" ; threadDelay 20000000))) >> return ()
     forever $ do
       l <- lift $ hGetLine s
@@ -187,7 +198,7 @@ cmdLine = do
     let topic        = if l > topicPos then args !! topicPos else "default"
     let fuglydirPos  = (maximum' $ elemIndices "-fuglydir" args) + 1
     let fuglydir     = if l > fuglydirPos then args !! fuglydirPos
-                                            else "fuglybot"
+                                            else "fugly"
     let wndirPos     = (maximum' $ elemIndices "-wndir" args) + 1
     let wndir        = if l > wndirPos then args !! wndirPos
                                             else "/usr/share/wordnet/dict/"
@@ -196,7 +207,9 @@ cmdLine = do
                                             else "gf"
     let passwdPos    = (maximum' $ elemIndices "-passwd" args) + 1
     let passwd       = if l > passwdPos then args !! passwdPos else ""
-    return (server : port : nick : owner : channel : topic : fuglydir : wndir : gfdir : passwd : [])
+    let restartPos   = (maximum' $ elemIndices "-restart" args) + 1
+    let restart      = if l > restartPos then args !! restartPos else ""
+    return (server : port : nick : owner : channel : topic : fuglydir : wndir : gfdir : passwd : restart : [])
   where
     maximum' [] = 1000
     maximum' a  = maximum a
@@ -410,6 +423,14 @@ execCmd bot chan nick (x:xs) = do
            replyMsg bot chan nick "Loaded dict file!"
            return (Bot socket params (Fugly nd pgf wne aspell na nb))
                        else return bot
+      | x == "!fork" = if nick == owner then do
+          exe <- getExecutablePath
+          args <- getArgs
+          env <- getEnvironment
+          catchIOError (saveDict fugly fuglydir topic) (const $ return ())
+          _ <- forkProcess $ executeFile exe True (args ++ ["-restart", "yes"]) (Just env)
+          return bot
+                       else return bot
       | x == "!join" = if nick == owner then joinChannel socket "JOIN" xs >>
                                              return bot else return bot
       | x == "!part" = if nick == owner then joinChannel socket "PART" xs >>
@@ -600,7 +621,7 @@ execCmd bot chan nick (x:xs) = do
                        ++ "!banword !allowword !namelist !name !insertname !closure !meet !parse "
                        ++ "!related !gfcats !ageword(s) !cleanwords !internalize "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "
-                       ++ "!quit !readfile !load !save") >> return bot
+                       ++ "!quit !fork !readfile !load !save") >> return bot
                      else replyMsg bot chan nick ("Commands: !dict !word !wordlist !name "
                        ++ "!closure !meet !parse !related !gfcats") >> return bot
     execCmd' bot = return bot
