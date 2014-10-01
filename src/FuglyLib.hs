@@ -726,7 +726,7 @@ gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
                                         " tokens: " ++ showBracketedString b]
     lin pgf lang (ParseIncomplete, b) = ["parse incomplete: " ++ showBracketedString b]
     lin pgf lang _                    = ["No parse!"]
-    lin' pgf lang t = "parse: " ++ showBracketedString (bracketedLinearize pgf lang t)
+    lin' pgf lang t = "parse: " ++ showBracketedString (head $ bracketedLinearize pgf lang t)
     lang = head $ languages pgf
 
 gfCategories :: PGF -> [String]

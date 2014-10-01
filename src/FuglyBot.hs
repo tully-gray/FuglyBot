@@ -187,13 +187,13 @@ cmdLine = do
     let topic        = if l > topicPos then args !! topicPos else "default"
     let fuglydirPos  = (maximum' $ elemIndices "-fuglydir" args) + 1
     let fuglydir     = if l > fuglydirPos then args !! fuglydirPos
-                                            else "/var/lib/fuglybot"
+                                            else "fuglybot"
     let wndirPos     = (maximum' $ elemIndices "-wndir" args) + 1
     let wndir        = if l > wndirPos then args !! wndirPos
                                             else "/usr/share/wordnet/dict/"
     let gfdirPos     = (maximum' $ elemIndices "-gfdir" args) + 1
     let gfdir        = if l > gfdirPos then args !! gfdirPos
-                                            else "/var/lib/fuglybot"
+                                            else "gf"
     let passwdPos    = (maximum' $ elemIndices "-passwd" args) + 1
     let passwd       = if l > passwdPos then args !! passwdPos else ""
     return (server : port : nick : owner : channel : topic : fuglydir : wndir : gfdir : passwd : [])
