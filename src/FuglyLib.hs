@@ -47,7 +47,7 @@ module FuglyLib
        )
        where
 
-import Control.Concurrent
+-- import Control.Concurrent
 import Control.Exception
 import qualified Data.ByteString.Char8 as ByteString
 import Data.Char
@@ -60,7 +60,7 @@ import qualified System.Random as Random
 import System.IO
 import System.IO.Error
 import System.IO.Unsafe
-import Text.Regex.Posix
+-- import Text.Regex.Posix
 
 import qualified Language.Aspell as Aspell
 import qualified Language.Aspell.Options as Aspell.Options
@@ -130,7 +130,7 @@ stopFugly fuglydir fugly@(Fugly _ _ wne _ _ _) topic = do
     closeWordNet wne
 
 saveDict :: Fugly -> FilePath -> String -> IO ()
-saveDict fugly@(Fugly dict _ _ _ allow ban) fuglydir topic = do
+saveDict (Fugly dict _ _ _ allow ban) fuglydir topic = do
     let d = Map.toList dict
     if null d then putStrLn "Empty dict!"
       else do
@@ -149,7 +149,7 @@ saveDict fugly@(Fugly dict _ _ _ allow ban) fuglydir topic = do
       let l = format' $ snd x
       if null l then return () else hPutStr h l
       saveDict' h xs
-    format' m@(Word w c b a r p)
+    format' (Word w c b a r p)
       | null w    = []
       | otherwise = unwords [("word: " ++ w ++ "\n"),
                              ("count: " ++ (show c) ++ "\n"),
@@ -158,7 +158,7 @@ saveDict fugly@(Fugly dict _ _ _ allow ban) fuglydir topic = do
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("pos: " ++ (show p) ++ "\n"),
                              ("end: \n")]
-    format' m@(Name w c b a r)
+    format' (Name w c b a r)
       | null w    = []
       | otherwise = unwords [("name: " ++ w ++ "\n"),
                              ("count: " ++ (show c) ++ "\n"),
@@ -221,7 +221,9 @@ loadDict fuglydir topic = do
                   else
                     ff h ww nm
 
-qWords = ["if", "is", "are", "do", "why", "what", "when", "who", "where", "want", "am", "can", "will"]
+qWords :: [String]
+qWords = ["if", "is", "does", "are", "do", "why", "what", "when", "who", "where", "want", "am", "can", "will"]
+badEndWords :: [String]
 badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "I'd", "i", "and", "are", "an", "your", "you're", "you", "who", "with", "was",
                "to", "in", "is", "as", "if", "do", "so", "am", "of", "for", "or", "he", "she", "they", "they're", "we", "it", "it's",
                "its", "from", "go", "my", "that", "that's", "whose", "when", "what", "has", "had", "make", "makes", "person's", "but",
@@ -688,8 +690,8 @@ asIsName aspell word = do
 -- LD_PRELOAD=/usr/lib64/libjemalloc.so.1
 asSuggest :: Aspell.SpellChecker -> String -> IO String
 asSuggest _ [] = return []
-asSuggest aspell word = runInBoundThread (do w <- Aspell.suggest aspell (ByteString.pack word)
-                                             return $ unwords $ map ByteString.unpack w)
+asSuggest aspell word = {--runInBoundThread--} (do w <- Aspell.suggest aspell (ByteString.pack word)
+                                                   return $ unwords $ map ByteString.unpack w)
 
 gfParseBool :: PGF -> Int -> String -> Bool
 gfParseBool _ _ [] = False

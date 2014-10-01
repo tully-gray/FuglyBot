@@ -178,7 +178,7 @@ run args = do
           else if (length ll > 2) && (head lll) == "NICK" && getNick ll == botnick then do
             lift (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
               else do
-                lift (forkIO (runInBoundThread $ evalStateT (processLine $ words l) b)) >> return ()
+                lift (forkIO ({--runInUnboundThread $--} evalStateT (processLine $ words l) b)) >> return ()
 
 cmdLine :: IO [String]
 cmdLine = do
