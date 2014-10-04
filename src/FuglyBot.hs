@@ -141,7 +141,7 @@ start args = do
     hSetBuffering ss NoBuffering
     let sr = if null restart then s else ss
     let b = (Bot sr (Parameter nick owner fuglydir wndir gfdir False
-             10 90 400 100 10 7 False False False topic 50) fugly)
+             10 90 400 100 5 5  True True False topic 0) fugly)
     bot <- newMVar b
     if null restart then do
       write s "NICK" nick
