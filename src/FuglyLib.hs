@@ -757,7 +757,8 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) randoms stries slen plen msg = 
       w <- x
       if null w then return []
         else return ((s1c w : [] ) ++ fTail "sentence: s1e" [] w)
-  take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
+  if slen == 0 then [return []] else
+    take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do
