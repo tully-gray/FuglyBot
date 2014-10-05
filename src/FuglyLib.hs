@@ -223,36 +223,52 @@ loadDict fuglydir topic = do
 
 qWords :: [String]
 qWords = ["if", "is", "does", "are", "do", "why", "what", "when", "who", "where", "want", "am", "can", "will"]
+
 badEndWords :: [String]
 badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "I'd", "i", "and", "are", "an", "your", "you're", "you", "who", "with", "was",
                "to", "in", "is", "as", "if", "do", "so", "am", "of", "for", "or", "he", "she", "they", "they're", "we", "it", "it's",
                "its", "from", "go", "my", "that", "that's", "whose", "when", "what", "has", "had", "make", "makes", "person's", "but",
                "our", "their", "than", "at", "on", "into", "just", "by", "he's", "she's"]
 
-wordIs         (Word w c b a r p) = "word"
-wordIs         (Name n c b a r)   = "name"
-wordIs         (Place p c b a r)  = "place"
-wordIs         (Phrase p c b a r) = "phrase"
-wordGetWord    (Word w c b a r p) = w
-wordGetWord    (Name n c b a r)   = n
-wordGetWord    _                  = []
-wordGetCount   (Word w c b a r p) = c
-wordGetCount   (Name n c b a r)   = c
-wordGetCount   _                  = 0
-wordGetAfter   (Word w c b a r p) = a
-wordGetAfter   (Name n c b a r)   = a
-wordGetAfter   _                  = Map.empty
-wordGetBefore  (Word w c b a r p) = b
-wordGetBefore  (Name n c b a r)   = b
-wordGetBefore  _                  = Map.empty
+wordIs :: Word -> String
+wordIs (Word _ _ _ _ _ _) = "word"
+wordIs (Name _ _ _ _ _)   = "name"
+wordIs (Place _ _ _ _ _)  = "place"
+wordIs (Phrase _ _ _ _ _) = "phrase"
+
+wordGetWord :: Word -> String
+wordGetWord (Word w _ _ _ _ _) = w
+wordGetWord (Name n _ _ _ _)   = n
+wordGetWord _                  = []
+
+wordGetCount :: Word -> Int
+wordGetCount (Word _ c _ _ _ _) = c
+wordGetCount (Name _ c _ _ _)   = c
+wordGetCount _                  = 0
+
+wordGetAfter :: Word -> Map.Map String Int
+wordGetAfter (Word w c b a r p) = a
+wordGetAfter (Name n c b a r)   = a
+wordGetAfter _                  = Map.empty
+
+wordGetBefore :: Word -> Map.Map String Int
+wordGetBefore (Word w c b a r p) = b
+wordGetBefore (Name n c b a r)   = b
+wordGetBefore _                  = Map.empty
+
+wordGetRelated :: Word -> [String]
 wordGetRelated (Word w c b a r p) = r
 wordGetRelated (Name n c b a r)   = r
 wordGetRelated _                  = []
-wordGetPos     (Word w c b a r p) = p
-wordGetPos     (Name n c b a r)   = UnknownEPos
-wordGetPos     _                  = UnknownEPos
-wordGetwc      (Word w c _ _ _ _) = (c, w)
-wordGetwc      (Name w c _ _ _)   = (c, w)
+
+wordGetPos :: Word -> EPOS
+wordGetPos (Word w c b a r p) = p
+wordGetPos (Name n c b a r)   = UnknownEPos
+wordGetPos _                  = UnknownEPos
+
+wordGetwc :: Word -> (Int, String)
+wordGetwc (Word w c _ _ _ _) = (c, w)
+wordGetwc (Name w c _ _ _)   = (c, w)
 
 insertWords :: Fugly -> Bool -> [String] -> IO (Map.Map String Word)
 insertWords (Fugly {dict=d}) _ [] = return d
