@@ -712,11 +712,12 @@ asSuggest aspell word = {--runInBoundThread--} (do w <- Aspell.suggest aspell (B
 gfParseBool :: PGF -> Int -> String -> Bool
 gfParseBool _ _ [] = False
 gfParseBool pgf len msg
-  | elem (last w) badEndWords = False
+  | elem lw badEndWords = False
   | length w > len = (gfParseBoolA pgf $ take len w) && (gfParseBool pgf len (unwords $ drop len w))
   | otherwise      = gfParseBoolA pgf w
     where
       w = words msg
+      lw = strip '?' $ strip '.' $ last w
 
 gfParseBoolA :: PGF -> [String] -> Bool
 gfParseBoolA pgf msg
@@ -754,7 +755,7 @@ sentence :: Fugly -> Int -> Int -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ _ _ [] = [return []] :: [IO String]
 sentence fugly@(Fugly dict pgf wne aspell _ ban) randoms stries slen plen msg = do
   let s1f x = if null x then return []
-              else if gfParseBool pgf plen (unwords x) && length x > 2 then return x else return []
+              else if gfParseBool pgf plen x && length (words x) > 2 then return x else return []
   let s1a x = do
       z <- findNextWord fugly 0 randoms True x
       let zz = if null z then [] else head z
@@ -763,7 +764,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) randoms stries slen plen msg = 
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
       ww <- wnReplaceWords fugly randoms w
-      s1f $ filter (not . null) ([yy] ++ [zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) ww))
+      return $ filter (not . null) ([yy] ++ [zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) ww))
   let s1d x = do
       w <- x
       if null w then return []
@@ -773,8 +774,9 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) randoms stries slen plen msg = 
       w <- x
       if null w then return []
         else return ((s1c w : [] ) ++ fTail "sentence: s1e" [] w)
-  if slen == 0 then [return []] else
-    take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
+  let s1g = if slen == 0 then [return []] else
+              take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
+  map (\x -> do y <- x ; s1f y) s1g
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f@(Fugly d p w s a b) n i msg = do
