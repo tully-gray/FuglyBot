@@ -8,6 +8,7 @@ import Data.List
 import qualified Data.Map.Strict as Map
 import Network
 import Network.Socket
+import Network.Socks5
 import System.Environment
 import System.IO
 import System.IO.Error
@@ -132,7 +133,12 @@ start args = do
     let fuglydir = args !! 6 :: FilePath
     let wndir    = args !! 7 :: FilePath
     let gfdir    = args !! 8 :: FilePath
-    s <- connectTo server (PortNumber (fromIntegral port))
+    let socks5   = args !! 10
+    let socks5add  = takeWhile (\x -> x /= ':') socks5
+    let socks5port = read (tail $ dropWhile (\x -> x /= ':') socks5) :: Integer
+    s <- if null socks5 then connectTo server (PortNumber (fromIntegral port)) else
+           socksConnectTo socks5add (PortNumber (fromIntegral socks5port)) server (PortNumber (fromIntegral port))
+    -- s <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering s NoBuffering
     fugly <- initFugly fuglydir wndir gfdir topic
     st <- Network.Socket.socket AF_INET Stream 6
@@ -199,7 +205,9 @@ cmdLine = do
                                             else "gf"
     let passwdPos    = (maximum' $ elemIndices "-passwd" args) + 1
     let passwd       = if l > passwdPos then args !! passwdPos else ""
-    return (server : port : nick : owner : channel : topic : fuglydir : wndir : gfdir : passwd : [])
+    let socks5Pos    = (maximum' $ elemIndices "-socks" args) + 1
+    let socks5       = if l > socks5Pos then args !! socks5Pos else ""
+    return (server : port : nick : owner : channel : topic : fuglydir : wndir : gfdir : passwd : socks5 : [])
   where
     maximum' [] = 1000
     maximum' a  = maximum a
