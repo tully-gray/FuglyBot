@@ -112,26 +112,26 @@ data Word = Word {
 
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO Fugly
 initFugly fuglydir wndir gfdir topic = do
-    (dict, allow, ban) <- catchIOError (loadDict fuglydir topic)
-                          (const $ return (Map.empty, [], []))
-    pgf <- readPGF (gfdir ++ "/ParseEng.pgf")
-    wne <- NLP.WordNet.initializeWordNetWithOptions
-           (return wndir :: Maybe FilePath)
-           (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
+    (dict', allow', ban') <- catchIOError (loadDict fuglydir topic)
+                             (const $ return (Map.empty, [], []))
+    pgf' <- readPGF (gfdir ++ "/ParseEng.pgf")
+    wne' <- NLP.WordNet.initializeWordNetWithOptions
+            (return wndir :: Maybe FilePath)
+            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
     a <- Aspell.spellCheckerWithOptions [Aspell.Options.Lang (ByteString.pack "en_US"),
                                          Aspell.Options.IgnoreCase False, Aspell.Options.Size Aspell.Options.Large,
                                          Aspell.Options.SuggestMode Aspell.Options.Normal]
-    let aspell = head $ rights [a]
-    return (Fugly dict pgf wne aspell allow ban)
+    let aspell' = head $ rights [a]
+    return (Fugly dict' pgf' wne' aspell' allow' ban')
 
 stopFugly :: FilePath -> Fugly -> String -> IO ()
-stopFugly fuglydir fugly@(Fugly _ _ wne _ _ _) topic = do
+stopFugly fuglydir fugly@(Fugly _ _ wne' _ _ _) topic = do
     catchIOError (saveDict fugly fuglydir topic) (const $ return ())
-    closeWordNet wne
+    closeWordNet wne'
 
 saveDict :: Fugly -> FilePath -> String -> IO ()
-saveDict (Fugly dict _ _ _ allow ban) fuglydir topic = do
-    let d = Map.toList dict
+saveDict (Fugly dict' _ _ _ allow' ban') fuglydir topic = do
+    let d = Map.toList dict'
     if null d then putStrLn "Empty dict!"
       else do
         h <- openFile (fuglydir ++ "/" ++ topic ++ "-dict.txt") WriteMode
@@ -139,8 +139,8 @@ saveDict (Fugly dict _ _ _ allow ban) fuglydir topic = do
         putStrLn "Saving dict file..."
         saveDict' h d
         hPutStrLn h ">END<"
-        hPutStrLn h $ unwords $ sort allow
-        hPutStrLn h $ unwords $ sort ban
+        hPutStrLn h $ unwords $ sort allow'
+        hPutStrLn h $ unwords $ sort ban'
         hClose h
   where
     saveDict' :: Handle -> [(String, Word)] -> IO ()
@@ -177,10 +177,10 @@ loadDict fuglydir topic = do
       else do
       hSetBuffering h LineBuffering
       putStrLn "Loading dict file..."
-      dict <- ff h w [([], w)]
-      allow <- hGetLine h
-      ban <- hGetLine h
-      let out = (Map.fromList dict, words allow, words ban)
+      dict' <- ff h w [([], w)]
+      allow' <- hGetLine h
+      ban' <- hGetLine h
+      let out = (Map.fromList dict', words allow', words ban')
       hClose h
       return out
   where
@@ -192,7 +192,7 @@ loadDict fuglydir topic = do
     getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, fReadInt "getNeigh2" 0 y) : [])
     getNeigh'         _ l = l
     ff :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
-    ff h word nm = do
+    ff h word' nm = do
       l <- hGetLine h
       let wl = words l
       let l1 = length $ filter (\x -> x /= ' ') l
@@ -205,14 +205,14 @@ loadDict fuglydir topic = do
                            "name:"    -> (Name (unwords ll) 0 Map.empty Map.empty [])
                            -- "place:"   -> word{place=(unwords ll)}
                            -- "phrase:"  -> word{phrase=(unwords ll)}
-                           "count:"   -> word{count=(fReadInt "ff" 0 $ unwords $ ll)}
-                           "before:"  -> word{FuglyLib.before=(getNeigh $ ll)}
-                           "after:"   -> word{FuglyLib.after=(getNeigh $ ll)}
-                           "related:" -> word{related=(joinWords '"' ll)}
-                           "pos:"     -> word{FuglyLib.pos=(readEPOS $ unwords $ ll)}
-                           "end:"     -> word
-                           _          -> word
-               else word
+                           "count:"   -> word'{count=(fReadInt "ff" 0 $ unwords $ ll)}
+                           "before:"  -> word'{FuglyLib.before=(getNeigh $ ll)}
+                           "after:"   -> word'{FuglyLib.after=(getNeigh $ ll)}
+                           "related:" -> word'{related=(joinWords '"' ll)}
+                           "pos:"     -> word'{FuglyLib.pos=(readEPOS $ unwords $ ll)}
+                           "end:"     -> word'
+                           _          -> word'
+               else word'
       if l4 == False then do putStrLn ("Oops: " ++ l) >> return nm
         else if (head wl) == "end:" then
                ff h ww (nm ++ ((wordGetWord ww), ww) : [])
@@ -247,23 +247,23 @@ wordGetCount (Name _ c _ _ _)   = c
 wordGetCount _                  = 0
 
 wordGetAfter :: Word -> Map.Map String Int
-wordGetAfter (Word w c b a r p) = a
-wordGetAfter (Name n c b a r)   = a
+wordGetAfter (Word _ _ _ a _ _) = a
+wordGetAfter (Name _ _ _ a _)   = a
 wordGetAfter _                  = Map.empty
 
 wordGetBefore :: Word -> Map.Map String Int
-wordGetBefore (Word w c b a r p) = b
-wordGetBefore (Name n c b a r)   = b
+wordGetBefore (Word _ _ b _ _ _) = b
+wordGetBefore (Name _ _ b _ _)   = b
 wordGetBefore _                  = Map.empty
 
 wordGetRelated :: Word -> [String]
-wordGetRelated (Word w c b a r p) = r
-wordGetRelated (Name n c b a r)   = r
+wordGetRelated (Word _ _ _ _ r _) = r
+wordGetRelated (Name _ _ _ _ r)   = r
 wordGetRelated _                  = []
 
 wordGetPos :: Word -> EPOS
-wordGetPos (Word w c b a r p) = p
-wordGetPos (Name n c b a r)   = UnknownEPos
+wordGetPos (Word _ _ _ _ _ p) = p
+wordGetPos (Name _ _ _ _ _)   = UnknownEPos
 wordGetPos _                  = UnknownEPos
 
 wordGetwc :: Word -> (Int, String)
@@ -273,7 +273,7 @@ wordGetwc (Name w c _ _ _)   = (c, w)
 insertWords :: Fugly -> Bool -> [String] -> IO (Map.Map String Word)
 insertWords (Fugly {dict=d}) _ [] = return d
 insertWords fugly autoname [x] = insertWord fugly autoname x [] [] []
-insertWords fugly@(Fugly dict pgf _ _ _ _) autoname msg@(x:y:xs) =
+insertWords fugly autoname msg@(x:y:_) =
   case (len) of
     2 -> do ff <- insertWord fugly autoname x [] y []
             insertWord fugly{dict=ff} autoname y x [] []
@@ -281,36 +281,38 @@ insertWords fugly@(Fugly dict pgf _ _ _ _) autoname msg@(x:y:xs) =
   where
     len = length msg
     insertWords' (Fugly {dict=d}) _ _ _ [] = return d
-    insertWords' f@(Fugly {dict=d}) a i l msg
-      | i == 0     = do ff <- insertWord f a (msg!!i) [] (msg!!(i+1)) []
-                        insertWords' f{dict=ff} a (i+1) l msg
+    insertWords' f@(Fugly {dict=d}) a i l m
+      | i == 0     = do ff <- insertWord f a (m!!i) [] (m!!(i+1)) []
+                        insertWords' f{dict=ff} a (i+1) l m
       | i > l - 1  = return d
-      | i == l - 1 = do ff <- insertWord f a (msg!!i) (msg!!(i-1)) [] []
-                        insertWords' f{dict=ff} a (i+1) l msg
-      | otherwise  = do ff <- insertWord f a (msg!!i) (msg!!(i-1)) (msg!!(i+1)) []
-                        insertWords' f{dict=ff} a (i+1) l msg
+      | i == l - 1 = do ff <- insertWord f a (m!!i) (m!!(i-1)) [] []
+                        insertWords' f{dict=ff} a (i+1) l m
+      | otherwise  = do ff <- insertWord f a (m!!i) (m!!(i-1)) (m!!(i+1)) []
+                        insertWords' f{dict=ff} a (i+1) l m
 
 insertWord :: Fugly -> Bool -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWord fugly@(Fugly dict pgf wne aspell allow ban) _ [] _ _ _ = return dict
-insertWord fugly@(Fugly dict pgf wne aspell allow ban) autoname word before after pos = do
-    n <- asIsName aspell word
-    let out = if elem word ban || elem before ban || elem after ban then return dict
+insertWord (Fugly dict' _ _ _ _ _) _ [] _ _ _ = return dict'
+insertWord fugly@(Fugly dict' _ _ aspell' _ ban') autoname word' before' after' pos' = do
+    n <- asIsName aspell' word'
+    let out = if elem word' ban' || elem before' ban' || elem after' ban' then return dict'
               else if isJust w then f $ fromJust w
-                   else if n && autoname then insertName' fugly w (toUpperWord $ cleanString word) bi ai
-                        else if isJust ww then insertWordRaw' fugly ww (map toLower $ cleanString word) bi ai pos
-                             else insertWordRaw' fugly w (map toLower $ cleanString word) bi ai pos
+                   else if n && autoname then insertName' fugly w (toUpperWord $ cleanString word') bi ai
+                        else if isJust ww then insertWordRaw' fugly ww (map toLower $ cleanString word') bi ai pos'
+                             else insertWordRaw' fugly w (map toLower $ cleanString word') bi ai pos'
     out
   where
-    w = Map.lookup word dict
-    ww = Map.lookup (map toLower $ cleanString word) dict
-    a = Map.lookup after dict
-    b = Map.lookup before dict
-    ai = if isJust a then after else map toLower $ cleanString after
-    bi = if isJust b then before else map toLower $ cleanString before
-    f (Word {})  = insertWordRaw' fugly w word bi ai pos
-    f (Name {})  = insertName'    fugly w word bi ai
+    w = Map.lookup word' dict'
+    ww = Map.lookup (map toLower $ cleanString word') dict'
+    a = Map.lookup after' dict'
+    b = Map.lookup before' dict'
+    ai = if isJust a then after' else map toLower $ cleanString after'
+    bi = if isJust b then before' else map toLower $ cleanString before'
+    f (Word {})  = insertWordRaw' fugly w word' bi ai pos'
+    f (Name {})  = insertName'    fugly w word' bi ai
 
+insertWordRaw :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWordRaw f@(Fugly {dict=d}) w b a p = insertWordRaw' f (Map.lookup w d) w b a p
+
 insertWordRaw' :: Fugly -> Maybe Word -> String -> String
                  -> String -> String -> IO (Map.Map String Word)
 insertWordRaw' (Fugly {dict=d}) _ [] _ _ _ = return d
@@ -706,8 +708,8 @@ asIsName aspell word = do
 -- LD_PRELOAD=/usr/lib64/libjemalloc.so.1
 asSuggest :: Aspell.SpellChecker -> String -> IO String
 asSuggest _ [] = return []
-asSuggest aspell word = {--runInBoundThread--} (do w <- Aspell.suggest aspell (ByteString.pack word)
-                                                   return $ unwords $ map ByteString.unpack w)
+asSuggest aspell word = do w <- Aspell.suggest aspell (ByteString.pack word)
+                           return $ unwords $ map ByteString.unpack w
 
 gfParseBool :: PGF -> Int -> String -> Bool
 gfParseBool _ _ [] = False

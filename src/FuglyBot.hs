@@ -138,7 +138,6 @@ start args = do
     let socks5port = read (tail $ dropWhile (\x -> x /= ':') socks5) :: Integer
     s <- if null socks5 then connectTo server (PortNumber (fromIntegral port)) else
            socksConnectTo socks5add (PortNumber (fromIntegral socks5port)) server (PortNumber (fromIntegral port))
-    -- s <- connectTo server (PortNumber (fromIntegral port))
     hSetBuffering s NoBuffering
     fugly <- initFugly fuglydir wndir gfdir topic
     st <- Network.Socket.socket AF_INET Stream 6
@@ -176,7 +175,7 @@ run args = do
           else if (length ll > 2) && (head lll) == "NICK" && getNick ll == botnick then do
             lift (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
               else do
-                lift (forkIO ({--runInUnboundThread $--} evalStateT (processLine $ words l) b)) >> return ()
+                lift (forkIO (evalStateT (processLine $ words l) b)) >> return ()
 
 cmdLine :: IO [String]
 cmdLine = do
