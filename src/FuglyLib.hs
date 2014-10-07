@@ -531,10 +531,10 @@ dePlenk s   = dePlenk' s []
     dePlenk' [x] l = l ++ x:[]
     dePlenk' a@(x:xs) l
       | length a == 1                             = l ++ x:[]
-      | x == ' ' && (h == ' ' || isPunctuation h) = dePlenk' (fTail "dePlenk" [] xs) (l ++ h:[])
+      | x == ' ' && (h == ' ' || isPunctuation h) = dePlenk' (fTail [] xs) (l ++ h:[])
       | otherwise                                 = dePlenk' xs (l ++ x:[])
       where
-        h = fHead "dePlenk" '!' xs
+        h = fHead '!' xs
 
 strip :: Eq a => a -> [a] -> [a]
 strip _ [] = []
@@ -554,10 +554,10 @@ joinWords a s = joinWords' a $ filter (not . null) s
   where
     joinWords' _ [] = []
     joinWords' a' (x:xs)
-      | (fHead "joinWords" ' ' x) == a' = unwords (x : (take num xs)) : joinWords a' (drop num xs)
+      | (fHead ' ' x) == a' = unwords (x : (take num xs)) : joinWords a' (drop num xs)
       | otherwise                       = x : joinWords a' xs
       where
-        num = (fromMaybe 0 (elemIndex a' $ map (\y -> fLast "joinWords" '!' y) xs)) + 1
+        num = (fromMaybe 0 (elemIndex a' $ map (\y -> fLast '!' y) xs)) + 1
 
 fixUnderscore :: String -> String
 fixUnderscore = strip '"' . replace ' ' '_'
@@ -573,13 +573,13 @@ toUpperSentence (x:xs) = toUpperWord x : xs
 
 endSentence :: [String] -> [String]
 endSentence []  = []
-endSentence msg = (init msg) ++ ((fLast "endSentence" [] msg) ++
-                                 if elem (head msg) qWords then "?" else ".") : []
+endSentence msg = (init msg) ++ ((fLast [] msg) ++ if elem (head msg) qWords then "?" else ".") : []
 
 fReadInt :: String -> Int -> String -> Int
 fReadInt a b c = unsafePerformIO (do catch (evaluate (read c :: Int))
                                        (\e -> do putStrLn ("fRead: " ++ show (e :: SomeException) ++ " in " ++ a) ; return b))
 
+{--
 fHead :: String -> a -> [a] -> a
 fHead a b [] = unsafePerformIO (do putStrLn ("fHead: error in " ++ a) ; return b)
 fHead _ _ c  = head c
@@ -591,6 +591,19 @@ fLast _ _ c  = last c
 fTail :: String -> [a] -> [a] -> [a]
 fTail a b [] = unsafePerformIO (do putStrLn ("fTail: error in " ++ a) ; return b)
 fTail _ _ c  = tail c
+--}
+
+fHead :: a -> [a] -> a
+fHead b [] = b
+fHead _ c  = head c
+
+fLast :: a -> [a] -> a
+fLast b [] = b
+fLast _ c  = last c
+
+fTail :: [a] -> [a] -> [a]
+fTail b [] = b
+fTail _ c  = tail c
 
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
@@ -774,12 +787,12 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) randoms stries slen plen msg = 
   let s1d x = do
       w <- x
       if null w then return []
-        else return ((init w) ++ ((fLast "sentence: s1d" [] w) ++
+        else return ((init w) ++ ((fLast [] w) ++
                                   if elem (map toLower $ head w) qWords then "?" else ".") : [])
   let s1e x = do
       w <- x
       if null w then return []
-        else return ((s1c w : [] ) ++ fTail "sentence: s1e" [] w)
+        else return ((s1c w : [] ) ++ fTail [] w)
   let s1g = if slen == 0 then [return []] else
               take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
   map (\x -> do y <- x ; s1f y) s1g
@@ -789,11 +802,11 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) randoms stries slen plen msg = 
       ww <- msg
       if null ww then return []
         else if i >= n then return $ nub ww else do
-               www <- findNextWord f i randoms False (fLast "sentence: s1b" [] ww)
+               www <- findNextWord f i randoms False (fLast [] ww)
                s1b f n (i + 1) (return $ ww ++ www)
     s1c :: [String] -> String
     s1c [] = []
-    s1c w = ((toUpper $ head $ head w) : []) ++ (fTail "sentence: s1c" [] $ head w)
+    s1c w = ((toUpper $ head $ head w) : []) ++ (fTail [] $ head w)
 
 chooseWord :: WordNetEnv -> [String] -> IO [String]
 chooseWord _ [] = return []

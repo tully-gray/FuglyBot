@@ -371,7 +371,7 @@ reply bot@(Bot socket params@(Parameter botnick owner _ _ _ _ _ _ _ stries
                               slen plen learning autoname allowpm _ randoms)
            fugly@(Fugly _ pgf wne _ _ _)) chan nick msg = do
     let mmsg = if null $ head msg then msg
-                 else case fLast "reply" ' ' $ head msg of
+                 else case fLast ' ' $ head msg of
                    ':' -> tail msg
                    ',' -> tail msg
                    _   -> msg
