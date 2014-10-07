@@ -316,107 +316,117 @@ insertWordRaw f@(Fugly {dict=d}) w b a p = insertWordRaw' f (Map.lookup w d) w b
 insertWordRaw' :: Fugly -> Maybe Word -> String -> String
                  -> String -> String -> IO (Map.Map String Word)
 insertWordRaw' (Fugly {dict=d}) _ [] _ _ _ = return d
-insertWordRaw' (Fugly dict _ wne aspell allow _) w word before after pos = do
-  pp <- (if null pos then wnPartPOS wne word else return $ readEPOS pos)
-  pa <- wnPartPOS wne after
-  pb <- wnPartPOS wne before
-  rel <- wnRelated' wne word "Hypernym" pp
-  let nn x y  = if elem x allow then x
-                else if y == UnknownEPos && Aspell.check aspell (ByteString.pack x) == False then [] else x
-  let i x = Map.insert x (Word x 1 (e (nn before pb)) (e (nn after pa)) rel pp) dict
+insertWordRaw' (Fugly dict' _ wne' aspell' allow' _) w word' before' after' pos' = do
+  pp <- (if null pos' then wnPartPOS wne' word' else return $ readEPOS pos')
+  pa <- wnPartPOS wne' after'
+  pb <- wnPartPOS wne' before'
+  rel <- wnRelated' wne' word' "Hypernym" pp
+  let nn x y  = if elem x allow' then x
+                else if y == UnknownEPos && Aspell.check aspell'
+                        (ByteString.pack x) == False then [] else x
+  let i x = Map.insert x (Word x 1 (e (nn before' pb)) (e (nn after' pa)) rel pp) dict'
   if isJust w then
-    return $ Map.insert word (Word word c (nb before pb) (na after pa)
-                            (wordGetRelated $ fromJust w)
-                            (wordGetPos $ fromJust w)) dict
-         else if elem word allow then
-           return $ i word
-           else if pp /= UnknownEPos || Aspell.check aspell (ByteString.pack word) then
-                  return $ i word
+    return $ Map.insert word' (Word word' c (nb before' pb) (na after' pa)
+                               (wordGetRelated $ fromJust w)
+                               (wordGetPos $ fromJust w)) dict'
+         else if elem word' allow' then
+           return $ i word'
+           else if pp /= UnknownEPos || Aspell.check aspell'
+                   (ByteString.pack word') then
+                  return $ i word'
                 else
-                  return dict
+                  return dict'
   where
     e [] = Map.empty
     e x = Map.singleton x 1
     c = incCount' (fromJust w) 1
-    na x y = if elem x allow then incAfter' (fromJust w) x 1
-                else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incAfter' (fromJust w) x 1
+    na x y = if elem x allow' then incAfter' (fromJust w) x 1
+                else if y /= UnknownEPos || Aspell.check aspell'
+                        (ByteString.pack x) then incAfter' (fromJust w) x 1
                      else wordGetAfter (fromJust w)
-    nb x y = if elem x allow then incBefore' (fromJust w) x 1
-                else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incBefore' (fromJust w) x 1
+    nb x y = if elem x allow' then incBefore' (fromJust w) x 1
+                else if y /= UnknownEPos || Aspell.check aspell'
+                        (ByteString.pack x) then incBefore' (fromJust w) x 1
                      else wordGetBefore (fromJust w)
 
+insertName :: Fugly -> String -> String -> String -> IO (Map.Map String Word)
 insertName f@(Fugly {dict=d}) w b a = insertName' f (Map.lookup w d) w b a
+
 insertName' :: Fugly -> Maybe Word -> String -> String
               -> String -> IO (Map.Map String Word)
-insertName' (Fugly dict _ wne aspell _ _) _ [] _ _ = return dict
-insertName' (Fugly dict _ wne aspell allow _) w name before after = do
-  pa <- wnPartPOS wne after
-  pb <- wnPartPOS wne before
-  rel <- wnRelated' wne name "Hypernym" (POS Noun)
+insertName' (Fugly dict' _ _ _ _ _) _ [] _ _ = return dict'
+insertName' (Fugly dict' _ wne' aspell' allow' _) w name' before' after' = do
+  pa <- wnPartPOS wne' after'
+  pb <- wnPartPOS wne' before'
+  rel <- wnRelated' wne' name' "Hypernym" (POS Noun)
   if isJust w then
-    return $ Map.insert name (Name name c (nb before pb) (na after pa)
-                              (wordGetRelated (fromJust w))) dict
+    return $ Map.insert name' (Name name' c (nb before' pb) (na after' pa)
+                               (wordGetRelated (fromJust w))) dict'
     else
-    return $ Map.insert name (Name name 1 (e (nn before pb)) (e (nn after pa)) rel) dict
+    return $ Map.insert name' (Name name' 1 (e (nn before' pb))
+                               (e (nn after' pa)) rel) dict'
   where
     e [] = Map.empty
     e x = Map.singleton x 1
     c = incCount' (fromJust w) 1
-    na x y = if elem x allow then incAfter' (fromJust w) x 1
-                else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incAfter' (fromJust w) x 1
+    na x y = if elem x allow' then incAfter' (fromJust w) x 1
+                else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incAfter' (fromJust w) x 1
                      else wordGetAfter (fromJust w)
-    nb x y = if elem x allow then incBefore' (fromJust w) x 1
-                else if y /= UnknownEPos || Aspell.check aspell (ByteString.pack x) then incBefore' (fromJust w) x 1
+    nb x y = if elem x allow' then incBefore' (fromJust w) x 1
+                else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incBefore' (fromJust w) x 1
                      else wordGetBefore (fromJust w)
-    nn x y  = if elem x allow then x
-                else if y == UnknownEPos && Aspell.check aspell (ByteString.pack x) == False then [] else x
+    nn x y  = if elem x allow' then x
+                else if y == UnknownEPos && Aspell.check aspell' (ByteString.pack x) == False then [] else x
 
 dropWord :: Map.Map String Word -> String -> Map.Map String Word
-dropWord m word = Map.map del' (Map.delete word m)
+dropWord m word' = Map.map del' (Map.delete word' m)
     where
-      del' (Word w c b a r p) = (Word w c (Map.delete word b) (Map.delete word a) r p)
-      del' (Name w c b a r) = (Name w c (Map.delete word b) (Map.delete word a) r)
+      del' (Word w c b a r p) = (Word w c (Map.delete word' b) (Map.delete word' a) r p)
+      del' (Name w c b a r) = (Name w c (Map.delete word' b) (Map.delete word' a) r)
 
 ageWord :: Map.Map String Word -> String -> Map.Map String Word
-ageWord m word = Map.map age m
+ageWord m word' = Map.map age m
     where
-      age ww@(Word w c b a r p) = (Word w (if w == word then if c - 1 < 0 then 0 else c - 1 else c)
-                                   (incBefore' ww word (-1)) (incAfter' ww word (-1)) r p)
-      age ww@(Name w c b a r)   = (Name w (if w == word then if c - 1 < 0 then 0 else c - 1 else c)
-                                   (incBefore' ww word (-1)) (incAfter' ww word (-1)) r)
+      age ww@(Word w c _ _ r p) = (Word w (if w == word' then if c - 1 < 0 then 0 else c - 1 else c)
+                                   (incBefore' ww word' (-1)) (incAfter' ww word' (-1)) r p)
+      age ww@(Name w c _ _ r)   = (Name w (if w == word' then if c - 1 < 0 then 0 else c - 1 else c)
+                                   (incBefore' ww word' (-1)) (incAfter' ww word' (-1)) r)
 
 ageWords :: Map.Map String Word -> Map.Map String Word
 ageWords m = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m)
     where
-      f m []     = m
-      f m (x:xs) = f (ageWord m x) xs
+      f m' []     = m'
+      f m' (x:xs) = f (ageWord m' x) xs
 
 cleanWords :: Map.Map String Word -> Map.Map String Word
 cleanWords m = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m)
     where
-      f m []     = m
-      f m (x:xs) = if null $ cleanString x then f (dropWord m x) xs
-                   else f m xs
+      f m' []     = m'
+      f m' (x:xs) = if null $ cleanString x then f (dropWord m' x) xs
+                    else f m' xs
 
 fixWords :: Aspell.SpellChecker -> Map.Map String Word -> IO (Map.Map String Word)
-fixWords aspell m = do
+fixWords aspell' m = do
     x <- sequence $ map f $ Map.toList $ Map.filter (\x -> wordGetCount x > 0) $ cleanWords m
     return $ Map.fromList x
     where
       f (s, (Word w c b a r p)) = do
-        n <- asIsName aspell w
+        n <- asIsName aspell' w
         cna <- cn a
         cnb <- cn b
-        if n then return (toUpperWord $ cleanString s, (Name (toUpperWord $ cleanString w) c (Map.fromList cnb) (Map.fromList cna) r))
+        if n then return (toUpperWord $ cleanString s, (Name (toUpperWord $ cleanString w)
+                                                        c (Map.fromList cnb) (Map.fromList cna) r))
           else
-            return (map toLower $ cleanString s, (Word (map toLower $ cleanString w) c (Map.fromList cnb) (Map.fromList cna) r p))
-      f (s, n@(Name w c b a r)) = do
+            return (map toLower $ cleanString s, (Word (map toLower $ cleanString w)
+                                                  c (Map.fromList cnb) (Map.fromList cna) r p))
+      f (s, (Name w c b a r)) = do
         cna <- cn a
         cnb <- cn b
-        return (toUpperWord $ cleanString s, (Name (toUpperWord $ cleanString w) c (Map.fromList cnb) (Map.fromList cna) r))
-      cn m = sequence $ map cm $ Map.toList $ Map.filter (\x -> x > 0) m
+        return (toUpperWord $ cleanString s, (Name (toUpperWord $ cleanString w)
+                                              c (Map.fromList cnb) (Map.fromList cna) r))
+      cn m' = sequence $ map cm $ Map.toList $ Map.filter (\x -> x > 0) m'
       cm (w, c) = do
-        n <- asIsName aspell w
+        n <- asIsName aspell' w
         let cw = cleanString w
         if n then return ((toUpperWord cw), c)
           else return ((map toLower cw), c)
@@ -426,58 +436,42 @@ incCount' (Word _ c _ _ _ _) n = if c + n < 0 then 0 else c + n
 incCount' (Name _ c _ _ _)   n = if c + n < 0 then 0 else c + n
 
 incBefore' :: Word -> String -> Int -> Map.Map String Int
-incBefore' (Word _ _ b _ _ _) []     n = b
-incBefore' (Word _ _ b _ _ _) before n =
+incBefore' (Word _ _ b _ _ _) []      _ = b
+incBefore' (Word _ _ b _ _ _) before' n =
   if isJust w then
-    if (fromJust w) + n < 1 then Map.delete before b
-    else Map.insert before ((fromJust w) + n) b
+    if (fromJust w) + n < 1 then Map.delete before' b
+    else Map.insert before' ((fromJust w) + n) b
   else if n < 0 then b
-       else Map.insert before n b
+       else Map.insert before' n b
   where
-    w = Map.lookup before b
-incBefore' (Name _ _ b _ _)   []   n = b
-incBefore' (Name w c b a r) before n = incBefore' (Word w c b a r (POS Noun)) before n
-
--- incBefore :: Map.Map String Word -> String -> String -> Map.Map String Int
--- incBefore m word before = do
---   let w = Map.lookup word m
---   if isJust w then incBefore' (fromJust w) before
---     else Map.empty
+    w = Map.lookup before' b
+incBefore' (Name _ _ b _ _)   []    _ = b
+incBefore' (Name w c b a r) before' n = incBefore' (Word w c b a r (POS Noun)) before' n
 
 incAfter' :: Word -> String -> Int -> Map.Map String Int
-incAfter' (Word _ _ _ a _ _) []     n = a
-incAfter' (Word _ _ _ a _ _) after  n =
+incAfter' (Word _ _ _ a _ _) []     _ = a
+incAfter' (Word _ _ _ a _ _) after' n =
   if isJust w then
-    if (fromJust w) + n < 1 then Map.delete after a
-    else Map.insert after ((fromJust w) + n) a
+    if (fromJust w) + n < 1 then Map.delete after' a
+    else Map.insert after' ((fromJust w) + n) a
   else if n < 0 then a
-       else Map.insert after n a
+       else Map.insert after' n a
   where
-    w = Map.lookup after a
-incAfter' (Name _ _ _ a _)   []  n = a
-incAfter' (Name w c b a r) after n = incAfter' (Word w c b a r (POS Noun)) after n
-
--- incAfter :: Map.Map String Word -> String -> String -> Map.Map String Int
--- incAfter m word after = do
---   let w = Map.lookup word m
---   if isJust w then incAfter' (fromJust w) after
---     else Map.empty
+    w = Map.lookup after' a
+incAfter' (Name _ _ _ a _)   []   _ = a
+incAfter' (Name w c b a r) after' n = incAfter' (Word w c b a r (POS Noun)) after' n
 
 listNeigh :: Map.Map String Int -> [String]
-listNeigh m = [w | (w, c) <- Map.toList m]
+listNeigh m = [w | (w, _) <- Map.toList m]
 
 listNeigh2 :: Map.Map String Int -> [String]
 listNeigh2 m = concat [[w, show c] | (w, c) <- Map.toList m]
 
 listNeighMax :: Map.Map String Int -> [String]
-listNeighMax m = [w | (w, c) <- Map.toList m, c == maximum [c | (w, c) <- Map.toList m]]
-
--- listNeighMax2 :: Map.Map String Int -> [String]
--- listNeighMax2 m = concat [[w, show c] | (w, c) <- Map.toList m,
---                           c == maximum [c | (w, c) <- Map.toList m]]
+listNeighMax m = [w | (w, c) <- Map.toList m, c == maximum [c' | (_, c') <- Map.toList m]]
 
 listNeighLeast :: Map.Map String Int -> [String]
-listNeighLeast m = [w | (w, c) <- Map.toList m, c == minimum [c | (w, c) <- Map.toList m]]
+listNeighLeast m = [w | (w, c) <- Map.toList m, c == minimum [c' | (_, c') <- Map.toList m]]
 
 listWords :: Map.Map String Word -> [String]
 listWords m = map wordGetWord $ Map.elems m
@@ -491,16 +485,17 @@ listWordsCountSort2 m num = concat [[w, show c, ";"] | (c, w) <- take num $ reve
 
 listNamesCountSort2 :: Map.Map String Word -> Int -> [String]
 listNamesCountSort2 m num = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
-                            sort $ map wordGetwc $ filter (\x -> wordIs x == "name") $ Map.elems m]
+                            sort $ map wordGetwc $ filter (\x -> wordIs x == "name") $
+                            Map.elems m]
 
 listWordFull :: Map.Map String Word -> String -> String
-listWordFull m word =
+listWordFull m word' =
   if isJust ww then
     unwords $ f (fromJust ww)
   else
     "Nothing!"
   where
-    ww = Map.lookup word m
+    ww = Map.lookup word' m
     f (Word w c b a r p) = ["word:", w, "count:", show c, " before:",
                  unwords $ listNeigh2 b, " after:", unwords $ listNeigh2 a,
                  " pos:", (show p), " related:", unwords r]
@@ -524,7 +519,7 @@ cleanString :: String -> String
 cleanString [] = []
 cleanString "i" = "I"
 cleanString x
-    | length x > 1 = filter (\x -> isAlpha x || x == '\'' || x == '-' || x == ' ') x
+    | length x > 1 = filter (\y -> isAlpha y || y == '\'' || y == '-' || y == ' ') x
     | x == "I" || map toLower x == "a" = x
     | otherwise = []
 
@@ -558,11 +553,11 @@ joinWords _ [] = []
 joinWords a s = joinWords' a $ filter (not . null) s
   where
     joinWords' _ [] = []
-    joinWords' a (x:xs)
-      | (fHead "joinWords" ' ' x) == a = unwords (x : (take num xs)) : joinWords a (drop num xs)
-      | otherwise                      = x : joinWords a xs
+    joinWords' a' (x:xs)
+      | (fHead "joinWords" ' ' x) == a' = unwords (x : (take num xs)) : joinWords a' (drop num xs)
+      | otherwise                       = x : joinWords a' xs
       where
-        num = (fromMaybe 0 (elemIndex a $ map (\x -> fLast "joinWords" '!' x) xs)) + 1
+        num = (fromMaybe 0 (elemIndex a' $ map (\y -> fLast "joinWords" '!' y) xs)) + 1
 
 fixUnderscore :: String -> String
 fixUnderscore = strip '"' . replace ' ' '_'
@@ -578,15 +573,24 @@ toUpperSentence (x:xs) = toUpperWord x : xs
 
 endSentence :: [String] -> [String]
 endSentence []  = []
-endSentence msg = (init msg) ++ ((fLast "endSentence" [] msg) ++ if elem (head msg) qWords then "?" else ".") : []
+endSentence msg = (init msg) ++ ((fLast "endSentence" [] msg) ++
+                                 if elem (head msg) qWords then "?" else ".") : []
 
-fReadInt a b c = unsafePerformIO (do catch (evaluate (read c :: Int)) (\e -> do putStrLn ("fRead: " ++ show (e :: SomeException) ++ " in " ++ a) ; return b))
+fReadInt :: String -> Int -> String -> Int
+fReadInt a b c = unsafePerformIO (do catch (evaluate (read c :: Int))
+                                       (\e -> do putStrLn ("fRead: " ++ show (e :: SomeException) ++ " in " ++ a) ; return b))
+
+fHead :: String -> a -> [a] -> a
 fHead a b [] = unsafePerformIO (do putStrLn ("fHead: error in " ++ a) ; return b)
-fHead a b c  = head c
+fHead _ _ c  = head c
+
+fLast :: String -> a -> [a] -> a
 fLast a b [] = unsafePerformIO (do putStrLn ("fLast: error in " ++ a) ; return b)
-fLast a b c  = last c
+fLast _ _ c  = last c
+
+fTail :: String -> [a] -> [a] -> [a]
 fTail a b [] = unsafePerformIO (do putStrLn ("fTail: error in " ++ a) ; return b)
-fTail a b c  = tail c
+fTail _ _ c  = tail c
 
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
@@ -597,15 +601,15 @@ wnPartString w a  = do
     ind4 <- indexLookup w a Adv
     return (type' ((count' ind1) : (count' ind2) : (count' ind3) : (count' ind4) : []))
   where
-    count' a = if isJust a then senseCount (fromJust a) else 0
+    count' a' = if isJust a' then senseCount (fromJust a') else 0
     type' [] = "Other"
-    type' a
-      | a == [0, 0, 0, 0]                             = "Unknown"
-      | fromMaybe (-1) (elemIndex (maximum a) a) == 0 = "Noun"
-      | fromMaybe (-1) (elemIndex (maximum a) a) == 1 = "Verb"
-      | fromMaybe (-1) (elemIndex (maximum a) a) == 2 = "Adj"
-      | fromMaybe (-1) (elemIndex (maximum a) a) == 3 = "Adv"
-      | otherwise                                     = "Unknown"
+    type' a'
+      | a' == [0, 0, 0, 0]                              = "Unknown"
+      | fromMaybe (-1) (elemIndex (maximum a') a') == 0 = "Noun"
+      | fromMaybe (-1) (elemIndex (maximum a') a') == 1 = "Verb"
+      | fromMaybe (-1) (elemIndex (maximum a') a') == 2 = "Adj"
+      | fromMaybe (-1) (elemIndex (maximum a') a') == 3 = "Adv"
+      | otherwise                                       = "Unknown"
 
 wnPartPOS :: WordNetEnv -> String -> IO EPOS
 wnPartPOS _ [] = return UnknownEPos
@@ -616,60 +620,61 @@ wnPartPOS w a  = do
     ind4 <- indexLookup w a Adv
     return (type' ((count' ind1) : (count' ind2) : (count' ind3) : (count' ind4) : []))
   where
-    count' a = if isJust a then senseCount (fromJust a) else 0
+    count' a' = if isJust a' then senseCount (fromJust a') else 0
     type' [] = UnknownEPos
-    type' a
-      | a == [0, 0, 0, 0]                             = UnknownEPos
-      | fromMaybe (-1) (elemIndex (maximum a) a) == 0 = POS Noun
-      | fromMaybe (-1) (elemIndex (maximum a) a) == 1 = POS Verb
-      | fromMaybe (-1) (elemIndex (maximum a) a) == 2 = POS Adj
-      | fromMaybe (-1) (elemIndex (maximum a) a) == 3 = POS Adv
-      | otherwise                                     = UnknownEPos
+    type' a'
+      | a' == [0, 0, 0, 0]                              = UnknownEPos
+      | fromMaybe (-1) (elemIndex (maximum a') a') == 0 = POS Noun
+      | fromMaybe (-1) (elemIndex (maximum a') a') == 1 = POS Verb
+      | fromMaybe (-1) (elemIndex (maximum a') a') == 2 = POS Adj
+      | fromMaybe (-1) (elemIndex (maximum a') a') == 3 = POS Adv
+      | otherwise                                       = UnknownEPos
 
 wnGloss :: WordNetEnv -> String -> String -> IO String
-wnGloss _ [] _ = return "Nothing!  Error!  Abort!"
-wnGloss wne word [] = do
-    wnPos <- wnPartString wne (fixUnderscore word)
-    wnGloss wne word wnPos
-wnGloss wne word pos = do
-    let wnPos = fromEPOS $ readEPOS pos
-    let result = map (getGloss . getSynset) (runs wne (search
-                     (fixUnderscore word) wnPos AllSenses))
+wnGloss _    []     _ = return "Nothing!  Error!  Abort!"
+wnGloss wne' word' [] = do
+    wnPos <- wnPartString wne' (fixUnderscore word')
+    wnGloss wne' word' wnPos
+wnGloss wne' word' pos' = do
+    let wnPos = fromEPOS $ readEPOS pos'
+    let result = map (getGloss . getSynset) (runs wne' (search
+                     (fixUnderscore word') wnPos AllSenses))
     if (null result) then return "Nothing!" else
       return $ unwords result
 
 wnRelated :: WordNetEnv -> String -> String -> String -> IO String
-wnRelated wne c d pos = do
-    x <- wnRelated' wne c d $ readEPOS pos
+wnRelated wne' c d pos' = do
+    x <- wnRelated' wne' c d $ readEPOS pos'
     f (filter (not . null) x) []
   where
     f []     a = return a
     f (x:xs) a = f xs (x ++ " " ++ a)
+
 wnRelated' :: WordNetEnv -> String -> String -> EPOS -> IO [String]
-wnRelated' wne [] _ _  = return [[]] :: IO [String]
-wnRelated' wne c [] pos  = wnRelated' wne c "Hypernym" pos
-wnRelated' wne c d pos = do
+wnRelated' _    [] _ _    = return [[]] :: IO [String]
+wnRelated' wne' c [] pos' = wnRelated' wne' c "Hypernym" pos'
+wnRelated' wne' c d  pos' = do
     let wnForm = readForm d
     let result = if (map toLower d) == "all" then concat $ map (fromMaybe [[]])
-                    (runs wne (relatedByListAllForms (search (fixUnderscore c)
-                     (fromEPOS pos) AllSenses)))
-                 else fromMaybe [[]] (runs wne (relatedByList wnForm (search
-                      (fixUnderscore c) (fromEPOS pos) AllSenses)))
+                    (runs wne' (relatedByListAllForms (search (fixUnderscore c)
+                     (fromEPOS pos') AllSenses)))
+                 else fromMaybe [[]] (runs wne' (relatedByList wnForm (search
+                       (fixUnderscore c) (fromEPOS pos') AllSenses)))
     if (null result) || (null $ concat result) then return [] else
       return $ map (\x -> replace '_' ' ' $ unwords $ map (++ "\"") $
                     map ('"' :) $ concat $ map (getWords . getSynset) x) result
 
 wnClosure :: WordNetEnv -> String -> String -> String -> IO String
-wnClosure _ [] _ _         = return []
-wnClosure wne word [] _    = wnClosure wne word "Hypernym" []
-wnClosure wne word form [] = do
-    wnPos <- wnPartString wne (fixUnderscore word)
-    wnClosure wne word form wnPos
-wnClosure wne word form pos = do
+wnClosure _ [] _ _           = return []
+wnClosure wne' word' []   _  = wnClosure wne' word' "Hypernym" []
+wnClosure wne' word' form [] = do
+    wnPos <- wnPartString wne' (fixUnderscore word')
+    wnClosure wne' word' form wnPos
+wnClosure wne' word' form pos' = do
     let wnForm = readForm form
-    let wnPos = fromEPOS $ readEPOS pos
-    let result = runs wne (closureOnList wnForm
-                           (search (fixUnderscore word) wnPos AllSenses))
+    let wnPos = fromEPOS $ readEPOS pos'
+    let result = runs wne' (closureOnList wnForm
+                            (search (fixUnderscore word') wnPos AllSenses))
     if (null result) then return [] else
       return $ unwords $ map (\x -> if isNothing x then return '?'
                                     else (replace '_' ' ' $ unwords $ map (++ "\"") $
@@ -695,21 +700,20 @@ wnMeet w c d e  = do
         else return []
 
 asIsName :: Aspell.SpellChecker -> String -> IO Bool
-asIsName _ [] = return False
-asIsName aspell word = do
-    let l = map toLower word
+asIsName _       []    = return False
+asIsName aspell' word' = do
+    let l = map toLower word'
     let w = toUpperWord l
-    n1 <- asSuggest aspell l
-    n2 <- asSuggest aspell w
+    n1 <- asSuggest aspell' l
+    n2 <- asSuggest aspell' w
     let nn1 = if null n1 then False else elem l $ words n1
     let nn2 = if null n2 then False else (head $ words n2) == w
     return (if nn1 == False && nn2 == True then True else False)
 
--- LD_PRELOAD=/usr/lib64/libjemalloc.so.1
 asSuggest :: Aspell.SpellChecker -> String -> IO String
-asSuggest _ [] = return []
-asSuggest aspell word = do w <- Aspell.suggest aspell (ByteString.pack word)
-                           return $ unwords $ map ByteString.unpack w
+asSuggest _       []    = return []
+asSuggest aspell' word' = do w <- Aspell.suggest aspell' (ByteString.pack word')
+                             return $ unwords $ map ByteString.unpack w
 
 gfParseBool :: PGF -> Int -> String -> Bool
 gfParseBool _ _ [] = False
