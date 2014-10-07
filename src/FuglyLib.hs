@@ -595,10 +595,10 @@ fTail _ _ c  = tail c
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
 wnPartString w a  = do
-    ind1 <- indexLookup w a Noun
-    ind2 <- indexLookup w a Verb
-    ind3 <- indexLookup w a Adj
-    ind4 <- indexLookup w a Adv
+    ind1 <- catchIOError (indexLookup w a Noun) (const $ return Nothing)
+    ind2 <- catchIOError (indexLookup w a Verb) (const $ return Nothing)
+    ind3 <- catchIOError (indexLookup w a Adj) (const $ return Nothing)
+    ind4 <- catchIOError (indexLookup w a Adv) (const $ return Nothing)
     return (type' ((count' ind1) : (count' ind2) : (count' ind3) : (count' ind4) : []))
   where
     count' a' = if isJust a' then senseCount (fromJust a') else 0
@@ -614,10 +614,10 @@ wnPartString w a  = do
 wnPartPOS :: WordNetEnv -> String -> IO EPOS
 wnPartPOS _ [] = return UnknownEPos
 wnPartPOS w a  = do
-    ind1 <- indexLookup w a Noun
-    ind2 <- indexLookup w a Verb
-    ind3 <- indexLookup w a Adj
-    ind4 <- indexLookup w a Adv
+    ind1 <- catchIOError (indexLookup w a Noun) (const $ return Nothing)
+    ind2 <- catchIOError (indexLookup w a Verb) (const $ return Nothing)
+    ind3 <- catchIOError (indexLookup w a Adj) (const $ return Nothing)
+    ind4 <- catchIOError (indexLookup w a Adv) (const $ return Nothing)
     return (type' ((count' ind1) : (count' ind2) : (count' ind3) : (count' ind4) : []))
   where
     count' a' = if isJust a' then senseCount (fromJust a') else 0
@@ -644,7 +644,7 @@ wnGloss wne' word' pos' = do
 
 wnRelated :: WordNetEnv -> String -> String -> String -> IO String
 wnRelated wne' c d pos' = do
-    x <- wnRelated' wne' c d $ readEPOS pos'
+    x <- catchIOError (wnRelated' wne' c d $ readEPOS pos') (const $ return [])
     f (filter (not . null) x) []
   where
     f []     a = return a
