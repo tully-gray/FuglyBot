@@ -102,6 +102,7 @@ readParam a | (map toLower a) == "sentencetries"   = SentenceTries
 readParam a | (map toLower a) == "slen"            = SentenceLength
 readParam a | (map toLower a) == "slength"         = SentenceLength
 readParam a | (map toLower a) == "sentencelength"  = SentenceLength
+readParam a | (map toLower a) == "plen"            = ParseLength
 readParam a | (map toLower a) == "plength"         = ParseLength
 readParam a | (map toLower a) == "parselength"     = ParseLength
 readParam a | (map toLower a) == "learning"        = Learning
