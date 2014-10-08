@@ -608,10 +608,18 @@ fTail _ c  = tail c
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
 wnPartString w a  = do
-    ind1 <- catchIOError (indexLookup w a Noun) (const $ return Nothing)
-    ind2 <- catchIOError (indexLookup w a Verb) (const $ return Nothing)
-    ind3 <- catchIOError (indexLookup w a Adj) (const $ return Nothing)
-    ind4 <- catchIOError (indexLookup w a Adv) (const $ return Nothing)
+    ind1 <- catch (indexLookup w a Noun) (\e -> do let err = show (e :: SomeException)
+                                                   hPutStrLn stderr ("WordNet: indexLookup Noun: " ++ err)
+                                                   return Nothing)
+    ind2 <- catch (indexLookup w a Verb) (\e -> do let err = show (e :: SomeException)
+                                                   hPutStrLn stderr ("WordNet: indexLookup Verb: " ++ err)
+                                                   return Nothing)
+    ind3 <- catch (indexLookup w a Adj)  (\e -> do let err = show (e :: SomeException)
+                                                   hPutStrLn stderr ("WordNet: indexLookup Adj: " ++ err)
+                                                   return Nothing)
+    ind4 <- catch (indexLookup w a Adv)  (\e -> do let err = show (e :: SomeException)
+                                                   hPutStrLn stderr ("WordNet: indexLookup Adv: " ++ err)
+                                                   return Nothing)
     return (type' ((count' ind1) : (count' ind2) : (count' ind3) : (count' ind4) : []))
   where
     count' a' = if isJust a' then senseCount (fromJust a') else 0
@@ -627,10 +635,18 @@ wnPartString w a  = do
 wnPartPOS :: WordNetEnv -> String -> IO EPOS
 wnPartPOS _ [] = return UnknownEPos
 wnPartPOS w a  = do
-    ind1 <- catchIOError (indexLookup w a Noun) (const $ return Nothing)
-    ind2 <- catchIOError (indexLookup w a Verb) (const $ return Nothing)
-    ind3 <- catchIOError (indexLookup w a Adj) (const $ return Nothing)
-    ind4 <- catchIOError (indexLookup w a Adv) (const $ return Nothing)
+    ind1 <- catch (indexLookup w a Noun) (\e -> do let err = show (e :: SomeException)
+                                                   hPutStrLn stderr ("WordNet: indexLookup Noun: " ++ err)
+                                                   return Nothing)
+    ind2 <- catch (indexLookup w a Verb) (\e -> do let err = show (e :: SomeException)
+                                                   hPutStrLn stderr ("WordNet: indexLookup Verb: " ++ err)
+                                                   return Nothing)
+    ind3 <- catch (indexLookup w a Adj)  (\e -> do let err = show (e :: SomeException)
+                                                   hPutStrLn stderr ("WordNet: indexLookup Adj: " ++ err)
+                                                   return Nothing)
+    ind4 <- catch (indexLookup w a Adv)  (\e -> do let err = show (e :: SomeException)
+                                                   hPutStrLn stderr ("WordNet: indexLookup Adv: " ++ err)
+                                                   return Nothing)
     return (type' ((count' ind1) : (count' ind2) : (count' ind3) : (count' ind4) : []))
   where
     count' a' = if isJust a' then senseCount (fromJust a') else 0
@@ -657,7 +673,7 @@ wnGloss wne' word' pos' = do
 
 wnRelated :: WordNetEnv -> String -> String -> String -> IO String
 wnRelated wne' c d pos' = do
-    x <- catchIOError (wnRelated' wne' c d $ readEPOS pos') (const $ return [])
+    x <- wnRelated' wne' c d $ readEPOS pos'
     f (filter (not . null) x) []
   where
     f []     a = return a
@@ -666,7 +682,7 @@ wnRelated wne' c d pos' = do
 wnRelated' :: WordNetEnv -> String -> String -> EPOS -> IO [String]
 wnRelated' _    [] _ _    = return [[]] :: IO [String]
 wnRelated' wne' c [] pos' = wnRelated' wne' c "Hypernym" pos'
-wnRelated' wne' c d  pos' = do
+wnRelated' wne' c d  pos' = catch (do
     let wnForm = readForm d
     let result = if (map toLower d) == "all" then concat $ map (fromMaybe [[]])
                     (runs wne' (relatedByListAllForms (search (fixUnderscore c)
@@ -675,7 +691,10 @@ wnRelated' wne' c d  pos' = do
                        (fixUnderscore c) (fromEPOS pos') AllSenses)))
     if (null result) || (null $ concat result) then return [] else
       return $ map (\x -> replace '_' ' ' $ unwords $ map (++ "\"") $
-                    map ('"' :) $ concat $ map (getWords . getSynset) x) result
+                    map ('"' :) $ concat $ map (getWords . getSynset) x) result)
+                            (\e -> do let err = show (e :: SomeException)
+                                      hPutStrLn stderr ("WordNet: relatedBy: " ++ err)
+                                      return [])
 
 wnClosure :: WordNetEnv -> String -> String -> String -> IO String
 wnClosure _ [] _ _           = return []
