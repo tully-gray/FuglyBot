@@ -480,16 +480,16 @@ execCmd bot chan nick (x:xs) = do
                          else return bot
       | x == "!ageword" = if nick == owner then
           case (length xs) of
-            1 -> replyMsg bot chan nick ("Aged word " ++ (xs!!0)) >>
-                 return (Bot socket params fugly{dict=ageWord dict (xs!!0)})
-            _ -> replyMsg bot chan nick "Usage: !ageword <word>"
+            2 -> replyMsg bot chan nick ("Aged word " ++ (xs!!0)) >>
+                 return (Bot socket params fugly{dict=ageWord dict (xs!!0) (read (xs!!1))})
+            _ -> replyMsg bot chan nick "Usage: !ageword <word> <number>"
                  >> return bot
                          else return bot
       | x == "!agewords" = if nick == owner then
           case (length xs) of
-            0 -> replyMsg bot chan nick ("Aged all words...") >>
-                 return (Bot socket params fugly{dict=ageWords dict})
-            _ -> replyMsg bot chan nick "Usage: !agewords"
+            1 -> replyMsg bot chan nick ("Aged all words...") >>
+                 return (Bot socket params fugly{dict=ageWords dict (read (xs!!0))})
+            _ -> replyMsg bot chan nick "Usage: !agewords <number>"
                  >> return bot
                          else return bot
       | x == "!cleanwords" = if nick == owner then

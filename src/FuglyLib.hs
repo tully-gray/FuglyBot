@@ -384,19 +384,26 @@ dropWord m word' = Map.map del' (Map.delete word' m)
       del' (Word w c b a r p) = (Word w c (Map.delete word' b) (Map.delete word' a) r p)
       del' (Name w c b a r) = (Name w c (Map.delete word' b) (Map.delete word' a) r)
 
-ageWord :: Map.Map String Word -> String -> Map.Map String Word
-ageWord m word' = Map.map age m
+ageWord :: Map.Map String Word -> String -> Int -> Map.Map String Word
+ageWord m word' num = age m word' num 0
+  where
+    age m' w n i
+      | i >= n    = m'
+      | otherwise = age (ageWord' m' w) w n (i + 1)
+
+ageWord' :: Map.Map String Word -> String -> Map.Map String Word
+ageWord' m word' = Map.map age m
     where
-      age ww@(Word w c _ _ r p) = (Word w (if w == word' then if c - 1 < 0 then 0 else c - 1 else c)
+      age ww@(Word w c _ _ r p) = (Word w (if w == word' then if c - 1 < 1 then 1 else c - 1 else c)
                                    (incBefore' ww word' (-1)) (incAfter' ww word' (-1)) r p)
-      age ww@(Name w c _ _ r)   = (Name w (if w == word' then if c - 1 < 0 then 0 else c - 1 else c)
+      age ww@(Name w c _ _ r)   = (Name w (if w == word' then if c - 1 < 1 then 1 else c - 1 else c)
                                    (incBefore' ww word' (-1)) (incAfter' ww word' (-1)) r)
 
-ageWords :: Map.Map String Word -> Map.Map String Word
-ageWords m = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m)
+ageWords :: Map.Map String Word -> Int -> Map.Map String Word
+ageWords m num = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m) num
     where
-      f m' []     = m'
-      f m' (x:xs) = f (ageWord m' x) xs
+      f m' []     n = m'
+      f m' (x:xs) n = f (ageWord m' x n) xs n
 
 cleanWords :: Map.Map String Word -> Map.Map String Word
 cleanWords m = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m)
@@ -432,14 +439,14 @@ fixWords aspell' m = do
           else return ((map toLower cw), c)
 
 incCount' :: Word -> Int -> Int
-incCount' (Word _ c _ _ _ _) n = if c + n < 0 then 0 else c + n
-incCount' (Name _ c _ _ _)   n = if c + n < 0 then 0 else c + n
+incCount' (Word _ c _ _ _ _) n = if c + n < 1 then 1 else c + n
+incCount' (Name _ c _ _ _)   n = if c + n < 1 then 1 else c + n
 
 incBefore' :: Word -> String -> Int -> Map.Map String Int
 incBefore' (Word _ _ b _ _ _) []      _ = b
 incBefore' (Word _ _ b _ _ _) before' n =
   if isJust w then
-    if (fromJust w) + n < 1 then Map.delete before' b
+    if (fromJust w) + n < 1 then b
     else Map.insert before' ((fromJust w) + n) b
   else if n < 0 then b
        else Map.insert before' n b
@@ -452,7 +459,7 @@ incAfter' :: Word -> String -> Int -> Map.Map String Int
 incAfter' (Word _ _ _ a _ _) []     _ = a
 incAfter' (Word _ _ _ a _ _) after' n =
   if isJust w then
-    if (fromJust w) + n < 1 then Map.delete after' a
+    if (fromJust w) + n < 1 then a
     else Map.insert after' ((fromJust w) + n) a
   else if n < 0 then a
        else Map.insert after' n a
