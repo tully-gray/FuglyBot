@@ -94,20 +94,6 @@ data Word = Word {
               before  :: Map.Map String Int,
               after   :: Map.Map String Int,
               related :: [String]
-              } |
-            Place {
-              place   :: String,
-              count   :: Int,
-              before  :: Map.Map String Int,
-              after   :: Map.Map String Int,
-              related :: [String]
-              } |
-            Phrase {
-              phrase  :: String,
-              count   :: Int,
-              before  :: Map.Map String Int,
-              after   :: Map.Map String Int,
-              related :: [String]
               }
 
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO Fugly
@@ -233,8 +219,6 @@ badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "I'd", "i", "and", "are",
 wordIs :: Word -> String
 wordIs (Word _ _ _ _ _ _) = "word"
 wordIs (Name _ _ _ _ _)   = "name"
-wordIs (Place _ _ _ _ _)  = "place"
-wordIs (Phrase _ _ _ _ _) = "phrase"
 
 wordGetWord :: Word -> String
 wordGetWord (Word w _ _ _ _ _) = w
@@ -402,7 +386,7 @@ ageWord' m word' = Map.map age m
 ageWords :: Map.Map String Word -> Int -> Map.Map String Word
 ageWords m num = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m) num
     where
-      f m' []     n = m'
+      f m' []     _ = m'
       f m' (x:xs) n = f (ageWord m' x n) xs n
 
 cleanWords :: Map.Map String Word -> Map.Map String Word
@@ -756,22 +740,23 @@ asSuggest aspell' word' = do w <- Aspell.suggest aspell' (ByteString.pack word')
 
 gfParseBool :: PGF -> Int -> String -> Bool
 gfParseBool _ _ [] = False
-gfParseBool pgf len msg
+gfParseBool pgf' len msg
   | elem lw badEndWords = False
-  | length w > len = (gfParseBoolA pgf $ take len w) && (gfParseBool pgf len (unwords $ drop len w))
-  | otherwise      = gfParseBoolA pgf w
+  | length w > len = (gfParseBoolA pgf' $ take len w) &&
+                     (gfParseBool pgf' len (unwords $ drop len w))
+  | otherwise      = gfParseBoolA pgf' w
     where
       w = words msg
       lw = strip '?' $ strip '.' $ last w
 
 gfParseBoolA :: PGF -> [String] -> Bool
-gfParseBoolA pgf msg
+gfParseBoolA pgf' msg
   | null msg                                 = False
-  | null $ parse pgf lang (startCat pgf) m   = False
+  | null $ parse pgf' lang (startCat pgf') m = False
   | otherwise                                = True
   where
     m = unwords msg
-    lang = head $ languages pgf
+    lang = head $ languages pgf'
 
 {--
 gfParseBool2 :: PGF -> String -> Bool
@@ -783,24 +768,24 @@ gfParseBool2 pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
 --}
 
 gfParseC :: PGF -> String -> [String]
-gfParseC pgf msg = lin pgf lang (parse_ pgf lang (startCat pgf) Nothing msg)
+gfParseC pgf' msg = lin pgf' lang (parse_ pgf' lang (startCat pgf') Nothing msg)
   where
-    lin pgf lang (ParseOk tl, b)      = map (lin' pgf lang) tl
-    lin pgf lang (ParseFailed a, b)   = ["parse failed at " ++ show a ++
-                                        " tokens: " ++ showBracketedString b]
-    lin pgf lang (ParseIncomplete, b) = ["parse incomplete: " ++ showBracketedString b]
-    lin pgf lang _                    = ["No parse!"]
-    lin' pgf lang t = "parse: " ++ showBracketedString (head $ bracketedLinearize pgf lang t)
-    lang = head $ languages pgf
+    lin p l (ParseOk tl, _)      = map (lin' p l) tl
+    lin _ _ (ParseFailed a, b)   = ["parse failed at " ++ show a ++
+                                    " tokens: " ++ showBracketedString b]
+    lin _ _ (ParseIncomplete, b) = ["parse incomplete: " ++ showBracketedString b]
+    lin _ _ _                    = ["No parse!"]
+    lin' p l t = "parse: " ++ showBracketedString (head $ bracketedLinearize p l t)
+    lang = head $ languages pgf'
 
 gfCategories :: PGF -> [String]
-gfCategories pgf = map showCId (categories pgf)
+gfCategories pgf' = map showCId (categories pgf')
 
 sentence :: Fugly -> Int -> Int -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ _ _ [] = [return []] :: [IO String]
-sentence fugly@(Fugly dict pgf wne aspell _ ban) randoms stries slen plen msg = do
+sentence fugly@(Fugly _ pgf' _ _ _ ban') randoms stries slen plen msg = do
   let s1f x = if null x then return []
-              else if gfParseBool pgf plen x && length (words x) > 2 then return x else return []
+              else if gfParseBool pgf' plen x && length (words x) > 2 then return x else return []
   let s1a x = do
       z <- findNextWord fugly 0 randoms True x
       let zz = if null z then [] else head z
@@ -809,7 +794,7 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) randoms stries slen plen msg = 
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
       ww <- wnReplaceWords fugly randoms w
-      return $ filter (not . null) ([yy] ++ [zz] ++ [x] ++ (filter (\y -> length y > 0 && not (elem y ban)) ww))
+      return $ filter (not . null) ([yy] ++ [zz] ++ [x] ++ (filter (\a -> length a > 0 && not (elem a ban')) ww))
   let s1d x = do
       w <- x
       if null w then return []
@@ -824,8 +809,8 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) randoms stries slen plen msg = 
   map (\x -> do y <- x ; s1f y) s1g
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
-    s1b f@(Fugly d p w s a b) n i msg = do
-      ww <- msg
+    s1b f n i msg' = do
+      ww <- msg'
       if null ww then return []
         else if i >= n then return $ nub ww else do
                www <- findNextWord f i randoms False (fLast [] ww)
@@ -836,13 +821,13 @@ sentence fugly@(Fugly dict pgf wne aspell _ ban) randoms stries slen plen msg = 
 
 chooseWord :: WordNetEnv -> [String] -> IO [String]
 chooseWord _ [] = return []
-chooseWord wne msg = do
+chooseWord wne' msg = do
   cc <- c1 msg []
   if null cc then c2 msg [] else c2 cc []
   where
     c1 [] m = return $ reverse m
-    c1 msg@(x:xs) m = do
-      p <- wnPartPOS wne x
+    c1 (x:xs) m = do
+      p <- wnPartPOS wne' x
       if p /= UnknownEPos then c1 xs (m ++ [x])
         else c1 xs m
     c2 [] m  = return m
@@ -854,17 +839,17 @@ chooseWord wne msg = do
 
 wnReplaceWords :: Fugly -> Int -> [String] -> IO [String]
 wnReplaceWords _ _ [] = return []
-wnReplaceWords fugly@(Fugly dict pgf wne aspell _ _) randoms msg = do
-  cw <- chooseWord wne msg
+wnReplaceWords fugly@(Fugly {wne=wne'}) randoms msg = do
+  cw <- chooseWord wne' msg
   cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
   rr <- Random.getStdRandom (Random.randomR (0, 99))
-  w <- if not $ null cw then findRelated wne (cw!!cr) else return []
+  w <- if not $ null cw then findRelated wne' (cw!!cr) else return []
   let out = filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++ [w] ++ (tail $ dropWhile (/= (cw!!cr)) msg))
   if rr + randoms < 90 then
     return out
     else if randoms < 90 then
       wnReplaceWords fugly randoms out
-      else sequence $ map (\x -> findRelated wne x) msg
+      else sequence $ map (\x -> findRelated wne' x) msg
 
 asReplaceWords :: Fugly -> [String] -> IO [String]
 asReplaceWords _ [] = return [[]]
@@ -873,20 +858,20 @@ asReplaceWords fugly msg = do
 
 asReplace :: Fugly -> String -> IO String
 asReplace _ [] = return []
-asReplace fugly@(Fugly dict _ wne aspell _ _) word =
-  if (elem ' ' word) || (elem '\'' word) || (head word == (toUpper $ head word)) then return word
+asReplace (Fugly dict' _ wne' aspell' _ _) word' =
+  if (elem ' ' word') || (elem '\'' word') || (head word' == (toUpper $ head word')) then return word'
     else do
-    a  <- asSuggest aspell word
-    p <- wnPartPOS wne word
-    let w = Map.lookup word dict
+    a  <- asSuggest aspell' word'
+    p <- wnPartPOS wne' word'
+    let w = Map.lookup word' dict'
     let rw = words a
     rr <- Random.getStdRandom (Random.randomR (0, (length rw) - 1))
-    if null rw || p /= UnknownEPos || isJust w then return word else
-      if head rw == word then return word else return (rw!!rr)
+    if null rw || p /= UnknownEPos || isJust w then return word' else
+      if head rw == word' then return word' else return (rw!!rr)
 
 findNextWord :: Fugly -> Int -> Int -> Bool -> String -> IO [String]
 findNextWord _ _ _ _ [] = return []
-findNextWord fugly@(Fugly dict pgf wne aspell _ _) i randoms prev word = do
+findNextWord (Fugly dict' _ _ _ _ _) i randoms prev word' = do
   let ln = if isJust w then length neigh else 0
   let lm = if isJust w then length neighmax else 0
   let ll = if isJust w then length neighleast else 0
@@ -922,26 +907,26 @@ findNextWord fugly@(Fugly dict pgf wne aspell _ _) i randoms prev word = do
         if rr < randoms + 65 then return $ replace "i" "I" $ words f4 else
           return $ replace "i" "I" $ words f5
     where
-      w          = Map.lookup word dict
+      w          = Map.lookup word' dict'
       wordGet'   = if prev then wordGetBefore else wordGetAfter
       neigh      = listNeigh $ wordGet' (fromJust w)
       neighmax   = listNeighMax $ wordGet' (fromJust w)
       neighleast = listNeighLeast $ wordGet' (fromJust w)
 
 findRelated :: WordNetEnv -> String -> IO String
-findRelated wne word = do
-  pp <- wnPartPOS wne word
+findRelated wne' word' = do
+  pp <- wnPartPOS wne' word'
   if pp /= UnknownEPos then do
-    hyper <- wnRelated' wne word "Hypernym" pp
-    hypo  <- wnRelated' wne word "Hyponym" pp
-    anto  <- wnRelated' wne word "Antonym" pp
+    hyper <- wnRelated' wne' word' "Hypernym" pp
+    hypo  <- wnRelated' wne' word' "Hyponym" pp
+    anto  <- wnRelated' wne' word' "Antonym" pp
     let hyper' = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') hyper
     let hypo'  = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') hypo
     let anto'  = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') anto
     if null anto' then
       if null hypo' then
         if null hyper' then
-          return word
+          return word'
           else do
             r <- Random.getStdRandom (Random.randomR (0, (length hyper') - 1))
             return (hyper'!!r)
@@ -951,13 +936,13 @@ findRelated wne word = do
       else do
         r <- Random.getStdRandom (Random.randomR (0, (length anto') - 1))
         return (anto'!!r)
-    else return word
+    else return word'
 
 dictLookup :: Fugly -> String -> String -> IO String
-dictLookup fugly@(Fugly _ _ wne aspell _ _) word pos = do
-    gloss <- wnGloss wne word pos
+dictLookup (Fugly _ _ wne' aspell' _ _) word' pos' = do
+    gloss <- wnGloss wne' word' pos'
     if gloss == "Nothing!" then
-       do a <- asSuggest aspell word
+       do a <- asSuggest aspell' word'
           return (gloss ++ " Perhaps you meant: " ++
-                  (unwords (filter (\x -> x /= word) (words a))))
+                  (unwords (filter (\x -> x /= word') (words a))))
       else return gloss
