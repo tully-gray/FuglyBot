@@ -216,43 +216,33 @@ badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "I'd", "i", "and", "are",
                "its", "from", "go", "my", "that", "that's", "whose", "when", "what", "has", "had", "make", "makes", "person's", "but",
                "our", "their", "than", "at", "on", "into", "just", "by", "he's", "she's"]
 
-wordIs :: Word -> String
-wordIs (Word _ _ _ _ _ _) = "word"
-wordIs (Name _ _ _ _ _)   = "name"
+class Word_ a where
+  wordIs :: a -> String
+  wordGetWord :: a -> String
+  wordGetCount :: a -> Int
+  wordGetAfter :: a -> Map.Map String Int
+  wordGetBefore :: a -> Map.Map String Int
+  wordGetRelated :: a -> [String]
+  wordGetPos :: a -> EPOS
+  wordGetwc :: a -> (Int, String)
 
-wordGetWord :: Word -> String
-wordGetWord (Word w _ _ _ _ _) = w
-wordGetWord (Name n _ _ _ _)   = n
-wordGetWord _                  = []
-
-wordGetCount :: Word -> Int
-wordGetCount (Word _ c _ _ _ _) = c
-wordGetCount (Name _ c _ _ _)   = c
-wordGetCount _                  = 0
-
-wordGetAfter :: Word -> Map.Map String Int
-wordGetAfter (Word _ _ _ a _ _) = a
-wordGetAfter (Name _ _ _ a _)   = a
-wordGetAfter _                  = Map.empty
-
-wordGetBefore :: Word -> Map.Map String Int
-wordGetBefore (Word _ _ b _ _ _) = b
-wordGetBefore (Name _ _ b _ _)   = b
-wordGetBefore _                  = Map.empty
-
-wordGetRelated :: Word -> [String]
-wordGetRelated (Word _ _ _ _ r _) = r
-wordGetRelated (Name _ _ _ _ r)   = r
-wordGetRelated _                  = []
-
-wordGetPos :: Word -> EPOS
-wordGetPos (Word _ _ _ _ _ p) = p
-wordGetPos (Name _ _ _ _ _)   = UnknownEPos
-wordGetPos _                  = UnknownEPos
-
-wordGetwc :: Word -> (Int, String)
-wordGetwc (Word w c _ _ _ _) = (c, w)
-wordGetwc (Name w c _ _ _)   = (c, w)
+instance Word_ Word where
+  wordIs (Word {}) = "word"
+  wordIs (Name {}) = "name"
+  wordGetWord (Word {word=w}) = w
+  wordGetWord (Name {name=n}) = n
+  wordGetCount (Word {count=c}) = c
+  wordGetCount _                = 0
+  wordGetAfter (Word {after=a}) = a
+  wordGetAfter _                = Map.empty
+  wordGetBefore (Word {before=b}) = b
+  wordGetBefore _                 = Map.empty
+  wordGetRelated (Word {related=r}) = r
+  wordGetRelated _                  = []
+  wordGetPos (Word {FuglyLib.pos=p}) = p
+  wordGetPos _                       = UnknownEPos
+  wordGetwc (Word w c _ _ _ _) = (c, w)
+  wordGetwc (Name w c _ _ _)   = (c, w)
 
 insertWords :: Fugly -> Bool -> [String] -> IO (Map.Map String Word)
 insertWords (Fugly {dict=d}) _ [] = return d
