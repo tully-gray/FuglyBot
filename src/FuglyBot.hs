@@ -32,7 +32,6 @@ data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChan
                  fuglydir    :: FilePath,
                  usercmd     :: Bool,
                  rejoinkick  :: Int,
-                 threadtime  :: Int,
                  maxchanmsg  :: Int,
                  stries      :: Int,
                  slength     :: Int,
@@ -53,34 +52,32 @@ instance Enum Parameter where
     toEnum 2 = Owner
     toEnum 3 = UserCommands
     toEnum 4 = RejoinKick
-    toEnum 5 = ThreadTime
-    toEnum 6 = MaxChanMsg
-    toEnum 7 = SentenceTries
-    toEnum 8 = SentenceLength
-    toEnum 9 = ParseLength
-    toEnum 10 = Learning
-    toEnum 11 = Autoname
-    toEnum 12 = AllowPM
-    toEnum 13 = Topic
-    toEnum 14 = Randoms
-    toEnum 15 = UnknownParam
+    toEnum 5 = MaxChanMsg
+    toEnum 6 = SentenceTries
+    toEnum 7 = SentenceLength
+    toEnum 8 = ParseLength
+    toEnum 9 = Learning
+    toEnum 10 = Autoname
+    toEnum 11 = AllowPM
+    toEnum 12 = Topic
+    toEnum 13 = Randoms
+    toEnum 14 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
     fromEnum UserCommands   = 3
     fromEnum RejoinKick     = 4
-    fromEnum ThreadTime     = 5
-    fromEnum MaxChanMsg     = 6
-    fromEnum SentenceTries  = 7
-    fromEnum SentenceLength = 8
-    fromEnum ParseLength    = 9
-    fromEnum Learning       = 10
-    fromEnum Autoname       = 11
-    fromEnum AllowPM        = 12
-    fromEnum Topic          = 13
-    fromEnum Randoms        = 14
-    fromEnum UnknownParam   = 15
-    fromEnum _              = 15
+    fromEnum MaxChanMsg     = 5
+    fromEnum SentenceTries  = 6
+    fromEnum SentenceLength = 7
+    fromEnum ParseLength    = 8
+    fromEnum Learning       = 9
+    fromEnum Autoname       = 10
+    fromEnum AllowPM        = 11
+    fromEnum Topic          = 12
+    fromEnum Randoms        = 13
+    fromEnum UnknownParam   = 14
+    fromEnum _              = 14
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -91,7 +88,6 @@ readParam a | (map toLower a) == "usercmd"         = UserCommands
 readParam a | (map toLower a) == "usercmds"        = UserCommands
 readParam a | (map toLower a) == "usercommands"    = UserCommands
 readParam a | (map toLower a) == "rejoinkick"      = RejoinKick
-readParam a | (map toLower a) == "threadtime"      = ThreadTime
 readParam a | (map toLower a) == "maxchanmsg"      = MaxChanMsg
 readParam a | (map toLower a) == "stries"          = SentenceTries
 readParam a | (map toLower a) == "sentencetries"   = SentenceTries
@@ -138,7 +134,7 @@ start args = do
     hSetBuffering s NoBuffering
     f <- initFugly fdir wndir gfdir topic'
     let b = (Bot s (Parameter nick' owner' fdir False
-             10 90 400 100 5 5  True True False topic' 0) f)
+             10 400 100 5 5  True True False topic' 0) f)
     bot <- newMVar b
     write s "NICK" nick'
     write s "USER" (nick' ++ " 0 * :user")
@@ -257,7 +253,6 @@ changeParam bot@(Bot _ p@(Parameter {fuglydir=fd, topic=t}) f) chan nick' param 
       Owner          -> replyMsg' value                 "Owner"               >>= (\x -> return bot{params=p{owner=x}})
       UserCommands   -> replyMsg' (readBool value)      "User commands"       >>= (\x -> return bot{params=p{usercmd=x}})
       RejoinKick     -> replyMsg' (readInt 1 4096 value) "Rejoin kick time"   >>= (\x -> return bot{params=p{rejoinkick=x}})
-      ThreadTime     -> replyMsg' (readInt 1 4096 value) "Thread time"        >>= (\x -> return bot{params=p{threadtime=x}})
       MaxChanMsg     -> replyMsg' (readInt 0 450 value) "Max channel message" >>= (\x -> return bot{params=p{maxchanmsg=x}})
       SentenceTries  -> replyMsg' (readInt 0 4096 value) "Sentence tries"     >>= (\x -> return bot{params=p{stries=x}})
       SentenceLength -> replyMsg' (readInt 0 256 value) "Sentence length"     >>= (\x -> return bot{params=p{slength=x}})
@@ -340,10 +335,6 @@ processLine line = do
     let nick' = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
     let rk = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
     let bk = beenKicked nick' line
-    {-- Kill long lived threads --}
-    -- t <- lift $ myThreadId
-    -- let ttime = (\(Bot _ (Parameter {threadtime = t}) _) -> t * 1000000) bot
-    -- lift $ forkIO (do threadDelay ttime ; putMVar b bot ; killThread t) >> return ()
     if (not $ null bk) then do lift (rejoinChannel socket bk rk >> putMVar b bot)
       else if null msg then lift $ putMVar b bot
          else if chan == nick' then do nb <- prvcmd bot ; lift $ putMVar b nb
@@ -366,7 +357,7 @@ processLine line = do
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply bot _ _ [] = return bot
-reply bot@(Bot socket p@(Parameter botnick owner' _ _ _ _ _ stries'
+reply bot@(Bot socket p@(Parameter botnick owner' _ _ _ _ stries'
                          slen plen learning' autoname' allowpm' _ randoms')
            f@(Fugly _ pgf' wne' _ _ _)) chan nick' msg = do
     let mmsg = if null $ head msg then msg
@@ -401,7 +392,7 @@ execCmd b chan nick' (x:xs) = do
   where
     execCmd' :: Bot -> IO Bot
     execCmd' bot@(Bot socket p@(Parameter botnick owner' fdir
-                                     usercmd' rkick ttime maxcmsg
+                                     usercmd' rkick maxcmsg
                                      stries' slen plen learn autoname'
                                      allowpm' topic' randoms')
                   f@(Fugly dict' pgf' wne' aspell' allow' ban'))
@@ -434,7 +425,7 @@ execCmd b chan nick' (x:xs) = do
           if nick' == owner' then case (length xs) of
             0 -> replyMsg bot chan nick' ("nick: " ++ botnick ++ "  owner: " ++ owner' ++
                    "  usercommands: " ++ show usercmd' ++ "  rejoinkick: "
-                   ++ show rkick ++ "  threadtime: " ++ show ttime ++ "  maxchanmsg: " ++ show maxcmsg
+                   ++ show rkick ++ "  maxchanmsg: " ++ show maxcmsg
                    ++ "  sentencetries: " ++ show stries' ++ "  sentencelength: " ++ show slen ++ "  parselength: " ++ show plen
                    ++ "  learning: " ++ show learn ++ "  autoname: " ++ show autoname' ++ "  allowpm: " ++ show allowpm'
                    ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms') >> return bot
