@@ -21,12 +21,10 @@ Library
         NLP.WordNet.Consts
         NLP.WordNet.Prims
         NLP.WordNet.Types
-    -- -feager-blackholing (causing problems with threading)
-    GHC-Options: -rtsopts=all -threaded -Wall
+    GHC-Options: -rtsopts=all -threaded -feager-blackholing -Wall
 
 Executable fuglybot
     Main-is:         FuglyBot.hs
     Build-depends:   base == 4.*, array, bytestring, containers, filepath, gf, haspell, network, parallel, random, regex-posix, socks, transformers, unix
     Hs-source-dirs:  src
-    -- -feager-blackholing (causing problems with threading)
-    GHC-Options: -rtsopts=all -threaded -Wall
+    GHC-Options: -rtsopts=all -threaded -feager-blackholing -Wall
