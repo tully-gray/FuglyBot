@@ -5,7 +5,7 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.State.Lazy
 import Data.Char
 import Data.List
-import qualified Data.Map.Strict as Map
+import qualified Data.Map.Lazy as Map
 import Network
 import Network.Socks5
 import System.Environment

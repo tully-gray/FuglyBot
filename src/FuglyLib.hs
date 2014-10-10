@@ -558,7 +558,9 @@ endSentence msg = (init msg) ++ ((fLast [] msg) ++ if elem (head msg) qWords the
 
 fReadInt :: String -> Int -> String -> Int
 fReadInt a b c = unsafePerformIO (do catch (evaluate (read c :: Int))
-                                       (\e -> do putStrLn ("fRead: " ++ show (e :: SomeException) ++ " in " ++ a) ; return b))
+                                       (\e -> do hPutStrLn stderr ("fRead: " ++ show
+                                                                   (e :: SomeException)
+                                                                   ++ " in " ++ a) ; return b))
 
 {--
 fHead :: String -> a -> [a] -> a
