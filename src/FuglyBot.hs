@@ -592,7 +592,7 @@ execCmd b chan nick' (x:xs) = do
                  >> return bot
       | x == "!parse" = case (length xs) of
             0 -> replyMsg bot chan nick' "Usage: !parse <sentence>" >> return bot
-            _ -> (sequence $ map (replyMsg bot chan nick') $ take 3
+            _ -> (mapM (replyMsg bot chan nick') $ take 3
                   (gfParseC pgf' (unwords $ take 12 xs))) >> return bot
       | x == "!gfcats" = case (length xs) of
             0 -> return (unwords $ gfCategories pgf') >>= replyMsg bot chan nick' >> return bot
