@@ -370,12 +370,15 @@ reply bot@(Bot socket p@(Parameter botnick owner' _ _ _ _ stries'
     mm <- lift $ chooseWord wne' fmsg
     r <- lift $ Random.getStdRandom (Random.randomR (0, 4 :: Int))
     let rr = if r == 2 then 2 else 1
-    _ <- if null chan then if allowpm' then lift $ sentenceReply socket f nick' [] randoms' stries' slen plen rr mm
-                           else return ()
-         else if null nick' then if length msg > 2 && (unwords msg) =~ botnick then
-                                  lift $ sentenceReply socket f chan chan randoms' stries' slen plen rr mm
-                                else return ()
-           else lift $ sentenceReply socket f chan nick' randoms' stries' slen plen rr mm
+    _ <- lift $ forkIO (if null chan then
+                          if allowpm' then
+                            sentenceReply socket f nick' [] randoms' stries' slen plen rr mm
+                          else return ()
+                        else if null nick' then
+                               if length msg > 2 && (unwords msg) =~ botnick then
+                                 sentenceReply socket f chan chan randoms' stries' slen plen rr mm
+                               else return ()
+                             else sentenceReply socket f chan nick' randoms' stries' slen plen rr mm)
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords f autoname' fmsg
       lift $ putStrLn ">parse<"
