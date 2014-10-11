@@ -381,7 +381,7 @@ reply bot@(Bot socket p@(Parameter botnick owner' _ _ _ _ stries'
                              else sentenceReply socket f chan nick' randoms' stries' slen plen rr mm)
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords f autoname' fmsg
-      lift $ putStrLn ">parse<"
+      lift $ hPutStrLn stdout ">parse<"
       return (Bot socket p f{dict=nd}) else
       return bot
 reply bot _ _ _ = return bot

@@ -103,7 +103,7 @@ initFugly fuglydir wndir gfdir topic = do
     pgf' <- readPGF (gfdir ++ "/ParseEng.pgf")
     wne' <- NLP.WordNet.initializeWordNetWithOptions
             (return wndir :: Maybe FilePath)
-            (Just (\e f -> putStrLn (e ++ show (f :: SomeException))))
+            (Just (\e f -> hPutStrLn stderr (e ++ show (f :: SomeException))))
     a <- Aspell.spellCheckerWithOptions [Aspell.Options.Lang (ByteString.pack "en_US"),
                                          Aspell.Options.IgnoreCase False, Aspell.Options.Size Aspell.Options.Large,
                                          Aspell.Options.SuggestMode Aspell.Options.Normal]
@@ -118,11 +118,11 @@ stopFugly fuglydir fugly@(Fugly _ _ wne' _ _ _) topic = do
 saveDict :: Fugly -> FilePath -> String -> IO ()
 saveDict (Fugly dict' _ _ _ allow' ban') fuglydir topic = do
     let d = Map.toList dict'
-    if null d then putStrLn "Empty dict!"
+    if null d then hPutStrLn stderr "Empty dict!"
       else do
         h <- openFile (fuglydir ++ "/" ++ topic ++ "-dict.txt") WriteMode
         hSetBuffering h LineBuffering
-        putStrLn "Saving dict file..."
+        hPutStrLn stdout "Saving dict file..."
         saveDict' h d
         hPutStrLn h ">END<"
         hPutStrLn h $ unwords $ sort allow'
@@ -162,7 +162,7 @@ loadDict fuglydir topic = do
       return (Map.empty, [], [])
       else do
       hSetBuffering h LineBuffering
-      putStrLn "Loading dict file..."
+      hPutStrLn stdout "Loading dict file..."
       dict' <- ff h w [([], w)]
       allow' <- hGetLine h
       ban' <- hGetLine h
@@ -199,7 +199,7 @@ loadDict fuglydir topic = do
                            "end:"     -> word'
                            _          -> word'
                else word'
-      if l4 == False then do putStrLn ("Oops: " ++ l) >> return nm
+      if l4 == False then do hPutStrLn stderr ("Oops: " ++ l) >> return nm
         else if (head wl) == "end:" then
                ff h ww (nm ++ ((wordGetWord ww), ww) : [])
              else if (head wl) == ">END<" then
@@ -564,15 +564,15 @@ fReadInt a b c = unsafePerformIO (do catch (evaluate (read c :: Int))
 
 {--
 fHead :: String -> a -> [a] -> a
-fHead a b [] = unsafePerformIO (do putStrLn ("fHead: error in " ++ a) ; return b)
+fHead a b [] = unsafePerformIO (do hPutStrLn stderr ("fHead: error in " ++ a) ; return b)
 fHead _ _ c  = head c
 
 fLast :: String -> a -> [a] -> a
-fLast a b [] = unsafePerformIO (do putStrLn ("fLast: error in " ++ a) ; return b)
+fLast a b [] = unsafePerformIO (do hPutStrLn stderr ("fLast: error in " ++ a) ; return b)
 fLast _ _ c  = last c
 
 fTail :: String -> [a] -> [a] -> [a]
-fTail a b [] = unsafePerformIO (do putStrLn ("fTail: error in " ++ a) ; return b)
+fTail a b [] = unsafePerformIO (do hPutStrLn stderr ("fTail: error in " ++ a) ; return b)
 fTail _ _ c  = tail c
 --}
 
