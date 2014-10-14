@@ -330,21 +330,21 @@ processLine :: [String] -> StateT (MVar Bot) IO ()
 processLine [] = return ()
 processLine line = do
     b <- get
-    bot <- lift $ takeMVar b
+    bot <- lift $ readMVar b
     let socket = (\(Bot s _ _) -> s) bot
     let nick' = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
     let rk = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
     let bk = beenKicked nick' line
-    if (not $ null bk) then do lift (rejoinChannel socket bk rk >> putMVar b bot)
-      else if null msg then lift $ putMVar b bot
-         else if chan == nick' then do nb <- prvcmd bot ; lift $ putMVar b nb
-           else if spokenTo nick' msg then if null (tail msg) then lift $ putMVar b bot
+    if (not $ null bk) then do lift (rejoinChannel socket bk rk >> swapMVar b bot >> return ())
+      else if null msg then lift $ swapMVar b bot >> return ()
+         else if chan == nick' then do nb <- prvcmd bot ; lift $ swapMVar b nb >> return ()
+           else if spokenTo nick' msg then if null (tail msg) then lift $ swapMVar b bot >> return ()
                                           else if (head $ head $ tail msg) == '!'
                                             then do nb <- execCmd bot chan who (tail msg)
-                                                    lift $ putMVar b nb
+                                                    lift $ swapMVar b nb >> return ()
                                                else do nb <- reply bot chan who (tail msg)
-                                                       lift $ putMVar b nb
-             else do nb <- reply bot chan [] msg ; lift $ putMVar b nb
+                                                       lift $ swapMVar b nb >> return ()
+             else do nb <- reply bot chan [] msg ; lift $ swapMVar b nb >> return ()
   where
     msg  = getMsg line
     who  = getNick line
