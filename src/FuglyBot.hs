@@ -368,7 +368,7 @@ reply :: (Monad (t IO), MonadTrans t) =>
 reply bot _ _ [] = return bot
 reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
                          slen plen learning' autoname' allowpm' _ randoms')
-           f@(Fugly {pgf=pgf', wne=wne', FuglyLib.match=match'})) chan nick' msg = do
+           f@(Fugly {pgf=pgf', FuglyLib.match=match'})) chan nick' msg = do
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
                    ':' -> tail msg
@@ -377,7 +377,7 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
     fmsg <- lift $ asReplaceWords f $ map cleanString mmsg
     let parse = gfParseBool pgf' plen $ unwords fmsg
     let matchon = map toLower (intercalate "|" (botnick : match'))
-    mm <- lift $ chooseWord wne' fmsg
+    mm <- lift $ chooseWord fmsg
     r <- lift $ Random.getStdRandom (Random.randomR (1, 3 :: Int))
     _ <- lift $ forkOS (if null chan then
                           if allowpm' then
@@ -708,9 +708,8 @@ internalize b n msg = internalize' b n 0 msg
   where
     internalize' :: Bot -> Int -> Int -> String -> IO Bot
     internalize' bot _ _ [] = return bot
-    internalize' bot@(Bot s p@(Parameter {autoname=aname,stries=tries,slength=slen,plength=plen,randoms=rands})
-                      f@(Fugly {wne=wne'})) num i imsg = do
-      mm <- chooseWord wne' $ words imsg
+    internalize' bot@(Bot s p@(Parameter {autoname=aname, stries=tries, slength=slen, plength=plen, randoms=rands}) f) num i imsg = do
+      mm <- chooseWord $ words imsg
       st <- getSentence $ sentence f rands tries slen plen mm
       nd <- insertWords f aname $ words st
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int

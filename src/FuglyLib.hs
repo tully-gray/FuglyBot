@@ -817,17 +817,16 @@ sentence fugly@(Fugly {pgf=pgf', ban=ban'}) randoms stries slen plen msg = do
     s1c [] = []
     s1c w = ((toUpper $ head $ head w) : []) ++ (fTail [] $ head w)
 
-chooseWord :: WordNetEnv -> [String] -> IO [String]
-chooseWord _ [] = return []
-chooseWord wne' msg = do
-  cc <- c1 msg []
-  if null cc then c2 msg [] else c2 cc []
+chooseWord :: [String] -> IO [String]
+chooseWord [] = return []
+chooseWord msg = do
+  cc <- c1 msg
+  c2 cc []
   where
-    c1 [] m = return $ reverse m
-    c1 (x:xs) m = do
-      p <- wnPartPOS wne' x
-      if p /= UnknownEPos then c1 xs (m ++ [x])
-        else c1 xs m
+    c1 m = do
+      r <- Random.getStdRandom (Random.randomR (0, 1)) :: IO Int
+      if r == 0 then return m
+        else return $ reverse m
     c2 [] m  = return m
     c2 [x] m = return (m ++ [x])
     c2 (x:xs) m = do
@@ -838,7 +837,7 @@ chooseWord wne' msg = do
 wnReplaceWords :: Fugly -> Int -> [String] -> IO [String]
 wnReplaceWords _ _ [] = return []
 wnReplaceWords fugly@(Fugly {wne=wne'}) randoms msg = do
-  cw <- chooseWord wne' msg
+  cw <- chooseWord msg
   cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
   rr <- Random.getStdRandom (Random.randomR (0, 99))
   w <- if not $ null cw then findRelated wne' (cw!!cr) else return []
