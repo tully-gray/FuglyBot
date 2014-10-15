@@ -5,8 +5,9 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.State.Lazy
 import Data.Char
 import Data.List
+import Data.Maybe
 import qualified Data.Map.Lazy as Map
-import Network
+import Network.Socket
 import Network.Socks5
 import System.Environment
 import System.IO
@@ -118,8 +119,10 @@ main = do
 
 start :: [String] -> IO (MVar Bot)
 start args = do
-    let server   = args !! 0
-    let port     = read $ args !! 1 :: Integer
+    let servn    = args !! 0
+    let port     = args !! 1
+    let hints = defaultHints {addrFlags = [AI_NUMERICSERV]}
+    serv <- getAddrInfo (Just hints) (Just servn) (Just port)
     let nick'    = cleanStringWhite isAscii (args !! 2)
     let owner'   = args !! 3
     let topic'   = args !! 5
@@ -127,17 +130,22 @@ start args = do
     let wndir    = args !! 7 :: FilePath
     let gfdir    = args !! 8 :: FilePath
     let socks5   = args !! 10
-    let socks5add  = takeWhile (\x -> x /= ':') socks5
-    let socks5port = read (tail $ dropWhile (\x -> x /= ':') socks5) :: Integer
-    s <- if null socks5 then connectTo server (PortNumber (fromIntegral port)) else
-           socksConnectTo socks5add (PortNumber (fromIntegral socks5port)) server (PortNumber (fromIntegral port))
-    hSetBuffering s NoBuffering
+    let s5hostn  = takeWhile (\x -> x /= ':') socks5
+    let s5port   = tail $ dropWhile (\x -> x /= ':') socks5
+    s5serv <- getAddrInfo (Just hints) (Just s5hostn) (Just s5port)
+    s <- socket AF_INET Stream defaultProtocol
+    -- _ <- setSocketOption s Linger 1
+    _ <- setSocketOption s KeepAlive 1
+    _ <- if null socks5 then connect s (addrAddress $ head serv)
+         else socksConnectAddr s (addrAddress $ head s5serv) (addrAddress $ head serv)
+    sh <- socketToHandle s ReadWriteMode
+    hSetBuffering sh NoBuffering
     f <- initFugly fdir wndir gfdir topic'
-    let b = (Bot s (Parameter nick' owner' fdir False
+    let b = (Bot sh (Parameter nick' owner' fdir False
              10 400 100 5 5  True True False topic' 0) f)
     bot <- newMVar b
-    write s "NICK" nick'
-    write s "USER" (nick' ++ " 0 * :user")
+    write sh "NICK" nick'
+    write sh "USER" (nick' ++ " 0 * :user")
     return bot
 
 run :: [String] -> StateT (MVar Bot) IO b
@@ -214,9 +222,9 @@ changeNick (_:_) (_:_) = do
 changeNick (x:_) [] = do
     b <- get
     bot <- lift $ readMVar b
-    let socket = (\(Bot s _ _) -> s) bot
+    let s = (\(Bot a _ _) -> a) bot
     let new = cleanStringWhite isAscii x
-    lift $ write socket "NICK" new
+    lift $ write s "NICK" new
     return bot
 changeNick [] line = do
     b <- get
@@ -227,11 +235,11 @@ changeNick [] line = do
     testNick :: Bot -> String -> [String] -> IO Bot
     testNick bot [] _ = return bot
     testNick bot _ [] = return bot
-    testNick bot@(Bot socket p@(Parameter {owner = o}) f) old line'
+    testNick bot@(Bot s p@(Parameter {owner = o}) f) old line'
         | (x == "NICK") = return ("Nick change successful.") >>= replyMsg bot o []
-                          >> return (Bot socket p{nick = drop 1 y} f)
+                          >> return (Bot s p{nick = drop 1 y} f)
         | otherwise     = return ("Nick change failed!") >>= replyMsg bot o []
-                          >> return (Bot socket p{nick = old} f)
+                          >> return (Bot s p{nick = old} f)
       where
         x = head line'
         y = last line'
@@ -331,11 +339,11 @@ processLine [] = return ()
 processLine line = do
     b <- get
     bot <- lift $ readMVar b
-    let socket = (\(Bot s _ _) -> s) bot
+    let s = (\(Bot a _ _) -> a) bot
     let nick' = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
     let rk = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
     let bk = beenKicked nick' line
-    if (not $ null bk) then do lift (rejoinChannel socket bk rk >> swapMVar b bot >> return ())
+    if (not $ null bk) then do lift (rejoinChannel s bk rk >> swapMVar b bot >> return ())
       else if null msg then lift $ swapMVar b bot >> return ()
          else if chan == nick' then do nb <- prvcmd bot ; lift $ swapMVar b nb >> return ()
            else if spokenTo nick' msg then if null (tail msg) then lift $ swapMVar b bot >> return ()
@@ -357,7 +365,7 @@ processLine line = do
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply bot _ _ [] = return bot
-reply bot@(Bot socket p@(Parameter botnick owner' _ _ _ _ stries'
+reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
                          slen plen learning' autoname' allowpm' _ randoms')
            f@(Fugly {pgf=pgf', wne=wne', FuglyLib.match=match'})) chan nick' msg = do
     let mmsg = if null $ head msg then msg
@@ -367,22 +375,22 @@ reply bot@(Bot socket p@(Parameter botnick owner' _ _ _ _ stries'
                    _   -> msg
     fmsg <- lift $ asReplaceWords f $ map cleanString mmsg
     let parse = gfParseBool pgf' plen $ unwords fmsg
-    let match'' = intercalate "|" match'
+    let matchon = intercalate "|" (botnick : match')
     mm <- lift $ chooseWord wne' fmsg
     r <- lift $ Random.getStdRandom (Random.randomR (1, 3 :: Int))
     _ <- lift $ forkIO (if null chan then
                           if allowpm' then
-                            sentenceReply socket f nick' [] randoms' stries' slen plen r mm
+                            sentenceReply s f nick' [] randoms' stries' slen plen r mm
                           else return ()
                         else if null nick' then
-                               if length msg > 2 && (unwords msg) =~ (botnick ++ match'') then
-                                 sentenceReply socket f chan chan randoms' stries' slen plen r mm
+                               if length msg > 2 && (unwords msg) =~ matchon then
+                                 sentenceReply s f chan chan randoms' stries' slen plen r mm
                                else return ()
-                             else sentenceReply socket f chan nick' randoms' stries' slen plen r mm)
+                             else sentenceReply s f chan nick' randoms' stries' slen plen r mm)
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords f autoname' fmsg
       lift $ hPutStrLn stdout ">parse<"
-      return (Bot socket p f{dict=nd}) else
+      return (Bot s p f{dict=nd}) else
       return bot
 reply bot _ _ _ = return bot
 
@@ -394,7 +402,7 @@ execCmd b chan nick' (x:xs) = do
     lift $ execCmd' b
   where
     execCmd' :: Bot -> IO Bot
-    execCmd' bot@(Bot socket p@(Parameter botnick owner' fdir
+    execCmd' bot@(Bot s p@(Parameter botnick owner' fdir
                                      usercmd' rkick maxcmsg
                                      stries' slen plen learn autoname'
                                      allowpm' topic' randoms')
@@ -403,9 +411,9 @@ execCmd b chan nick' (x:xs) = do
       | x == "!quit" =
         if nick' == owner' then case (length xs) of
           0 -> do stopFugly fdir f topic' >>
-                    write socket "QUIT" ":Bye" >> return bot
+                    write s "QUIT" ":Bye" >> return bot
           _ -> do stopFugly fdir f topic' >>
-                    write socket "QUIT" (":" ++ unwords xs) >> return bot
+                    write s "QUIT" (":" ++ unwords xs) >> return bot
         else return bot
       | x == "!save" = if nick' == owner' then catchIOError (saveDict f fdir topic')
                                        (const $ return ()) >> replyMsg bot chan nick' "Saved dict file!"
@@ -413,11 +421,11 @@ execCmd b chan nick' (x:xs) = do
       | x == "!load" = if nick' == owner' then do
            (nd, na, nb, nm) <- catchIOError (loadDict fdir topic') (const $ return (dict', [], [], []))
            replyMsg bot chan nick' "Loaded dict file!"
-           return (Bot socket p (Fugly nd pgf' wne' aspell' na nb nm))
+           return (Bot s p (Fugly nd pgf' wne' aspell' na nb nm))
                        else return bot
-      | x == "!join" = if nick' == owner' then joinChannel socket "JOIN" xs >>
+      | x == "!join" = if nick' == owner' then joinChannel s "JOIN" xs >>
                                              return bot else return bot
-      | x == "!part" = if nick' == owner' then joinChannel socket "PART" xs >>
+      | x == "!part" = if nick' == owner' then joinChannel s "PART" xs >>
                                              return bot else return bot
       | x == "!nick" = if nick' == owner' then do nb <- newMVar bot ; evalStateT (changeNick xs []) nb else return bot
       | x == "!readfile" = if nick' == owner' then case (length xs) of
@@ -462,27 +470,27 @@ execCmd b chan nick' (x:xs) = do
           case (length xs) of
             2 -> do ww <- insertWordRaw f (xs!!1) [] [] (xs!!0)
                     replyMsg bot chan nick' ("Inserted word " ++ (xs!!1))
-                    return (Bot socket p f{dict=ww})
+                    return (Bot s p f{dict=ww})
             _ -> replyMsg bot chan nick' "Usage: !insertword <pos> <word>" >> return bot
                          else return bot
       | x == "!dropword" = if nick' == owner' then
           case (length xs) of
             1 -> replyMsg bot chan nick' ("Dropped word " ++ (xs!!0)) >>
-                 return (Bot socket p f{dict=dropWord dict' (xs!!0)})
+                 return (Bot s p f{dict=dropWord dict' (xs!!0)})
             _ -> replyMsg bot chan nick' "Usage: !dropword <word>"
                  >> return bot
                          else return bot
       | x == "!ageword" = if nick' == owner' then
           case (length xs) of
             2 -> replyMsg bot chan nick' ("Aged word " ++ (xs!!0)) >>
-                 return (Bot socket p f{dict=ageWord dict' (xs!!0) (read (xs!!1))})
+                 return (Bot s p f{dict=ageWord dict' (xs!!0) (read (xs!!1))})
             _ -> replyMsg bot chan nick' "Usage: !ageword <word> <number>"
                  >> return bot
                          else return bot
       | x == "!agewords" = if nick' == owner' then
           case (length xs) of
             1 -> replyMsg bot chan nick' ("Aged all words...") >>
-                 return (Bot socket p f{dict=ageWords dict' (read (xs!!0))})
+                 return (Bot s p f{dict=ageWords dict' (read (xs!!0))})
             _ -> replyMsg bot chan nick' "Usage: !agewords <number>"
                  >> return bot
                          else return bot
@@ -490,7 +498,7 @@ execCmd b chan nick' (x:xs) = do
           case (length xs) of
             0 -> do nd <- fixWords aspell' dict'
                     replyMsg bot chan nick' ("Cleaned some words...")
-                    return (Bot socket p f{dict=nd})
+                    return (Bot s p f{dict=nd})
             _ -> replyMsg bot chan nick' "Usage: !cleanwords"
                  >> return bot
                          else return bot
@@ -498,11 +506,11 @@ execCmd b chan nick' (x:xs) = do
           case (length xs) of
             2 -> if (xs!!0) == "add" then
                     replyMsg bot chan nick' ("Banned word " ++ (xs!!1)) >>
-                    return (Bot socket p (Fugly (dropWord dict' (xs!!1)) pgf' wne' aspell'
+                    return (Bot s p (Fugly (dropWord dict' (xs!!1)) pgf' wne' aspell'
                                                allow' (nub $ ban' ++ [(xs!!1)]) match'))
                  else if (xs!!0) == "delete" then
                     replyMsg bot chan nick' ("Unbanned word " ++ (xs!!1)) >>
-                    return (Bot socket p (Fugly dict' pgf' wne' aspell' allow'
+                    return (Bot s p (Fugly dict' pgf' wne' aspell' allow'
                                                (nub $ delete (xs!!1) ban') match'))
                  else replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>"
                       >> return bot
@@ -518,11 +526,11 @@ execCmd b chan nick' (x:xs) = do
           case (length xs) of
             2 -> if (xs!!0) == "add" then
                     replyMsg bot chan nick' ("Allowed word " ++ (xs!!1)) >>
-                    return (Bot socket p (Fugly dict' pgf' wne' aspell'
+                    return (Bot s p (Fugly dict' pgf' wne' aspell'
                                                (nub $ allow' ++ [(xs!!1)]) ban' match'))
                  else if (xs!!0) == "delete" then
                     replyMsg bot chan nick' ("Unallowed word " ++ (xs!!1)) >>
-                    return (Bot socket p (Fugly dict' pgf' wne' aspell'
+                    return (Bot s p (Fugly dict' pgf' wne' aspell'
                                                (nub $ delete (xs!!1) allow') ban' match'))
                  else replyMsg bot chan nick' "Usage: !allowword <list|add|delete> <word>"
                       >> return bot
@@ -538,11 +546,11 @@ execCmd b chan nick' (x:xs) = do
           case (length xs) of
             2 -> if (xs!!0) == "add" then
                     replyMsg bot chan nick' ("Matching word " ++ (xs!!1)) >>
-                    return (Bot socket p (Fugly dict' pgf' wne' aspell'
+                    return (Bot s p (Fugly dict' pgf' wne' aspell'
                                           allow' ban' (nub $ match' ++ [(xs!!1)])))
                  else if (xs!!0) == "delete" then
                     replyMsg bot chan nick' ("No longer matching word " ++ (xs!!1)) >>
-                    return (Bot socket p (Fugly dict' pgf' wne' aspell'
+                    return (Bot s p (Fugly dict' pgf' wne' aspell'
                                           allow' ban' (nub $ delete (xs!!1) match')))
                  else replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>"
                       >> return bot
@@ -569,7 +577,7 @@ execCmd b chan nick' (x:xs) = do
           case (length xs) of
             1 -> do ww <- insertName f (xs!!0) [] []
                     replyMsg bot chan nick' ("Inserted name " ++ (xs!!0))
-                    return (Bot socket p f{dict=ww})
+                    return (Bot s p f{dict=ww})
             _ -> replyMsg bot chan nick' "Usage: !insertname <name>" >> return bot
                            else return bot
       | x == "!internalize" = if nick' == owner' then
@@ -579,12 +587,12 @@ execCmd b chan nick' (x:xs) = do
                                   replyMsg bot chan nick' "Usage: !internalize <tries> <msg>" >> return bot
                            else return bot
       | x == "!talk" = if nick' == owner' then
-          if length xs > 2 then sentenceReply socket f (xs!!0) (xs!!1) randoms' stries' slen plen 2 (drop 2 xs)
+          if length xs > 2 then sentenceReply s f (xs!!0) (xs!!1) randoms' stries' slen plen 2 (drop 2 xs)
                                   >> return bot
           else replyMsg bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
                      else return bot
       | x == "!raw" = if nick' == owner' then
-          if (length xs) > 0 then write socket (xs!!0)(unwords $ tail xs)
+          if (length xs) > 0 then write s (xs!!0)(unwords $ tail xs)
                                   >> return bot
           else replyMsg bot chan nick' "Usage: !raw <msg>" >> return bot
                      else return bot
@@ -651,22 +659,22 @@ sentenceReply h fugly' chan nick' randoms' stries' slen plen num m = do
         else f xs ([xx ++ " "] ++ a) n (i + 1)
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
-replyMsg bot@(Bot socket (Parameter {maxchanmsg=mcm}) _) chan nick' msg
+replyMsg bot@(Bot s (Parameter {maxchanmsg=mcm}) _) chan nick' msg
     | null nick'      = if length msg > mcm then do
-      write socket "PRIVMSG" (chan ++ " :" ++ (take mcm msg))
+      write s "PRIVMSG" (chan ++ " :" ++ (take mcm msg))
       threadDelay 2000000
       replyMsg bot chan [] (drop mcm msg) else
-        write socket "PRIVMSG" (chan ++ " :" ++ msg)
+        write s "PRIVMSG" (chan ++ " :" ++ msg)
     | chan == nick'   = if length msg > mcm then do
-      write socket "PRIVMSG" (nick' ++ " :" ++ (take mcm msg))
+      write s "PRIVMSG" (nick' ++ " :" ++ (take mcm msg))
       threadDelay 2000000
       replyMsg bot chan nick' (drop mcm msg) else
-        write socket "PRIVMSG" (nick' ++ " :" ++ msg)
+        write s "PRIVMSG" (nick' ++ " :" ++ msg)
     | otherwise      = if length msg > mcm then do
-      write socket "PRIVMSG" (chan ++ " :" ++ nick' ++ ": " ++ (take mcm msg))
+      write s "PRIVMSG" (chan ++ " :" ++ nick' ++ ": " ++ (take mcm msg))
       threadDelay 2000000
       replyMsg bot chan nick' (drop mcm msg) else
-        write socket "PRIVMSG" (chan ++ " :" ++ nick' ++ ": " ++ msg)
+        write s "PRIVMSG" (chan ++ " :" ++ nick' ++ ": " ++ msg)
 replyMsg _ _ _ _ = return ()
 
 write :: Handle -> String -> String -> IO ()
@@ -692,15 +700,15 @@ internalize b n msg = internalize' b n 0 msg
   where
     internalize' :: Bot -> Int -> Int -> String -> IO Bot
     internalize' bot _ _ [] = return bot
-    internalize' bot@(Bot socket p@(Parameter {autoname=aname,stries=st,slength=slen,plength=plen,randoms=rands})
+    internalize' bot@(Bot s p@(Parameter {autoname=aname,stries=tries,slength=slen,plength=plen,randoms=rands})
                       f@(Fugly {wne=wne'})) num i imsg = do
       mm <- chooseWord wne' $ words imsg
-      s <- getSentence $ sentence f rands st slen plen mm
-      nd <- insertWords f aname $ words s
+      st <- getSentence $ sentence f rands tries slen plen mm
+      nd <- insertWords f aname $ words st
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot
-        else if r == 0 then hPutStrLn stdout ("> internalize: " ++ msg) >> internalize' (Bot socket p f{dict=nd}) num (i + 1) msg
-          else hPutStrLn stdout ("> internalize: " ++ s) >> internalize' (Bot socket p f{dict=nd}) num (i + 1) s
+        else if r == 0 then hPutStrLn stdout ("> internalize: " ++ msg) >> internalize' (Bot s p f{dict=nd}) num (i + 1) msg
+          else hPutStrLn stdout ("> internalize: " ++ st) >> internalize' (Bot s p f{dict=nd}) num (i + 1) st
     internalize' bot _ _ _ = return bot
     getSentence []     = return []
     getSentence (x:xs) = do
