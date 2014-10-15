@@ -388,7 +388,7 @@ cleanWords m = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m)
 
 fixWords :: Aspell.SpellChecker -> Map.Map String Word -> IO (Map.Map String Word)
 fixWords aspell' m = do
-    x <- sequence $ map f $ Map.toList $ Map.filter (\x -> wordGetCount x > 0) $ cleanWords m
+    x <- mapM f $ Map.toList $ Map.filter (\x -> wordGetCount x > 0) $ cleanWords m
     return $ Map.fromList x
     where
       f (s, (Word w c b a r p)) = do
@@ -405,7 +405,7 @@ fixWords aspell' m = do
         cnb <- cn b
         return (toUpperWord $ cleanString s, (Name (toUpperWord $ cleanString w)
                                               c (Map.fromList cnb) (Map.fromList cna) r))
-      cn m' = sequence $ map cm $ Map.toList $ Map.filter (\x -> x > 0) m'
+      cn m' = mapM cm $ Map.toList $ Map.filter (\x -> x > 0) m'
       cm (w, c) = do
         n <- asIsName aspell' w
         let cw = cleanString w
@@ -841,12 +841,12 @@ wnReplaceWords fugly@(Fugly {wne=wne'}) randoms msg = do
     return out
     else if randoms < 90 then
       wnReplaceWords fugly randoms out
-      else sequence $ map (\x -> findRelated wne' x) msg
+      else mapM (\x -> findRelated wne' x) msg
 
 asReplaceWords :: Fugly -> [String] -> IO [String]
 asReplaceWords _ [] = return [[]]
 asReplaceWords fugly msg = do
-  sequence $ map (\x -> asReplace fugly x) msg
+  mapM (\x -> asReplace fugly x) msg
 
 asReplace :: Fugly -> String -> IO String
 asReplace _ [] = return []
