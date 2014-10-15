@@ -375,7 +375,7 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
                    _   -> msg
     fmsg <- lift $ asReplaceWords f $ map cleanString mmsg
     let parse = gfParseBool pgf' plen $ unwords fmsg
-    let matchon = intercalate "|" (botnick : match')
+    let matchon = map toLower (intercalate "|" (botnick : match'))
     mm <- lift $ chooseWord wne' fmsg
     r <- lift $ Random.getStdRandom (Random.randomR (1, 3 :: Int))
     _ <- lift $ forkIO (if null chan then
@@ -383,7 +383,7 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
                             sentenceReply s f nick' [] randoms' stries' slen plen r mm
                           else return ()
                         else if null nick' then
-                               if length msg > 2 && (unwords msg) =~ matchon then
+                               if map toLower (unwords msg) =~ matchon then
                                  sentenceReply s f chan chan randoms' stries' slen plen r mm
                                else return ()
                              else sentenceReply s f chan nick' randoms' stries' slen plen r mm)
