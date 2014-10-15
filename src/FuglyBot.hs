@@ -11,7 +11,6 @@ import Network.Socket
 import Network.Socks5
 import System.Environment
 import System.IO
-import System.IO.Error
 import qualified System.Random as Random
 import Text.Regex.Posix
 import Prelude
@@ -110,12 +109,11 @@ main = do
     args <- cmdLine
     bracket (start args) stop (loop args)
   where
-    stop :: MVar Bot -> IO ()
-    stop bot = do
-      b <- readMVar bot
-      hClose $ (\(Bot {sock=s}) -> s) b
     loop :: [String] -> MVar Bot -> IO ()
-    loop args bot = do catchIOError (evalStateT (run args) bot) (const $ return ())
+    loop args bot = do catch (evalStateT (run args) bot)
+                         (\e -> do let err = show (e :: SomeException)
+                                   hPutStrLn stderr ("main loop: " ++ err)
+                                   return ())
 
 start :: [String] -> IO (MVar Bot)
 start args = do
@@ -134,8 +132,7 @@ start args = do
     let s5port   = tail $ dropWhile (\x -> x /= ':') socks5
     s5serv <- getAddrInfo (Just hints) (Just s5hostn) (Just s5port)
     s <- socket AF_INET Stream defaultProtocol
-    -- _ <- setSocketOption s Linger 1
-    _ <- setSocketOption s KeepAlive 1
+    _ <- setSocketOption s KeepAlive 0
     _ <- if null socks5 then connect s (addrAddress $ head serv)
          else socksConnectAddr s (addrAddress $ head s5serv) (addrAddress $ head serv)
     sh <- socketToHandle s ReadWriteMode
@@ -148,34 +145,36 @@ start args = do
     write sh "USER" (nick' ++ " 0 * :user")
     return bot
 
+stop :: MVar Bot -> IO ()
+stop bot = do
+    b <- readMVar bot
+    hClose $ (\(Bot {sock=s}) -> s) b
+
 run :: [String] -> StateT (MVar Bot) IO b
 run args = do
     b <- get
     bot <- lift $ readMVar b
-    let s = (\(Bot s' _ _) -> s') bot
+    let s = (\(Bot {sock=s'}) -> s') bot
     let channel = args !! 4
     let passwd  = args !! 9
-    lift (forkIO (do
+    lift (forkOS (do
                      threadDelay 20000000
                      if not $ null passwd then replyMsg bot "nickserv" [] ("IDENTIFY " ++ passwd) else return ()
                      joinChannel s "JOIN" [channel]
                      forever (do write s "PING" ":foo" ; threadDelay 20000000))) >> return ()
-    forever $ do
-      l <- lift $ hGetLine s
-      lift $ putStrLn l
-      listenIRC b s l
+    forever $ do lift (hGetLine s >>= (\l -> do hPutStrLn stdout l >> return l) >>= listenIRC b s)
     where
       listenIRC b s l = do
-        bot <- lift $ readMVar b
+        bot <- readMVar b
         let ll = words l
         let lll = take 2 $ drop 1 ll
         let botnick = (\(Bot _ (Parameter {nick=n}) _) -> n) bot
         if "PING :" `isPrefixOf` l then do
-          lift (write s "PONG" (':' : drop 6 l)) >> return ()
+          (write s "PONG" (':' : drop 6 l)) >> return ()
           else if (length ll > 2) && (head lll) == "NICK" && getNick ll == botnick then do
-            lift (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
+            (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
               else do
-                lift (catch (evalStateT (processLine $ words l) b >> return ())
+                (catch (evalStateT (processLine $ words l) b >> return ())
                       (\e -> do let err = show (e :: SomeException)
                                 hPutStrLn stderr ("process line: " ++ err)
                                 return ()))
@@ -268,9 +267,11 @@ changeParam bot@(Bot _ p@(Parameter {fuglydir=fd, topic=t}) f) chan nick' param 
       Learning       -> replyMsg' (readBool value)     "Learning"             >>= (\x -> return bot{params=p{learning=x}})
       Autoname       -> replyMsg' (readBool value)     "Autoname"             >>= (\x -> return bot{params=p{autoname=x}})
       AllowPM        -> replyMsg' (readBool value)     "Allow PM"             >>= (\x -> return bot{params=p{allowpm=x}})
-      Topic          -> do (d, a, b, m) <- catchIOError (loadDict fd value) (const $ return (Map.empty, [], [], []))
+      Topic          -> do (d, a, b, m) <- catch (loadDict fd value) (\e -> do let err = show (e :: SomeException)
+                                                                               hPutStrLn stderr ("change param: " ++ err)
+                                                                               return (Map.empty, [], [], []))
                            _ <- saveDict f fd t
-                           replyMsg' value "Topic" >>= (\x -> return bot{params=p{topic=x},fugly=f{dict=d, allow=a, ban=b, FuglyLib.match=m}})
+                           replyMsg' value "Topic" >>= (\x -> return bot{params=p{topic=x}, fugly=f{dict=d, allow=a, ban=b, FuglyLib.match=m}})
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
       _              -> return bot
   where
@@ -331,7 +332,7 @@ rejoinChannel _ []   _  = return () :: IO ()
 rejoinChannel h chan rk = do
     if rk == 0 then return () else rejoin' rk chan h >> return ()
   where
-    rejoin' rk' chan' h' = forkIO (threadDelay (rk' * 1000000) >>
+    rejoin' rk' chan' h' = forkOS (threadDelay (rk' * 1000000) >>
                                    hPutStr h' ("JOIN " ++ chan' ++ "\r\n"))
 
 processLine :: [String] -> StateT (MVar Bot) IO ()
@@ -378,7 +379,7 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
     let matchon = map toLower (intercalate "|" (botnick : match'))
     mm <- lift $ chooseWord wne' fmsg
     r <- lift $ Random.getStdRandom (Random.randomR (1, 3 :: Int))
-    _ <- lift $ forkIO (if null chan then
+    _ <- lift $ forkOS (if null chan then
                           if allowpm' then
                             sentenceReply s f nick' [] randoms' stries' slen plen r mm
                           else return ()
@@ -415,11 +416,16 @@ execCmd b chan nick' (x:xs) = do
           _ -> do stopFugly fdir f topic' >>
                     write s "QUIT" (":" ++ unwords xs) >> return bot
         else return bot
-      | x == "!save" = if nick' == owner' then catchIOError (saveDict f fdir topic')
-                                       (const $ return ()) >> replyMsg bot chan nick' "Saved dict file!"
-                                             >> return bot else return bot
+      | x == "!save" = if nick' == owner' then catch (saveDict f fdir topic')
+                                               (\e -> do let err = show (e :: SomeException)
+                                                         hPutStrLn stderr ("save: " ++ err)
+                                                         return ())
+                                               >> replyMsg bot chan nick' "Saved dict file!"
+                                               >> return bot else return bot
       | x == "!load" = if nick' == owner' then do
-           (nd, na, nb, nm) <- catchIOError (loadDict fdir topic') (const $ return (dict', [], [], []))
+           (nd, na, nb, nm) <- catch (loadDict fdir topic') (\e -> do let err = show (e :: SomeException)
+                                                                      hPutStrLn stderr ("load: " ++ err)
+                                                                      return (dict', [], [], []))
            replyMsg bot chan nick' "Loaded dict file!"
            return (Bot s p (Fugly nd pgf' wne' aspell' na nb nm))
                        else return bot
@@ -429,7 +435,9 @@ execCmd b chan nick' (x:xs) = do
                                              return bot else return bot
       | x == "!nick" = if nick' == owner' then do nb <- newMVar bot ; evalStateT (changeNick xs []) nb else return bot
       | x == "!readfile" = if nick' == owner' then case (length xs) of
-          1 -> catchIOError (insertFromFile bot (xs!!0)) (const $ return bot)
+          1 -> catch (insertFromFile bot (xs!!0)) (\e -> do let err = show (e :: SomeException)
+                                                            hPutStrLn stderr ("readfile: " ++ err)
+                                                            return bot)
           _ -> replyMsg bot chan nick' "Usage: !readfile <file>" >>
                return bot else return bot
       | x == "!showparams" =
