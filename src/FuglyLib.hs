@@ -77,7 +77,8 @@ data Fugly = Fugly {
               wne     :: WordNetEnv,
               aspell  :: Aspell.SpellChecker,
               allow   :: [String],
-              ban     :: [String]
+              ban     :: [String],
+              match   :: [String]
               }
 
 data Word = Word {
@@ -98,8 +99,8 @@ data Word = Word {
 
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO Fugly
 initFugly fuglydir wndir gfdir topic = do
-    (dict', allow', ban') <- catchIOError (loadDict fuglydir topic)
-                             (const $ return (Map.empty, [], []))
+    (dict', allow', ban', match') <- catchIOError (loadDict fuglydir topic)
+                                     (const $ return (Map.empty, [], [], []))
     pgf' <- readPGF (gfdir ++ "/ParseEng.pgf")
     wne' <- NLP.WordNet.initializeWordNetWithOptions
             (return wndir :: Maybe FilePath)
@@ -108,15 +109,15 @@ initFugly fuglydir wndir gfdir topic = do
                                          Aspell.Options.IgnoreCase False, Aspell.Options.Size Aspell.Options.Large,
                                          Aspell.Options.SuggestMode Aspell.Options.Normal]
     let aspell' = head $ rights [a]
-    return (Fugly dict' pgf' wne' aspell' allow' ban')
+    return (Fugly dict' pgf' wne' aspell' allow' ban' match')
 
 stopFugly :: FilePath -> Fugly -> String -> IO ()
-stopFugly fuglydir fugly@(Fugly _ _ wne' _ _ _) topic = do
+stopFugly fuglydir fugly@(Fugly {wne=wne'}) topic = do
     catchIOError (saveDict fugly fuglydir topic) (const $ return ())
     closeWordNet wne'
 
 saveDict :: Fugly -> FilePath -> String -> IO ()
-saveDict (Fugly dict' _ _ _ allow' ban') fuglydir topic = do
+saveDict (Fugly dict' _ _ _ allow' ban' match') fuglydir topic = do
     let d = Map.toList dict'
     if null d then hPutStrLn stderr "Empty dict!"
       else do
@@ -127,6 +128,7 @@ saveDict (Fugly dict' _ _ _ allow' ban') fuglydir topic = do
         hPutStrLn h ">END<"
         hPutStrLn h $ unwords $ sort allow'
         hPutStrLn h $ unwords $ sort ban'
+        hPutStrLn h $ unwords $ sort match'
         hClose h
   where
     saveDict' :: Handle -> [(String, Word)] -> IO ()
@@ -153,20 +155,21 @@ saveDict (Fugly dict' _ _ _ allow' ban') fuglydir topic = do
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("end: \n")]
 
-loadDict :: FilePath -> String -> IO (Map.Map String Word, [String], [String])
+loadDict :: FilePath -> String -> IO (Map.Map String Word, [String], [String], [String])
 loadDict fuglydir topic = do
     let w = (Word [] 0 Map.empty Map.empty [] UnknownEPos)
     h <- openFile (fuglydir ++ "/" ++ topic ++ "-dict.txt") ReadMode
     eof <- hIsEOF h
     if eof then
-      return (Map.empty, [], [])
+      return (Map.empty, [], [], [])
       else do
       hSetBuffering h LineBuffering
       hPutStrLn stdout "Loading dict file..."
       dict' <- ff h w [([], w)]
       allow' <- hGetLine h
       ban' <- hGetLine h
-      let out = (Map.fromList dict', words allow', words ban')
+      match' <- hGetLine h
+      let out = (Map.fromList dict', words allow', words ban', words match')
       hClose h
       return out
   where
@@ -265,8 +268,8 @@ insertWords fugly autoname msg@(x:y:_) =
                         insertWords' f{dict=ff} a (i+1) l m
 
 insertWord :: Fugly -> Bool -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWord (Fugly dict' _ _ _ _ _) _ [] _ _ _ = return dict'
-insertWord fugly@(Fugly dict' _ _ aspell' _ ban') autoname word' before' after' pos' = do
+insertWord (Fugly {dict=d}) _ [] _ _ _ = return d
+insertWord fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word' before' after' pos' = do
     n <- asIsName aspell' word'
     let out = if elem word' ban' || elem before' ban' || elem after' ban' then return dict'
               else if isJust w then f $ fromJust w
@@ -290,7 +293,7 @@ insertWordRaw f@(Fugly {dict=d}) w b a p = insertWordRaw' f (Map.lookup w d) w b
 insertWordRaw' :: Fugly -> Maybe Word -> String -> String
                  -> String -> String -> IO (Map.Map String Word)
 insertWordRaw' (Fugly {dict=d}) _ [] _ _ _ = return d
-insertWordRaw' (Fugly dict' _ wne' aspell' allow' _) w word' before' after' pos' = do
+insertWordRaw' (Fugly dict' _ wne' aspell' allow' _ _) w word' before' after' pos' = do
   pp <- (if null pos' then wnPartPOS wne' word' else return $ readEPOS pos')
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
@@ -328,8 +331,8 @@ insertName f@(Fugly {dict=d}) w b a = insertName' f (Map.lookup w d) w b a
 
 insertName' :: Fugly -> Maybe Word -> String -> String
               -> String -> IO (Map.Map String Word)
-insertName' (Fugly dict' _ _ _ _ _) _ [] _ _ = return dict'
-insertName' (Fugly dict' _ wne' aspell' allow' _) w name' before' after' = do
+insertName' (Fugly dict' _ _ _ _ _ _) _ [] _ _ = return dict'
+insertName' (Fugly dict' _ wne' aspell' allow' _ _) w name' before' after' = do
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
   rel <- wnRelated' wne' name' "Hypernym" (POS Noun)
@@ -775,7 +778,7 @@ gfCategories pgf' = map showCId (categories pgf')
 
 sentence :: Fugly -> Int -> Int -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ _ _ [] = [return []] :: [IO String]
-sentence fugly@(Fugly _ pgf' _ _ _ ban') randoms stries slen plen msg = do
+sentence fugly@(Fugly {pgf=pgf', ban=ban'}) randoms stries slen plen msg = do
   let s1f x = if null x then return []
               else if gfParseBool pgf' plen x && length (words x) > 2 then return x else return []
   let s1a x = do
@@ -850,7 +853,7 @@ asReplaceWords fugly msg = do
 
 asReplace :: Fugly -> String -> IO String
 asReplace _ [] = return []
-asReplace (Fugly dict' _ wne' aspell' _ _) word' =
+asReplace (Fugly dict' _ wne' aspell' _ _ _) word' =
   if (elem ' ' word') || (elem '\'' word') || (head word' == (toUpper $ head word')) then return word'
     else do
     a  <- asSuggest aspell' word'
@@ -863,7 +866,7 @@ asReplace (Fugly dict' _ wne' aspell' _ _) word' =
 
 findNextWord :: Fugly -> Int -> Int -> Bool -> String -> IO [String]
 findNextWord _ _ _ _ [] = return []
-findNextWord (Fugly dict' _ _ _ _ _) i randoms prev word' = do
+findNextWord (Fugly dict' _ _ _ _ _ _) i randoms prev word' = do
   let ln = if isJust w then length neigh else 0
   let lm = if isJust w then length neighmax else 0
   let ll = if isJust w then length neighleast else 0
@@ -931,7 +934,7 @@ findRelated wne' word' = do
     else return word'
 
 dictLookup :: Fugly -> String -> String -> IO String
-dictLookup (Fugly _ _ wne' aspell' _ _) word' pos' = do
+dictLookup (Fugly _ _ wne' aspell' _ _ _) word' pos' = do
     gloss <- wnGloss wne' word' pos'
     if gloss == "Nothing!" then
        do a <- asSuggest aspell' word'

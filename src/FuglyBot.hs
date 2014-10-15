@@ -260,9 +260,9 @@ changeParam bot@(Bot _ p@(Parameter {fuglydir=fd, topic=t}) f) chan nick' param 
       Learning       -> replyMsg' (readBool value)     "Learning"             >>= (\x -> return bot{params=p{learning=x}})
       Autoname       -> replyMsg' (readBool value)     "Autoname"             >>= (\x -> return bot{params=p{autoname=x}})
       AllowPM        -> replyMsg' (readBool value)     "Allow PM"             >>= (\x -> return bot{params=p{allowpm=x}})
-      Topic          -> do (d, a, b) <- catchIOError (loadDict fd value) (const $ return (Map.empty, [], []))
+      Topic          -> do (d, a, b, m) <- catchIOError (loadDict fd value) (const $ return (Map.empty, [], [], []))
                            _ <- saveDict f fd t
-                           replyMsg' value "Topic" >>= (\x -> return bot{params=p{topic=x},fugly=f{dict=d,allow=a,ban=b}})
+                           replyMsg' value "Topic" >>= (\x -> return bot{params=p{topic=x},fugly=f{dict=d, allow=a, ban=b, FuglyLib.match=m}})
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
       _              -> return bot
   where
@@ -359,7 +359,7 @@ reply :: (Monad (t IO), MonadTrans t) =>
 reply bot _ _ [] = return bot
 reply bot@(Bot socket p@(Parameter botnick owner' _ _ _ _ stries'
                          slen plen learning' autoname' allowpm' _ randoms')
-           f@(Fugly _ pgf' wne' _ _ _)) chan nick' msg = do
+           f@(Fugly {pgf=pgf', wne=wne', FuglyLib.match=match'})) chan nick' msg = do
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
                    ':' -> tail msg
@@ -367,6 +367,7 @@ reply bot@(Bot socket p@(Parameter botnick owner' _ _ _ _ stries'
                    _   -> msg
     fmsg <- lift $ asReplaceWords f $ map cleanString mmsg
     let parse = gfParseBool pgf' plen $ unwords fmsg
+    let match'' = intercalate "|" match'
     mm <- lift $ chooseWord wne' fmsg
     r <- lift $ Random.getStdRandom (Random.randomR (1, 3 :: Int))
     _ <- lift $ forkIO (if null chan then
@@ -374,7 +375,7 @@ reply bot@(Bot socket p@(Parameter botnick owner' _ _ _ _ stries'
                             sentenceReply socket f nick' [] randoms' stries' slen plen r mm
                           else return ()
                         else if null nick' then
-                               if length msg > 2 && (unwords msg) =~ botnick then
+                               if length msg > 2 && (unwords msg) =~ (botnick ++ match'') then
                                  sentenceReply socket f chan chan randoms' stries' slen plen r mm
                                else return ()
                              else sentenceReply socket f chan nick' randoms' stries' slen plen r mm)
@@ -397,7 +398,7 @@ execCmd b chan nick' (x:xs) = do
                                      usercmd' rkick maxcmsg
                                      stries' slen plen learn autoname'
                                      allowpm' topic' randoms')
-                  f@(Fugly dict' pgf' wne' aspell' allow' ban'))
+                  f@(Fugly dict' pgf' wne' aspell' allow' ban' match'))
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" =
         if nick' == owner' then case (length xs) of
@@ -410,9 +411,9 @@ execCmd b chan nick' (x:xs) = do
                                        (const $ return ()) >> replyMsg bot chan nick' "Saved dict file!"
                                              >> return bot else return bot
       | x == "!load" = if nick' == owner' then do
-           (nd, na, nb) <- catchIOError (loadDict fdir topic') (const $ return (dict', [], []))
+           (nd, na, nb, nm) <- catchIOError (loadDict fdir topic') (const $ return (dict', [], [], []))
            replyMsg bot chan nick' "Loaded dict file!"
-           return (Bot socket p (Fugly nd pgf' wne' aspell' na nb))
+           return (Bot socket p (Fugly nd pgf' wne' aspell' na nb nm))
                        else return bot
       | x == "!join" = if nick' == owner' then joinChannel socket "JOIN" xs >>
                                              return bot else return bot
@@ -498,11 +499,11 @@ execCmd b chan nick' (x:xs) = do
             2 -> if (xs!!0) == "add" then
                     replyMsg bot chan nick' ("Banned word " ++ (xs!!1)) >>
                     return (Bot socket p (Fugly (dropWord dict' (xs!!1)) pgf' wne' aspell'
-                                               allow' (nub $ ban' ++ [(xs!!1)])))
+                                               allow' (nub $ ban' ++ [(xs!!1)]) match'))
                  else if (xs!!0) == "delete" then
                     replyMsg bot chan nick' ("Unbanned word " ++ (xs!!1)) >>
                     return (Bot socket p (Fugly dict' pgf' wne' aspell' allow'
-                                               (nub $ delete (xs!!1) ban')))
+                                               (nub $ delete (xs!!1) ban') match'))
                  else replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>"
                       >> return bot
             1 -> if (xs!!0) == "list" then
@@ -518,11 +519,11 @@ execCmd b chan nick' (x:xs) = do
             2 -> if (xs!!0) == "add" then
                     replyMsg bot chan nick' ("Allowed word " ++ (xs!!1)) >>
                     return (Bot socket p (Fugly dict' pgf' wne' aspell'
-                                               (nub $ allow' ++ [(xs!!1)]) ban'))
+                                               (nub $ allow' ++ [(xs!!1)]) ban' match'))
                  else if (xs!!0) == "delete" then
                     replyMsg bot chan nick' ("Unallowed word " ++ (xs!!1)) >>
                     return (Bot socket p (Fugly dict' pgf' wne' aspell'
-                                               (nub $ delete (xs!!1) allow') ban'))
+                                               (nub $ delete (xs!!1) allow') ban' match'))
                  else replyMsg bot chan nick' "Usage: !allowword <list|add|delete> <word>"
                       >> return bot
             1 -> if (xs!!0) == "list" then
@@ -531,6 +532,26 @@ execCmd b chan nick' (x:xs) = do
                  else replyMsg bot chan nick' "Usage: !allowword <list|add|delete> <word>"
                       >> return bot
             _ -> replyMsg bot chan nick' "Usage: !allowword <list|add|delete> <word>"
+                 >> return bot
+                         else return bot
+      | x == "!matchword" = if nick' == owner' then
+          case (length xs) of
+            2 -> if (xs!!0) == "add" then
+                    replyMsg bot chan nick' ("Matching word " ++ (xs!!1)) >>
+                    return (Bot socket p (Fugly dict' pgf' wne' aspell'
+                                          allow' ban' (nub $ match' ++ [(xs!!1)])))
+                 else if (xs!!0) == "delete" then
+                    replyMsg bot chan nick' ("No longer matching word " ++ (xs!!1)) >>
+                    return (Bot socket p (Fugly dict' pgf' wne' aspell'
+                                          allow' ban' (nub $ delete (xs!!1) match')))
+                 else replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>"
+                      >> return bot
+            1 -> if (xs!!0) == "list" then
+                    replyMsg bot chan nick' ("Matched word list: " ++ unwords match')
+                    >> return bot
+                 else replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>"
+                      >> return bot
+            _ -> replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>"
                  >> return bot
                          else return bot
       | x == "!namelist" =
@@ -600,7 +621,7 @@ execCmd b chan nick' (x:xs) = do
             replyMsg bot chan nick' (unwords $ map show $ take 750 $ iterate succ (0 :: Int)) >> return bot
             else return bot
       | otherwise  = if nick' == owner' then replyMsg bot chan nick'
-                       ("Commands: !dict !word !wordlist !insertword !dropword "
+                       ("Commands: !dict !word !wordlist !insertword !dropword !matchword "
                        ++ "!banword !allowword !namelist !name !insertname !closure !meet !parse "
                        ++ "!related !gfcats !ageword(s) !cleanwords !internalize "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "
