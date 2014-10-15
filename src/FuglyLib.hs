@@ -487,22 +487,22 @@ listWordFull m word' =
 cleanStringWhite :: (Char -> Bool) -> String -> String
 cleanStringWhite _ [] = []
 cleanStringWhite f (x:xs)
-        | not $ f x =     cleanStringWhite f xs
-        | otherwise = x : cleanStringWhite f xs
+  | not $ f x =     cleanStringWhite f xs
+  | otherwise = x : cleanStringWhite f xs
 
 cleanStringBlack :: (Char -> Bool) -> String -> String
 cleanStringBlack _ [] = []
 cleanStringBlack f (x:xs)
-        | f x       =     cleanStringBlack f xs
-        | otherwise = x : cleanStringBlack f xs
+  | f x       =     cleanStringBlack f xs
+  | otherwise = x : cleanStringBlack f xs
 
 cleanString :: String -> String
 cleanString [] = []
 cleanString "i" = "I"
 cleanString x
-    | length x > 1 = filter (\y -> isAlpha y || y == '\'' || y == '-' || y == ' ') x
-    | x == "I" || map toLower x == "a" = x
-    | otherwise = []
+  | length x > 1 = filter (\y -> isAlpha y || y == '\'' || y == '-' || y == ' ') x
+  | x == "I" || map toLower x == "a" = x
+  | otherwise = []
 
 dePlenk :: String -> String
 dePlenk []  = []
@@ -520,14 +520,14 @@ dePlenk s   = dePlenk' s []
 strip :: Eq a => a -> [a] -> [a]
 strip _ [] = []
 strip a (x:xs)
-    | x == a    = strip a xs
-    | otherwise = x : strip a xs
+  | x == a    = strip a xs
+  | otherwise = x : strip a xs
 
 replace :: Eq a => a -> a -> [a] -> [a]
 replace _ _ [] = []
 replace a b (x:xs)
-    | x == a    = b : replace a b xs
-    | otherwise = x : replace a b xs
+  | x == a    = b : replace a b xs
+  | otherwise = x : replace a b xs
 
 joinWords :: Char -> [String] -> [String]
 joinWords _ [] = []
