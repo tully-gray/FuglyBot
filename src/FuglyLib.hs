@@ -58,7 +58,6 @@ import Data.Maybe
 import Data.Tree (flatten)
 import qualified System.Random as Random
 import System.IO
-import System.IO.Error
 import System.IO.Unsafe
 -- import Text.Regex.Posix
 
@@ -99,8 +98,10 @@ data Word = Word {
 
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO Fugly
 initFugly fuglydir wndir gfdir topic = do
-    (dict', allow', ban', match') <- catchIOError (loadDict fuglydir topic)
-                                     (const $ return (Map.empty, [], [], []))
+    (dict', allow', ban', match') <- catch (loadDict fuglydir topic)
+                                     (\e -> do let err = show (e :: SomeException)
+                                               hPutStrLn stderr ("init fugly: " ++ err)
+                                               return (Map.empty, [], [], []))
     pgf' <- readPGF (gfdir ++ "/ParseEng.pgf")
     wne' <- NLP.WordNet.initializeWordNetWithOptions
             (return wndir :: Maybe FilePath)
@@ -113,7 +114,9 @@ initFugly fuglydir wndir gfdir topic = do
 
 stopFugly :: FilePath -> Fugly -> String -> IO ()
 stopFugly fuglydir fugly@(Fugly {wne=wne'}) topic = do
-    catchIOError (saveDict fugly fuglydir topic) (const $ return ())
+    catch (saveDict fugly fuglydir topic) (\e -> do let err = show (e :: SomeException)
+                                                    hPutStrLn stderr ("stop fugly: " ++ err)
+                                                    return ())
     closeWordNet wne'
 
 saveDict :: Fugly -> FilePath -> String -> IO ()
