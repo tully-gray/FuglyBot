@@ -175,13 +175,15 @@ run args = do
         let botnick = (\(Bot _ (Parameter {nick=n}) _) -> n) bot
         if "PING :" `isPrefixOf` l then do
           (write s "PONG" (':' : drop 6 l)) >> return ()
-          else if (length ll > 2) && (head lll) == "NICK" && getNick ll == botnick then do
-            (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
-              else do
-                (catch (evalStateT (processLine $ words l) b >> return ())
-                      (\e -> do let err = show (e :: SomeException)
-                                hPutStrLn stderr ("process line: " ++ err)
-                                return ()))
+          else if "433 " `isPrefixOf` (unwords (drop 1 ll)) then do
+            write s "NICK" (botnick ++ "_")
+               else if (length ll > 2) && (head lll) == "NICK" && getNick ll == botnick then do
+                 (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
+                    else do
+                      (catch (evalStateT (processLine $ words l) b >> return ())
+                       (\e -> do let err = show (e :: SomeException)
+                                 hPutStrLn stderr ("process line: " ++ err)
+                                 return ()))
 
 cmdLine :: IO [String]
 cmdLine = do
