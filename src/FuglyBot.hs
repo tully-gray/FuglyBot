@@ -385,15 +385,15 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
     let matchon = map toLower (intercalate "|" (botnick : match'))
     mm <- lift $ chooseWord fmsg
     r <- lift $ Random.getStdRandom (Random.randomR (1, 3 :: Int))
-    _ <- lift $ forkOS (if null chan then
-                          if allowpm' then
-                            sentenceReply s f nick' [] randoms' stries' slen plen r mm
-                          else return ()
-                        else if null nick' then
-                               if map toLower (unwords msg) =~ matchon then
-                                 sentenceReply s f chan chan randoms' stries' slen plen r mm
-                               else return ()
-                             else sentenceReply s f chan nick' randoms' stries' slen plen r mm)
+    _ <- lift $ (if null chan then
+                   if allowpm' then
+                     sentenceReply s f nick' [] randoms' stries' slen plen r mm
+                   else return ()
+                 else if null nick' then
+                        if map toLower (unwords msg) =~ matchon then
+                          sentenceReply s f chan chan randoms' stries' slen plen r mm
+                        else return ()
+                      else sentenceReply s f chan nick' randoms' stries' slen plen r mm)
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords f autoname' fmsg
       lift $ hPutStrLn stdout ">parse<"
