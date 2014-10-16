@@ -24,8 +24,8 @@ data Bot = Bot {
     }
 
 data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
-               | SentenceTries | SentenceLength | ParseLength | Learning | Autoname
-               | AllowPM | Topic | Randoms | UnknownParam
+               | SentenceTries | SentenceLength | ParseLength | Learning | StrictLearn
+               | Autoname | AllowPM | Topic | Randoms | UnknownParam
                | Parameter {
                  nick        :: String,
                  owner       :: String,
@@ -37,6 +37,7 @@ data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChan
                  slength     :: Int,
                  plength     :: Int,
                  learning    :: Bool,
+                 strictlearn :: Bool,
                  autoname    :: Bool,
                  allowpm     :: Bool,
                  topic       :: String,
@@ -57,11 +58,12 @@ instance Enum Parameter where
     toEnum 7 = SentenceLength
     toEnum 8 = ParseLength
     toEnum 9 = Learning
-    toEnum 10 = Autoname
-    toEnum 11 = AllowPM
-    toEnum 12 = Topic
-    toEnum 13 = Randoms
-    toEnum 14 = UnknownParam
+    toEnum 10 = StrictLearn
+    toEnum 11 = Autoname
+    toEnum 12 = AllowPM
+    toEnum 13 = Topic
+    toEnum 14 = Randoms
+    toEnum 15 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
@@ -72,12 +74,13 @@ instance Enum Parameter where
     fromEnum SentenceLength = 7
     fromEnum ParseLength    = 8
     fromEnum Learning       = 9
-    fromEnum Autoname       = 10
-    fromEnum AllowPM        = 11
-    fromEnum Topic          = 12
-    fromEnum Randoms        = 13
-    fromEnum UnknownParam   = 14
-    fromEnum _              = 14
+    fromEnum StrictLearn    = 10
+    fromEnum Autoname       = 11
+    fromEnum AllowPM        = 12
+    fromEnum Topic          = 13
+    fromEnum Randoms        = 14
+    fromEnum UnknownParam   = 15
+    fromEnum _              = 15
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -98,6 +101,8 @@ readParam a | (map toLower a) == "plen"            = ParseLength
 readParam a | (map toLower a) == "plength"         = ParseLength
 readParam a | (map toLower a) == "parselength"     = ParseLength
 readParam a | (map toLower a) == "learning"        = Learning
+readParam a | (map toLower a) == "strictlearn"     = StrictLearn
+readParam a | (map toLower a) == "slearn"          = StrictLearn
 readParam a | (map toLower a) == "autoname"        = Autoname
 readParam a | (map toLower a) == "allowpm"         = AllowPM
 readParam a | (map toLower a) == "topic"           = Topic
@@ -139,7 +144,7 @@ start args = do
     hSetBuffering sh NoBuffering
     f <- initFugly fdir wndir gfdir topic'
     let b = (Bot sh (Parameter nick' owner' fdir False
-             10 400 100 7 7 True True False topic' 50) f)
+             10 400 100 7 7 True False True False topic' 50) f)
     bot <- newMVar b
     write sh "NICK" nick'
     write sh "USER" (nick' ++ " 0 * :user")
@@ -271,6 +276,7 @@ changeParam bot@(Bot _ p@(Parameter {fuglydir=fd, topic=t}) f) chan nick' param 
       SentenceLength -> replyMsg' (readInt 0 256 value) "Sentence length"     >>= (\x -> return bot{params=p{slength=x}})
       ParseLength    -> replyMsg' (readInt 2 256 value) "Parse length"        >>= (\x -> return bot{params=p{plength=x}})
       Learning       -> replyMsg' (readBool value)     "Learning"             >>= (\x -> return bot{params=p{learning=x}})
+      StrictLearn    -> replyMsg' (readBool value)     "Strict learn"         >>= (\x -> return bot{params=p{strictlearn=x}})
       Autoname       -> replyMsg' (readBool value)     "Autoname"             >>= (\x -> return bot{params=p{autoname=x}})
       AllowPM        -> replyMsg' (readBool value)     "Allow PM"             >>= (\x -> return bot{params=p{allowpm=x}})
       Topic          -> do (d, a, b, m) <- catch (loadDict fd value) (\e -> do let err = show (e :: SomeException)
@@ -373,7 +379,7 @@ reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply bot _ _ [] = return bot
 reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
-                         slen plen learning' autoname' allowpm' _ randoms')
+                         slen plen learning' slearn autoname' allowpm' _ randoms')
            f@(Fugly {pgf=pgf', FuglyLib.match=match'})) chan nick' msg = do
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
@@ -381,7 +387,7 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
                    ',' -> tail msg
                    _   -> msg
     fmsg <- lift $ asReplaceWords f $ map cleanString mmsg
-    let parse = gfParseBool pgf' plen $ unwords fmsg
+    let parse = if slearn then gfParseBool pgf' plen $ unwords fmsg else True
     let matchon = map toLower (intercalate "|" (botnick : match'))
     mm <- lift $ chooseWord fmsg
     r <- lift $ Random.getStdRandom (Random.randomR (1, 3 :: Int))
@@ -411,8 +417,8 @@ execCmd b chan nick' (x:xs) = do
     execCmd' :: Bot -> IO Bot
     execCmd' bot@(Bot s p@(Parameter botnick owner' fdir
                                      usercmd' rkick maxcmsg
-                                     stries' slen plen learn autoname'
-                                     allowpm' topic' randoms')
+                                     stries' slen plen learn slearn
+                                     autoname' allowpm' topic' randoms')
                   f@(Fugly dict' pgf' wne' aspell' allow' ban' match'))
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" =
@@ -449,8 +455,10 @@ execCmd b chan nick' (x:xs) = do
             0 -> replyMsg bot chan nick' ("nick: " ++ botnick ++ "  owner: " ++ owner' ++
                    "  usercommands: " ++ show usercmd' ++ "  rejoinkick: "
                    ++ show rkick ++ "  maxchanmsg: " ++ show maxcmsg
-                   ++ "  sentencetries: " ++ show stries' ++ "  sentencelength: " ++ show slen ++ "  parselength: " ++ show plen
-                   ++ "  learning: " ++ show learn ++ "  autoname: " ++ show autoname' ++ "  allowpm: " ++ show allowpm'
+                   ++ "  sentencetries: " ++ show stries' ++ "  sentencelength: "
+                   ++ show slen ++ "  parselength: " ++ show plen
+                   ++ "  learning: " ++ show learn ++ "  strictlearn: " ++ show slearn
+                   ++ "  autoname: " ++ show autoname' ++ "  allowpm: " ++ show allowpm'
                    ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms') >> return bot
             _ -> replyMsg bot chan nick' "Usage: !showparams" >> return bot
           else return bot
