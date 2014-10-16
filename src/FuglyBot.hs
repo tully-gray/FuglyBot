@@ -139,7 +139,7 @@ start args = do
     hSetBuffering sh NoBuffering
     f <- initFugly fdir wndir gfdir topic'
     let b = (Bot sh (Parameter nick' owner' fdir False
-             10 400 100 5 5  True True False topic' 0) f)
+             10 400 100 7 7 True True False topic' 50) f)
     bot <- newMVar b
     write sh "NICK" nick'
     write sh "USER" (nick' ++ " 0 * :user")
@@ -148,19 +148,23 @@ start args = do
 stop :: MVar Bot -> IO ()
 stop bot = do
     b <- readMVar bot
+    let f      = (\(Bot {fugly=ff}) -> ff) b
+    let fdir   = (\(Bot _ (Parameter {fuglydir=fd}) _) -> fd) b
+    let topic' = (\(Bot _ (Parameter {topic=t}) _) -> t) b
     hClose $ (\(Bot {sock=s}) -> s) b
+    stopFugly fdir f topic'
 
 run :: [String] -> StateT (MVar Bot) IO b
 run args = do
     b <- get
     bot <- lift $ readMVar b
     let s = (\(Bot {sock=s'}) -> s') bot
-    let channel = args !! 4
-    let passwd  = args !! 9
+    let channels = words $ args !! 4
+    let passwd   = args !! 9
     lift (forkOS (do
                      threadDelay 20000000
                      if not $ null passwd then replyMsg bot "nickserv" [] ("IDENTIFY " ++ passwd) else return ()
-                     joinChannel s "JOIN" [channel]
+                     joinChannel s "JOIN" channels
                      forever (do write s "PING" ":foo" ; threadDelay 20000000))) >> return ()
     forever $ do lift (hGetLine s >>= (\l -> do hPutStrLn stdout l >> return l) >>= listenIRC b s)
     where
@@ -411,10 +415,8 @@ execCmd b chan nick' (x:xs) = do
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" =
         if nick' == owner' then case (length xs) of
-          0 -> do stopFugly fdir f topic' >>
-                    write s "QUIT" ":Bye" >> return bot
-          _ -> do stopFugly fdir f topic' >>
-                    write s "QUIT" (":" ++ unwords xs) >> return bot
+          0 -> do write s "QUIT" ":Bye" >> return bot
+          _ -> do write s "QUIT" (":" ++ unwords xs) >> return bot
         else return bot
       | x == "!save" = if nick' == owner' then catch (saveDict f fdir topic')
                                                (\e -> do let err = show (e :: SomeException)
