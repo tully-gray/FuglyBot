@@ -138,40 +138,38 @@ runs wne x = let ?wne = wne in x
 
 -- | This takes a word and returns an 'Overview' of all its senses
 -- for all parts of speech.
-getOverview :: WN (Word -> Overview)
-getOverview word = unsafePerformIO $ do
-  idxN <- unsafeInterleaveIO $ getOverview' Noun
-  idxV <- unsafeInterleaveIO $ getOverview' Verb
-  idxA <- unsafeInterleaveIO $ getOverview' Adj
-  idxR <- unsafeInterleaveIO $ getOverview' Adv
+getOverview :: WN (Word -> IO Overview)
+getOverview word = do
+  idxN <- getOverview' Noun
+  idxV <- getOverview' Verb
+  idxA <- getOverview' Adj
+  idxR <- getOverview' Adv
   return (T.Overview idxN idxV idxA idxR)
   where
     getOverview' pos = do
       strM <- P.getIndexString ?wne word pos
       case strM of
         Nothing -> return Nothing
-        Just  s -> unsafeInterleaveIO $ P.indexLookup ?wne word pos
+        Just  s -> P.indexLookup ?wne word pos
 
 -- | This takes an 'Overview' (see 'getOverview'), a 'POS' and a 'SenseType' and returns
 -- a list of search results.  If 'SenseType' is 'AllSenses', there will be one
 -- 'SearchResult' in the results for each valid sense.  If 'SenseType' is
 -- a single sense number, there will be at most one element in the result list.
-searchByOverview :: WN (Overview -> POS -> SenseType -> [SearchResult])
-searchByOverview overview pos sense = unsafePerformIO $ 
+searchByOverview :: WN (Overview -> POS -> SenseType -> IO [SearchResult])
+searchByOverview overview pos sense =
   case (case pos of { Noun -> T.nounIndex ; Verb -> T.verbIndex ; Adj -> T.adjIndex ; Adv -> T.advIndex })
           overview of
     Nothing  -> return []
     Just idx -> do
       let numSenses = T.indexSenseCount idx
       skL <- mapMaybe id `liftM` 
-             unsafeInterleaveIO (
                mapM (\sense -> do
                      skey <- P.indexToSenseKey ?wne idx sense
                      return (liftM ((,) sense) skey)
                     ) (sensesOf numSenses sense)
-             )
-      r <- unsafeInterleaveIO $ mapM (\ (snum, skey) ->
-                 unsafeInterleaveIO (P.getSynsetForSense ?wne skey) >>= \v ->
+      r <- mapM (\ (snum, skey) ->
+                 (P.getSynsetForSense ?wne skey) >>= \v ->
                  case v of
                    Nothing -> return Nothing
                    Just ss -> return $ Just (T.SearchResult 
@@ -185,13 +183,20 @@ searchByOverview overview pos sense = unsafePerformIO $
 
 -- | This takes a 'Word', a 'POS' and a 'SenseType' and returns
 -- the equivalent of first running 'getOverview' and then 'searchByOverview'.
-search :: WN (Word -> POS -> SenseType -> [SearchResult])
-search word pos sense = searchByOverview (getOverview word) pos sense
+search :: WN (Word -> POS -> SenseType -> IO [SearchResult])
+search word pos sense = do
+  overview <- getOverview word
+  searchByOverview overview pos sense
 
 -- | This takes a 'Key' (see 'srToKey' and 'srFormKeys') and looks it
 -- up in the databse.
-lookupKey :: WN (Key -> SearchResult)
-lookupKey (T.Key (o,p)) = unsafePerformIO $ do
+lookupKey :: WN (Key -> IO SearchResult)
+lookupKey (T.Key (o,p)) = do
+  ss <- P.readSynset ?wne p o ""
+  return $ T.SearchResult Nothing Nothing Nothing Nothing ss
+
+lookupKeyUnsafe :: WN (Key -> SearchResult)
+lookupKeyUnsafe (T.Key (o,p)) = unsafePerformIO $ do
   ss <- unsafeInterleaveIO $ P.readSynset ?wne p o ""
   return $ T.SearchResult Nothing Nothing Nothing Nothing ss
 
@@ -205,8 +210,21 @@ lookupKey (T.Key (o,p)) = unsafePerformIO $ do
 -- >
 -- > relatedBy Hypernym (head (search "dog" Noun 1))
 -- > [<canine canid>]
+{--
+relatedBy :: WN (Form -> SearchResult -> IO [SearchResult])
+relatedBy form sr = mapM lookupKey $ srFormKeys sr form
+
+relatedByList :: WN (Form -> [SearchResult] -> Maybe (IO [[SearchResult]]))
+relatedByList form [] = Nothing
+relatedByList form sr = Just (mapM (relatedBy form) sr)
+
+relatedByListAllForms :: WN ([SearchResult] -> [Maybe [[SearchResult]]])
+relatedByListAllForms sr = mapM (relatedByList' sr) (init T.allForm)
+  where
+    relatedByList' a b = relatedByList b a
+--}
 relatedBy :: WN (Form -> SearchResult -> [SearchResult])
-relatedBy form sr = map lookupKey $ srFormKeys sr form
+relatedBy form sr = map lookupKeyUnsafe $ srFormKeys sr form
 
 relatedByList :: WN (Form -> [SearchResult] -> Maybe [[SearchResult]])
 relatedByList form [] = Nothing
@@ -352,5 +370,5 @@ meetSearchPaths emptyBg t1 t2 =
     containsResult v sl = sl `elem` map (flip srWords AllSenses) v
     addResult v sr = sr:v
 
-personTree       = runWordNetQuiet (closureOn Hypernym (head $ search "person"       Noun AllSenses))
-organizationTree = runWordNetQuiet (closureOn Hypernym (head $ search "organization" Noun AllSenses))
+-- personTree       = runWordNetQuiet (closureOn Hypernym (head $ search "person"       Noun AllSenses))
+-- organizationTree = runWordNetQuiet (closureOn Hypernym (head $ search "organization" Noun AllSenses))

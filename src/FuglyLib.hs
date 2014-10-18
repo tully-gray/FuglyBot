@@ -661,8 +661,8 @@ wnGloss wne' word' [] = do
     wnGloss wne' word' wnPos
 wnGloss wne' word' pos' = do
     let wnPos = fromEPOS $ readEPOS pos'
-    let result = map (getGloss . getSynset) (runs wne' (search
-                     (fixUnderscore word') wnPos AllSenses))
+    s <- runs wne' $ search (fixUnderscore word') wnPos AllSenses
+    let result = map (getGloss . getSynset) (runs wne' s)
     if (null result) then return "Nothing!" else
       return $ unwords result
 
@@ -679,11 +679,10 @@ wnRelated' _    [] _ _    = return [[]] :: IO [String]
 wnRelated' wne' c [] pos' = wnRelated' wne' c "Hypernym" pos'
 wnRelated' wne' c d  pos' = catch (do
     let wnForm = readForm d
+    s <- runs wne' $ search (fixUnderscore c) (fromEPOS pos') AllSenses
     let result = if (map toLower d) == "all" then concat $ map (fromMaybe [[]])
-                    (runs wne' (relatedByListAllForms (search (fixUnderscore c)
-                     (fromEPOS pos') AllSenses)))
-                 else fromMaybe [[]] (runs wne' (relatedByList wnForm (search
-                       (fixUnderscore c) (fromEPOS pos') AllSenses)))
+                    (runs wne' (relatedByListAllForms s))
+                 else fromMaybe [[]] (runs wne' (relatedByList wnForm s))
     if (null result) || (null $ concat result) then return [] else
       return $ map (\x -> replace '_' ' ' $ unwords $ map (++ "\"") $
                     map ('"' :) $ concat $ map (getWords . getSynset) x) result)
@@ -700,8 +699,8 @@ wnClosure wne' word' form [] = do
 wnClosure wne' word' form pos' = do
     let wnForm = readForm form
     let wnPos = fromEPOS $ readEPOS pos'
-    let result = runs wne' (closureOnList wnForm
-                            (search (fixUnderscore word') wnPos AllSenses))
+    s <- runs wne' $ search (fixUnderscore word') wnPos AllSenses
+    let result = runs wne' (closureOnList wnForm s)
     if (null result) then return [] else
       return $ unwords $ map (\x -> if isNothing x then return '?'
                                     else (replace '_' ' ' $ unwords $ map (++ "\"") $
@@ -717,8 +716,10 @@ wnMeet w c d [] = do
     wnMeet w c d wnPos
 wnMeet w c d e  = do
     let wnPos = fromEPOS $ readEPOS e
-    let r1 = runs w (search (fixUnderscore c) wnPos 1)
-    let r2 = runs w (search (fixUnderscore d) wnPos 1)
+    s1 <- runs w $ search (fixUnderscore c) wnPos 1
+    s2 <- runs w $ search (fixUnderscore d) wnPos 1
+    let r1 = runs w s1
+    let r2 = runs w s2
     if not (null r1) && not (null r2) then do
         let result = runs w (meet emptyQueue (head $ r1) (head $ r2))
         if isNothing result then return [] else
