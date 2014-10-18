@@ -50,9 +50,6 @@ module NLP.WordNet
      relatedBy,
      relatedByList,
      relatedByListAllForms,
-     relatedByUnsafe,
-     relatedByListUnsafe,
-     relatedByListAllFormsUnsafe,
      -- closure,
      closureOn,
      closureOnList,
@@ -72,14 +69,12 @@ module NLP.WordNet
 
 import Prelude hiding (catch)
 import Data.Array
-import GHC.Arr (unsafeIndex)
 import GHC.IO.Handle
 import Data.Tree
 import Data.IORef
 import Data.Dynamic
 import qualified Data.Set as Set
 import Numeric (readHex, readDec)
-import System.IO.Unsafe
 
 import NLP.WordNet.Common
 import NLP.WordNet.Consts
@@ -198,11 +193,6 @@ lookupKey (T.Key (o,p)) = do
   ss <- P.readSynset ?wne p o ""
   return $ T.SearchResult Nothing Nothing Nothing Nothing ss
 
-lookupKeyUnsafe :: WN (Key -> SearchResult)
-lookupKeyUnsafe (T.Key (o,p)) = unsafePerformIO $ do
-  ss <- unsafeInterleaveIO $ P.readSynset ?wne p o ""
-  return $ T.SearchResult Nothing Nothing Nothing Nothing ss
-
 -- | This takes a 'Form' and a 'SearchResult' and returns all
 -- 'SearchResult' related to the given one by the given 'Form'.
 --
@@ -223,26 +213,17 @@ relatedByList form sr = do
     r <- mapM (relatedBy form) sr
     return $ Just r
 
-relatedByListAllForms :: WN ([SearchResult] -> IO ([Maybe [[SearchResult]]]))
+relatedByListAllForms :: WN ([SearchResult] -> IO [Maybe [[SearchResult]]])
 relatedByListAllForms sr = mapM (relatedByList' sr) (init T.allForm)
   where
     relatedByList' a b = relatedByList b a
 
-relatedByUnsafe :: WN (Form -> SearchResult -> [SearchResult])
-relatedByUnsafe form sr = map lookupKeyUnsafe $ srFormKeys sr form
-
-relatedByListUnsafe :: WN (Form -> [SearchResult] -> Maybe [[SearchResult]])
-relatedByListUnsafe form [] = Nothing
-relatedByListUnsafe form sr = Just (map (relatedByUnsafe form) sr)
-
-relatedByListAllFormsUnsafe :: WN ([SearchResult] -> [Maybe [[SearchResult]]])
-relatedByListAllFormsUnsafe sr = map (relatedByList' sr) (init T.allForm)
-  where
-    relatedByList' a b = relatedByListUnsafe b a
-
 -- | This is a utility function to build lazy trees from a function and a root.
-closure :: (a -> [a]) -> a -> Tree a
-closure f x = Node x (map (closure f) $ f x)
+closure :: (a -> IO [a]) -> a -> IO (Tree a)
+closure f x = do
+    f' <- f x
+    m <- mapM (closure f) f'
+    return $ Node x m
 
 -- | This enables 'Form'-based trees to be built.
 --
@@ -257,12 +238,15 @@ closure f x = Node x (map (closure f) $ f x)
 -- >   --- <vertebrate craniate> --- <chordate> --- <animal animate_being beast\\
 -- >   brute creature fauna> --- <organism being> --- <living_thing animate_thing>\\
 -- >   --- <object physical_object> --- <entity> 
-closureOn :: WN (Form -> SearchResult -> Tree SearchResult)
-closureOn form = closure (relatedByUnsafe form)
+closureOn :: WN (Form -> SearchResult -> IO (Tree SearchResult))
+closureOn form = closure $ relatedBy form
 
-closureOnList :: WN (Form -> [SearchResult] -> [Maybe (Tree SearchResult)])
-closureOnList form []     = [Nothing]
-closureOnList form (x:xs) = Just (closure (relatedByUnsafe form) x) : closureOnList form xs
+closureOnList :: WN (Form -> [SearchResult] -> IO [Maybe (Tree SearchResult)])
+closureOnList form []     = return [Nothing]
+closureOnList form (x:xs) = do
+    r1 <- closure (relatedBy form) x
+    r2 <- closureOnList form xs
+    return $ Just r1 : r2
 
 -- | A simple bag class for our 'meet' implementation.
 class Bag b a where
@@ -309,12 +293,12 @@ emptyQueue = Queue []
 --
 -- > meet emptyQueue (head $ search "run" Verb 1) (head $ search "walk" Verb 1)
 -- > Just <travel go move locomote>
-meet :: Bag b (Tree SearchResult) => WN (b (Tree SearchResult) -> SearchResult -> SearchResult -> Maybe SearchResult)
-meet emptyBg sr1 sr2 = srch Set.empty Set.empty (addToBag emptyBg t1) (addToBag emptyBg t2)
+meet :: Bag b (Tree SearchResult) => WN (b (Tree SearchResult) -> SearchResult -> SearchResult -> IO (Maybe SearchResult))
+meet emptyBg sr1 sr2 = do
+    t1 <- closureOn Hypernym sr1
+    t2 <- closureOn Hypernym sr2
+    return $ srch Set.empty Set.empty (addToBag emptyBg t1) (addToBag emptyBg t2)
   where
-    t1 = closureOn Hypernym sr1
-    t2 = closureOn Hypernym sr2
-
     srch v1 v2 bag1 bag2
         | isEmptyBag bag1 && isEmptyBag bag2 = Nothing
         | isEmptyBag bag1                    = srch v2 v1 bag2 bag1
@@ -323,7 +307,6 @@ meet emptyBg sr1 sr2 = srch Set.empty Set.empty (addToBag emptyBg t1) (addToBag 
             in  if v2 `containsResult` sr 
                   then Just sr
                   else srch v2 (addResult v1 sr) bag2 (addListToBag bag1' chl) -- flip the order :)
-
     containsResult v sr = srWords sr AllSenses `Set.member` v
     addResult v sr = Set.insert (srWords sr AllSenses) v
 
@@ -343,18 +326,10 @@ meet emptyBg sr1 sr2 = srch Set.empty Set.empty (addToBag emptyBg t1) (addToBag 
 -- This is marginally less efficient than just using 'meet', since it uses
 -- linear-time lookup for the visited sets, whereas 'meet' uses log-time
 -- lookup.
-meetPaths :: Bag b (Tree SearchResult) => 
-             WN (
-                 b (Tree SearchResult) ->       -- bag implementation
-                 SearchResult ->                -- word 1
-                 SearchResult ->                -- word 2
-                 Maybe ([SearchResult], SearchResult, [SearchResult]))   -- word 1 -> common,
-                                                                         -- common
-                                                                         -- common -> word 2
-meetPaths emptyBg sr1 sr2 = meetSearchPaths emptyBg t1 t2
-  where
-    t1 = closureOn Hypernym sr1
-    t2 = closureOn Hypernym sr2
+meetPaths emptyBg sr1 sr2 = do
+    t1 <- closureOn Hypernym sr1
+    t2 <- closureOn Hypernym sr2
+    return $ meetSearchPaths emptyBg t1 t2
 
 meetSearchPaths emptyBg t1 t2 =
   let srch b v1 v2 bag1 bag2

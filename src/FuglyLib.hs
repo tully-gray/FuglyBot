@@ -702,8 +702,8 @@ wnClosure wne' word' form pos' = do
     let wnForm = readForm form
     let wnPos = fromEPOS $ readEPOS pos'
     s <- runs wne' $ search (fixUnderscore word') wnPos AllSenses
-    let result = runs wne' (closureOnList wnForm s)
-    if (null result) then return [] else
+    result <- runs wne' $ closureOnList wnForm s
+    if null result then return [] else
       return $ unwords $ map (\x -> if isNothing x then return '?'
                                     else (replace '_' ' ' $ unwords $ map (++ "\"") $
                                           map ('"' :) $ nub $ concat $ map
@@ -722,8 +722,9 @@ wnMeet w c d e  = do
     s2 <- runs w $ search (fixUnderscore d) wnPos 1
     let r1 = runs w s1
     let r2 = runs w s2
+    m <- runs w $ meet emptyQueue (head $ r1) (head $ r2)
     if not (null r1) && not (null r2) then do
-        let result = runs w (meet emptyQueue (head $ r1) (head $ r2))
+        let result = m
         if isNothing result then return [] else
             return $ replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $
                     getWords $ getSynset $ fromJust result
