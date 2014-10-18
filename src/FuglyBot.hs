@@ -166,7 +166,7 @@ run args = do
     let s = (\(Bot {sock=s'}) -> s') bot
     let channels = words $ args !! 4
     let passwd   = args !! 9
-    lift (forkOS (do
+    lift (forkIO (do
                      threadDelay 20000000
                      if not $ null passwd then replyMsg bot "nickserv" [] ("IDENTIFY " ++ passwd) else return ()
                      joinChannel s "JOIN" channels
@@ -344,7 +344,7 @@ rejoinChannel _ []   _  = return () :: IO ()
 rejoinChannel h chan rk = do
     if rk == 0 then return () else rejoin' rk chan h >> return ()
   where
-    rejoin' rk' chan' h' = forkOS (threadDelay (rk' * 1000000) >>
+    rejoin' rk' chan' h' = forkIO (threadDelay (rk' * 1000000) >>
                                    hPutStr h' ("JOIN " ++ chan' ++ "\r\n"))
 
 processLine :: [String] -> StateT (MVar Bot) IO ()
@@ -391,15 +391,15 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
     let matchon = map toLower (intercalate "|" (botnick : match'))
     mm <- lift $ chooseWord fmsg
     r <- lift $ Random.getStdRandom (Random.randomR (1, 3 :: Int))
-    _ <- lift $ (if null chan then
-                   if allowpm' then
-                     sentenceReply s f nick' [] randoms' stries' slen plen r mm
-                   else return ()
-                 else if null nick' then
-                        if map toLower (unwords msg) =~ matchon then
-                          sentenceReply s f chan chan randoms' stries' slen plen r mm
-                        else return ()
-                      else sentenceReply s f chan nick' randoms' stries' slen plen r mm)
+    _ <- lift $ forkIO (if null chan then
+                          if allowpm' then
+                            sentenceReply s f nick' [] randoms' stries' slen plen r mm
+                          else return ()
+                        else if null nick' then
+                               if map toLower (unwords msg) =~ matchon then
+                                 sentenceReply s f chan chan randoms' stries' slen plen r mm
+                               else return ()
+                             else sentenceReply s f chan nick' randoms' stries' slen plen r mm)
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords f autoname' fmsg
       lift $ hPutStrLn stdout ">parse<"
