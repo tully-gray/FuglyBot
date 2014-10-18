@@ -680,9 +680,11 @@ wnRelated' wne' c [] pos' = wnRelated' wne' c "Hypernym" pos'
 wnRelated' wne' c d  pos' = catch (do
     let wnForm = readForm d
     s <- runs wne' $ search (fixUnderscore c) (fromEPOS pos') AllSenses
+    r <- runs wne' $ relatedByList wnForm s
+    ra <- runs wne' $ relatedByListAllForms s
     let result = if (map toLower d) == "all" then concat $ map (fromMaybe [[]])
-                    (runs wne' (relatedByListAllForms s))
-                 else fromMaybe [[]] (runs wne' (relatedByList wnForm s))
+                    (runs wne' ra)
+                 else fromMaybe [[]] (runs wne' r)
     if (null result) || (null $ concat result) then return [] else
       return $ map (\x -> replace '_' ' ' $ unwords $ map (++ "\"") $
                     map ('"' :) $ concat $ map (getWords . getSynset) x) result)

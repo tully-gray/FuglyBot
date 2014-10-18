@@ -50,6 +50,9 @@ module NLP.WordNet
      relatedBy,
      relatedByList,
      relatedByListAllForms,
+     relatedByUnsafe,
+     relatedByListUnsafe,
+     relatedByListAllFormsUnsafe,
      -- closure,
      closureOn,
      closureOnList,
@@ -210,30 +213,32 @@ lookupKeyUnsafe (T.Key (o,p)) = unsafePerformIO $ do
 -- >
 -- > relatedBy Hypernym (head (search "dog" Noun 1))
 -- > [<canine canid>]
-{--
+
 relatedBy :: WN (Form -> SearchResult -> IO [SearchResult])
 relatedBy form sr = mapM lookupKey $ srFormKeys sr form
 
-relatedByList :: WN (Form -> [SearchResult] -> Maybe (IO [[SearchResult]]))
-relatedByList form [] = Nothing
-relatedByList form sr = Just (mapM (relatedBy form) sr)
+relatedByList :: WN (Form -> [SearchResult] -> IO (Maybe [[SearchResult]]))
+relatedByList form [] = return Nothing
+relatedByList form sr = do
+    r <- mapM (relatedBy form) sr
+    return $ Just r
 
-relatedByListAllForms :: WN ([SearchResult] -> [Maybe [[SearchResult]]])
+relatedByListAllForms :: WN ([SearchResult] -> IO ([Maybe [[SearchResult]]]))
 relatedByListAllForms sr = mapM (relatedByList' sr) (init T.allForm)
   where
     relatedByList' a b = relatedByList b a
---}
-relatedBy :: WN (Form -> SearchResult -> [SearchResult])
-relatedBy form sr = map lookupKeyUnsafe $ srFormKeys sr form
 
-relatedByList :: WN (Form -> [SearchResult] -> Maybe [[SearchResult]])
-relatedByList form [] = Nothing
-relatedByList form sr = Just (map (relatedBy form) sr)
+relatedByUnsafe :: WN (Form -> SearchResult -> [SearchResult])
+relatedByUnsafe form sr = map lookupKeyUnsafe $ srFormKeys sr form
 
-relatedByListAllForms :: WN ([SearchResult] -> [Maybe [[SearchResult]]])
-relatedByListAllForms sr = map (relatedByList' sr) (init T.allForm)
+relatedByListUnsafe :: WN (Form -> [SearchResult] -> Maybe [[SearchResult]])
+relatedByListUnsafe form [] = Nothing
+relatedByListUnsafe form sr = Just (map (relatedByUnsafe form) sr)
+
+relatedByListAllFormsUnsafe :: WN ([SearchResult] -> [Maybe [[SearchResult]]])
+relatedByListAllFormsUnsafe sr = map (relatedByList' sr) (init T.allForm)
   where
-    relatedByList' a b = relatedByList b a
+    relatedByList' a b = relatedByListUnsafe b a
 
 -- | This is a utility function to build lazy trees from a function and a root.
 closure :: (a -> [a]) -> a -> Tree a
@@ -253,11 +258,11 @@ closure f x = Node x (map (closure f) $ f x)
 -- >   brute creature fauna> --- <organism being> --- <living_thing animate_thing>\\
 -- >   --- <object physical_object> --- <entity> 
 closureOn :: WN (Form -> SearchResult -> Tree SearchResult)
-closureOn form = closure (relatedBy form)
+closureOn form = closure (relatedByUnsafe form)
 
 closureOnList :: WN (Form -> [SearchResult] -> [Maybe (Tree SearchResult)])
 closureOnList form []     = [Nothing]
-closureOnList form (x:xs) = Just (closure (relatedBy form) x) : closureOnList form xs
+closureOnList form (x:xs) = Just (closure (relatedByUnsafe form) x) : closureOnList form xs
 
 -- | A simple bag class for our 'meet' implementation.
 class Bag b a where
