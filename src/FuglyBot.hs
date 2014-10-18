@@ -178,10 +178,12 @@ run args = do
         let ll = words l
         let lll = take 2 $ drop 1 ll
         let botnick = (\(Bot _ (Parameter {nick=n}) _) -> n) bot
+        let owner'  = (\(Bot _ (Parameter {owner=o}) _) -> o) bot
         if "PING :" `isPrefixOf` l then do
           (write s "PONG" (':' : drop 6 l)) >> return ()
           else if "433 " `isPrefixOf` (unwords (drop 1 ll)) then do
-            write s "NICK" (botnick ++ "_")
+            write s "NICK" (botnick ++ "_") >> return ("Nickname is already in use.")
+              >>= replyMsg bot owner' []
                else if (length ll > 2) && (head lll) == "NICK" && getNick ll == botnick then do
                  (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
                     else do
