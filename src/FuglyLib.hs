@@ -273,22 +273,28 @@ insertWords fugly autoname msg@(x:y:_) =
 insertWord :: Fugly -> Bool -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWord (Fugly {dict=d}) _ [] _ _ _ = return d
 insertWord fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word' before' after' pos' = do
-    n <- asIsName aspell' word'
+    n  <- asIsName aspell' word'
+    nb <- asIsName aspell' before'
+    na <- asIsName aspell' after'
     let out = if elem word' ban' || elem before' ban' || elem after' ban' then return dict'
-              else if isJust w then f $ fromJust w
-                   else if n && autoname then insertName' fugly w (toUpperWord $ cleanString word') bi ai
-                        else if isJust ww then insertWordRaw' fugly ww (map toLower $ cleanString word') bi ai pos'
-                             else insertWordRaw' fugly w (map toLower $ cleanString word') bi ai pos'
+              else if isJust w then f nb na $ fromJust w
+                   else if n && autoname then insertName' fugly w (toUpperWord $ cleanString word') (bi nb) (ai na)
+                        else if isJust ww then insertWordRaw' fugly ww (map toLower $ cleanString word') (bi nb) (ai na) pos'
+                             else insertWordRaw' fugly w (map toLower $ cleanString word') (bi nb) (ai na) pos'
     out
   where
     w = Map.lookup word' dict'
     ww = Map.lookup (map toLower $ cleanString word') dict'
     a = Map.lookup after' dict'
     b = Map.lookup before' dict'
-    ai = if isJust a then after' else map toLower $ cleanString after'
-    bi = if isJust b then before' else map toLower $ cleanString before'
-    f (Word {})  = insertWordRaw' fugly w word' bi ai pos'
-    f (Name {})  = insertName'    fugly w word' bi ai
+    ai an = if isJust a then after'
+            else if an && autoname then toUpperWord $ cleanString after'
+                 else map toLower $ cleanString after'
+    bi bn = if isJust b then before'
+            else if bn && autoname then toUpperWord $ cleanString before'
+                 else map toLower $ cleanString before'
+    f bn an (Word {}) = insertWordRaw' fugly w word' (bi bn) (ai an) pos'
+    f bn an (Name {}) = insertName'    fugly w word' (bi bn) (ai an)
 
 insertWordRaw :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWordRaw f@(Fugly {dict=d}) w b a p = insertWordRaw' f (Map.lookup w d) w b a p
