@@ -47,7 +47,6 @@ module FuglyLib
        )
        where
 
--- import Control.Concurrent
 import Control.Exception
 import qualified Data.ByteString.Char8 as ByteString
 import Data.Char
@@ -58,8 +57,6 @@ import Data.Maybe
 import Data.Tree (flatten)
 import qualified System.Random as Random
 import System.IO
-import System.IO.Unsafe
--- import Text.Regex.Posix
 
 import qualified Language.Aspell as Aspell
 import qualified Language.Aspell.Options as Aspell.Options
@@ -180,8 +177,8 @@ loadDict fuglydir topic = do
     getNeigh a = Map.fromList $ getNeigh' a []
     getNeigh' :: [String] -> [(String, Int)] -> [(String, Int)]
     getNeigh'        [] l = l
-    getNeigh' (x:y:xs) [] = getNeigh' xs [(x, fReadInt "getNeigh1" 0 y)]
-    getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, fReadInt "getNeigh2" 0 y) : [])
+    getNeigh' (x:y:xs) [] = getNeigh' xs [(x, read y :: Int)]
+    getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, read y :: Int) : [])
     getNeigh'         _ l = l
     ff :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
     ff h word' nm = do
@@ -197,7 +194,7 @@ loadDict fuglydir topic = do
                            "name:"    -> (Name (unwords ll) 0 Map.empty Map.empty [])
                            -- "place:"   -> word{place=(unwords ll)}
                            -- "phrase:"  -> word{phrase=(unwords ll)}
-                           "count:"   -> word'{count=(fReadInt "ff" 0 $ unwords $ ll)}
+                           "count:"   -> word'{count=(read (unwords $ ll) :: Int)}
                            "before:"  -> word'{FuglyLib.before=(getNeigh $ ll)}
                            "after:"   -> word'{FuglyLib.after=(getNeigh $ ll)}
                            "related:" -> word'{related=(joinWords '"' ll)}
@@ -572,13 +569,13 @@ endSentence :: [String] -> [String]
 endSentence []  = []
 endSentence msg = (init msg) ++ ((fLast [] msg) ++ if elem (head msg) qWords then "?" else ".") : []
 
+{--
 fReadInt :: String -> Int -> String -> Int
 fReadInt a b c = unsafePerformIO (do catch (evaluate (read c :: Int))
                                        (\e -> do hPutStrLn stderr ("fRead: " ++ show
                                                                    (e :: SomeException)
                                                                    ++ " in " ++ a) ; return b))
 
-{--
 fHead :: String -> a -> [a] -> a
 fHead a b [] = unsafePerformIO (do hPutStrLn stderr ("fHead: error in " ++ a) ; return b)
 fHead _ _ c  = head c
