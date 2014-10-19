@@ -16,6 +16,7 @@ import Text.Regex.Posix
 import Prelude
 
 import FuglyLib
+import NLP.WordNet.PrimTypes (allPOS, allForm)
 
 data Bot = Bot {
     sock :: Handle,
@@ -641,23 +642,29 @@ execCmd b chan nick' (x:xs) = do
             0 -> replyMsg bot chan nick' "Usage: !parse <sentence>" >> return bot
             _ -> (mapM (replyMsg bot chan nick') $ take 3
                   (gfParseC pgf' (unwords $ take 12 xs))) >> return bot
+      | x == "!forms"  = case (length xs) of
+            0 -> replyMsg bot chan nick' (concat $ map (++ " ") $ map show allForm) >> return bot
+            _ -> replyMsg bot chan nick' "Usage: !forms" >> return bot
+      | x == "!parts"  = case (length xs) of
+            0 -> replyMsg bot chan nick' (concat $ map (++ " ") $ map show allPOS) >> return bot
+            _ -> replyMsg bot chan nick' "Usage: !parts" >> return bot
       | x == "!gfcats" = case (length xs) of
             0 -> return (unwords $ gfCategories pgf') >>= replyMsg bot chan nick' >> return bot
             _ -> replyMsg bot chan nick' "Usage: !gfcats" >> return bot
       -- | x == "!random" = case (length xs) of
       --       1 -> replyMsg bot chan nick' (gfAll pgf' (read (xs!!0))) >> return bot
       --       _ -> replyMsg bot chan nick' "Usage: !random <number>" >> return bot
-      | x == "!test" = if nick' == owner' then
-            replyMsg bot chan nick' (unwords $ map show $ take 750 $ iterate succ (0 :: Int)) >> return bot
-            else return bot
+      -- | x == "!test" = if nick' == owner' then
+      --       replyMsg bot chan nick' (unwords $ map show $ take 750 $ iterate succ (0 :: Int)) >> return bot
+      --       else return bot
       | otherwise  = if nick' == owner' then replyMsg bot chan nick'
                        ("Commands: !dict !word !wordlist !insertword !dropword !matchword "
                        ++ "!banword !allowword !namelist !name !insertname !closure !meet !parse "
-                       ++ "!related !gfcats !ageword(s) !cleanwords !internalize "
+                       ++ "!related !gfcats !forms !parts !ageword(s) !cleanwords !internalize "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "
                        ++ "!quit !readfile !load !save") >> return bot
                      else replyMsg bot chan nick' ("Commands: !dict !word !wordlist !name "
-                       ++ "!closure !meet !parse !related !gfcats") >> return bot
+                       ++ "!closure !meet !parse !related !gfcats !forms !parts") >> return bot
     execCmd' bot = return bot
 
 sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> Int -> [String] -> IO ()
