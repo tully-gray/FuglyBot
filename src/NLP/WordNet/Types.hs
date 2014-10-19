@@ -79,7 +79,6 @@ module NLP.WordNet.Types
     )
     where
 
-import System.IO.Unsafe
 import Data.List
 import Data.Maybe
 
@@ -189,6 +188,6 @@ srToKey sr = Key (hereIAm $ srSynset sr, p)
                                   POS pp -> pp
                                   _      -> Adj
 
-instance Show SearchResult where
-  showsPrec i (SearchResult { srSynset = ss }) =
-    showChar '<' . showString (unwords $ map fst3 $ ssWords ss) . showChar '>'
+-- instance Show SearchResult where
+--   showsPrec _ (SearchResult { srSynset = ss }) =
+--     showChar '<' . showString (unwords $ map fst3 $ ssWords ss) . showChar '>'

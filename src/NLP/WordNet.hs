@@ -67,17 +67,11 @@ module NLP.WordNet
     )
     where
 
-import Prelude hiding (catch)
-import Data.Array
-import GHC.IO.Handle
+import Prelude
 import Data.Tree
-import Data.IORef
-import Data.Dynamic
 import qualified Data.Set as Set
-import Numeric (readHex, readDec)
 
 import NLP.WordNet.Common
-import NLP.WordNet.Consts
 import NLP.WordNet.Util
 import NLP.WordNet.Types
 
@@ -148,7 +142,7 @@ getOverview word = do
       strM <- P.getIndexString ?wne word pos
       case strM of
         Nothing -> return Nothing
-        Just  s -> P.indexLookup ?wne word pos
+        Just  _ -> P.indexLookup ?wne word pos
 
 -- | This takes an 'Overview' (see 'getOverview'), a 'POS' and a 'SenseType' and returns
 -- a list of search results.  If 'SenseType' is 'AllSenses', there will be one
@@ -162,9 +156,9 @@ searchByOverview overview pos sense =
     Just idx -> do
       let numSenses = T.indexSenseCount idx
       skL <- mapMaybe id `liftM` 
-               mapM (\sense -> do
-                     skey <- P.indexToSenseKey ?wne idx sense
-                     return (liftM ((,) sense) skey)
+               mapM (\sense' -> do
+                     skey <- P.indexToSenseKey ?wne idx sense'
+                     return (liftM ((,) sense') skey)
                     ) (sensesOf numSenses sense)
       r <- mapM (\ (snum, skey) ->
                  (P.getSynsetForSense ?wne skey) >>= \v ->
@@ -208,7 +202,7 @@ relatedBy :: WN (Form -> SearchResult -> IO [SearchResult])
 relatedBy form sr = mapM lookupKey $ srFormKeys sr form
 
 relatedByList :: WN (Form -> [SearchResult] -> IO (Maybe [[SearchResult]]))
-relatedByList form [] = return Nothing
+relatedByList _    [] = return Nothing
 relatedByList form sr = do
     r <- mapM (relatedBy form) sr
     return $ Just r
@@ -242,7 +236,7 @@ closureOn :: WN (Form -> SearchResult -> IO (Tree SearchResult))
 closureOn form = closure $ relatedBy form
 
 closureOnList :: WN (Form -> [SearchResult] -> IO [Maybe (Tree SearchResult)])
-closureOnList form []     = return [Nothing]
+closureOnList _    []     = return [Nothing]
 closureOnList form (x:xs) = do
     r1 <- closure (relatedBy form) x
     r2 <- closureOnList form xs
@@ -326,11 +320,21 @@ meet emptyBg sr1 sr2 = do
 -- This is marginally less efficient than just using 'meet', since it uses
 -- linear-time lookup for the visited sets, whereas 'meet' uses log-time
 -- lookup.
+meetPaths :: (Bag b (Tree SearchResult), ?wne::WordNetEnv) =>
+             b (Tree SearchResult)
+             -> SearchResult
+             -> SearchResult
+             -> IO (Maybe ([SearchResult], SearchResult, [SearchResult]))
 meetPaths emptyBg sr1 sr2 = do
     t1 <- closureOn Hypernym sr1
     t2 <- closureOn Hypernym sr2
     return $ meetSearchPaths emptyBg t1 t2
 
+meetSearchPaths :: Bag b (Tree SearchResult) =>
+                   b (Tree SearchResult)
+                   -> Tree SearchResult
+                   -> Tree SearchResult
+                   -> Maybe ([SearchResult], SearchResult, [SearchResult])
 meetSearchPaths emptyBg t1 t2 =
   let srch b v1 v2 bag1 bag2
         | isEmptyBag bag1 && isEmptyBag bag2 = Nothing
