@@ -881,7 +881,7 @@ asReplace (Fugly dict' _ wne' aspell' _ _ _) word' =
 
 findNextWord :: Fugly -> Int -> Int -> Bool -> String -> IO [String]
 findNextWord _ _ _ _ [] = return []
-findNextWord (Fugly dict' _ _ _ _ _ _) i randoms prev word' = do
+findNextWord (Fugly {dict=dict'}) i randoms prev word' = do
   let ln = if isJust w then length neigh else 0
   let lm = if isJust w then length neighmax else 0
   let ll = if isJust w then length neighleast else 0
@@ -911,11 +911,12 @@ findNextWord (Fugly dict' _ _ _ _ _ _) i randoms prev word' = do
         _ -> []
            else []
   let f5 = if isJust w && length neigh > 0 then neighmax!!mr else []
-  if randoms > 89 then return $ replace "i" "I" $ words f1 else
-    if rr < randoms - 25 then return $ replace "i" "I" $ words f2 else
-      if rr < randoms + 35 then return $ replace "i" "I" $ words f3 else
-        if rr < randoms + 65 then return $ replace "i" "I" $ words f4 else
-          return $ replace "i" "I" $ words f5
+  let out = return . replace "i" "I"
+  if randoms > 89 then out $ words f1 else
+    if rr < randoms - 25 then out $ words f2 else
+      if rr < randoms + 35 then out $ words f3 else
+        if rr < randoms + 65 then out $ words f4 else
+          out $ words f5
     where
       w          = Map.lookup word' dict'
       wordGet'   = if prev then wordGetBefore else wordGetAfter
