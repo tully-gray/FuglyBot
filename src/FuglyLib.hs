@@ -739,11 +739,16 @@ asIsName _       []    = return False
 asIsName aspell' word' = do
     let l = map toLower word'
     let u = toUpperWord l
+    let b = upperLast word'
     n1 <- asSuggest aspell' l
     n2 <- asSuggest aspell' u
-    let nn1 = if null n1 then False else elem l $ words n1
-    let nn2 = if null n2 then False else (head $ words n2) == u
-    return (if nn1 == False && nn2 == True then True else u == word')
+    n3 <- asSuggest aspell' b
+    return $ if null n1 && null n2 then u == (head $ words n3)
+             else if null n2 && (not $ null n1) then True
+                  else False
+  where
+    upperLast [] = []
+    upperLast w = init w ++ [toUpper $ last w]
 
 asSuggest :: Aspell.SpellChecker -> String -> IO String
 asSuggest _       []    = return []
