@@ -222,6 +222,10 @@ badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "I'd", "i", "and", "are",
                "its", "from", "go", "my", "that", "that's", "whose", "when", "what", "has", "had", "make", "makes", "person's", "but",
                "our", "their", "than", "at", "on", "into", "just", "by", "he's", "she's", "mr", "Mr"]
 
+-- allowedShortWords :: [String]
+-- allowedShortWords = ["a", "am", "an", "at", "by", "do", "go", "he", "i", "if", "in", "it", "mr", "my", "no", "on", "or", "so", "to",
+--                      "us", "we", "yo"]
+
 class Word_ a where
   wordIs :: a -> String
   wordGetWord :: a -> String
