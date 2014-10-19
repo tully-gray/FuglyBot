@@ -4,35 +4,42 @@ module NLP.WordNet.Util where
 
 import NLP.WordNet.PrimTypes
 
-import Prelude hiding (catch)
+import Prelude
 import Control.Exception
 import Data.Char (toLower)
 import Data.List (nub)
 import Data.Maybe (fromMaybe)
-import GHC.IO.Handle
 import System.IO
 
 data IOModeEx = BinaryMode IOMode | AsciiMode IOMode deriving (Eq, Ord, Show, Read)
 
+openFileEx :: FilePath -> IOModeEx -> IO Handle
 openFileEx fp (BinaryMode md) = openBinaryFile fp md
 openFileEx fp (AsciiMode  md) = openFile fp md
 
+fst3 :: forall t t1 t2. (t, t1, t2) -> t
+fst3 (a, _, _) = a
 
-fst3 (a,_,_) = a
-snd3 (_,b,_) = b
-thr3 (_,_,c) = c
+snd3 :: forall t t1 t2. (t, t1, t2) -> t1
+snd3 (_, b, _) = b
+
+thr3 :: forall t t1 t2. (t, t1, t2) -> t2
+thr3 (_, _, c) = c
 
 maybeRead :: (Read a, Monad m) => String -> m a
 maybeRead s = 
   case readsPrec 0 s of
-    (a,_):_ -> return a
-    _       -> fail "error parsing string"
+    (a, _) : _ -> return a
+    _          -> fail "error parsing string"
 
 matchN :: Monad m => Int -> [a] -> m [a]
 matchN n l | length l >= n = return l
            | otherwise     = fail "expecting more tokens"
 
-lexId x n = (\ (_,i,_) -> i) $ (ssWords x !! n)
+lexId :: Synset -> Int -> Int
+lexId x n = (\(_, i, _) -> i) $ (ssWords x !! n)
+
+padTo :: Int -> [Char] -> [Char]
 padTo n s = reverse $ take n $ (reverse s ++ repeat '0')
       
 sensesOf :: Int {- num senses -} -> SenseType -> [Int]
@@ -44,6 +51,7 @@ sensesOf n (SenseNumber i)
 
 -- utility functions
 
+charForPOS :: POS -> [Char]
 charForPOS (Noun) = "n"
 charForPOS (Verb) = "v"
 charForPOS (Adj)  = "a"
@@ -72,11 +80,13 @@ cannonWNString s'
             ]
   where s = map toLower s'
 
-replaceChar from to [] = []
+replaceChar :: forall t. Eq t => t -> t -> [t] -> [t]
+replaceChar _    _  [] = []
 replaceChar from to (c:cs)
     | c == from = to : replaceChar from to cs
     | otherwise = c  : replaceChar from to cs
 
+getPointerType :: [Char] -> Form
 getPointerType s = fromMaybe Unknown $ lookup s l
   where
     l = 

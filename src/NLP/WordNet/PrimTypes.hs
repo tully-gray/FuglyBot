@@ -13,14 +13,18 @@ type Offset = Integer
 -- | The basic part of speech type, either a 'Noun', 'Verb', 'Adj'ective or 'Adv'erb.
 data POS = Noun | Verb | Adj | Adv
          deriving (Eq, Ord, Show, Ix, Typeable)
+
+allPOS :: [POS]
 allPOS = [Noun ..]
 
 data EPOS = POS POS | Satellite | AdjSatellite | IndirectAnt | DirectAnt | UnknownEPos | Pertainym
           deriving (Eq, Ord, Typeable)
 
+fromEPOS :: EPOS -> POS
 fromEPOS (POS p) = p
 fromEPOS _ = Adj
 
+allEPOS :: [EPOS]
 allEPOS = [POS Noun ..]
 
 instance Enum POS where
@@ -28,11 +32,12 @@ instance Enum POS where
   toEnum 2 = Verb
   toEnum 3 = Adj
   toEnum 4 = Adv
+  toEnum _ = Noun
   fromEnum Noun = 1
   fromEnum Verb = 2
   fromEnum Adj  = 3
   fromEnum Adv  = 4
-  enumFrom i = enumFromTo i Adv
+  enumFrom i       = enumFromTo i Adv
   enumFromThen i j = enumFromThenTo i j Adv
 
 instance Enum EPOS where
@@ -42,28 +47,36 @@ instance Enum EPOS where
   toEnum 4 = POS Adv
   toEnum 5 = Satellite
   toEnum 6 = AdjSatellite
-  fromEnum (POS Noun) = 1
-  fromEnum (POS Verb) = 2
-  fromEnum (POS Adj)  = 3
-  fromEnum (POS Adv)  = 4
-  fromEnum Satellite  = 5
+  toEnum 7 = DirectAnt
+  toEnum 8 = IndirectAnt
+  toEnum 9 = Pertainym
+  toEnum _ = UnknownEPos
+  fromEnum (POS Noun)   = 1
+  fromEnum (POS Verb)   = 2
+  fromEnum (POS Adj)    = 3
+  fromEnum (POS Adv)    = 4
+  fromEnum Satellite    = 5
   fromEnum AdjSatellite = 6
-  enumFrom i = enumFromTo i AdjSatellite
+  fromEnum DirectAnt    = 7
+  fromEnum IndirectAnt  = 8
+  fromEnum Pertainym    = 9
+  fromEnum UnknownEPos  = 10
+  enumFrom i       = enumFromTo i AdjSatellite
   enumFromThen i j = enumFromThenTo i j AdjSatellite
 
 instance Show EPOS where
-  showsPrec i (POS p) = showsPrec i p
-  showsPrec i (Satellite) = showString "Satellite"
-  showsPrec i (AdjSatellite) = showString "AdjSatellite"
-  showsPrec i (IndirectAnt) = showString "IndirectAnt"
-  showsPrec i (DirectAnt) = showString "DirectAnt"
-  showsPrec i (Pertainym) = showString "Pertainym"
-  showsPrec i (UnknownEPos) = showString "UnknownEPos"
+  showsPrec i (POS p)        = showsPrec i p
+  showsPrec _ (Satellite)    = showString "Satellite"
+  showsPrec _ (AdjSatellite) = showString "AdjSatellite"
+  showsPrec _ (IndirectAnt)  = showString "IndirectAnt"
+  showsPrec _ (DirectAnt)    = showString "DirectAnt"
+  showsPrec _ (Pertainym)    = showString "Pertainym"
+  showsPrec _ (UnknownEPos)  = showString "UnknownEPos"
 
 instance Ix EPOS where
-  range (i,j) = [i..j]
-  index (i,j) a = fromEnum a - fromEnum i
-  inRange (i,j) a = a `elem` [i..j]
+  range (i, j)     = [i..j]
+  index (i, _) a   = fromEnum a - fromEnum i
+  inRange (i, j) a = a `elem` [i..j]
 
 readEPOS :: String -> EPOS
 readEPOS a | (map toLower a) == "n"           = POS Noun
@@ -94,24 +107,25 @@ data WordNetEnv =
        warnAbout :: String -> SomeException -> IO ()
      }
 
+wordNetEnv0 :: WordNetEnv
 wordNetEnv0 = WordNetEnv { 
-                dataHandles = undefined,
-                excHandles  = undefined,
-                senseHandle = Nothing, 
-                countListHandle = Nothing,
-                keyIndexHandle = Nothing,
+                dataHandles       = undefined,
+                excHandles        = undefined,
+                senseHandle       = Nothing,
+                countListHandle   = Nothing,
+                keyIndexHandle    = Nothing,
                 revKeyIndexHandle = Nothing,
-                vSentHandle = Nothing,
-                wnReleaseVersion = Nothing,
-                dataDirectory = "",
-                warnAbout = \_ _ -> return ()
+                vSentHandle       = Nothing,
+                wnReleaseVersion  = Nothing,
+                dataDirectory     = "",
+                warnAbout         = \_ _ -> return ()
               }
 
 data SenseKey = 
      SenseKey {
-       senseKeyPOS :: POS, 
+       senseKeyPOS    :: POS,
        senseKeyString :: String,
-       senseKeyWord :: String
+       senseKeyWord   :: String
      } deriving (Show, Typeable)
 
 
@@ -121,21 +135,22 @@ newtype Key = Key (Offset, POS) deriving (Eq, Typeable)
 
 data Synset =
      Synset {
-       hereIAm :: Offset,
-       ssType :: EPOS,
-       fnum :: Int,
-       pos :: EPOS,
-       ssWords :: [(String, Int, SenseType)], -- (word, lex-id, sense)
-       whichWord :: Maybe Int,
-       forms :: [(Form, Offset, EPOS, Int, Int)],
-       frames :: [(Int, Int)],
-       defn :: String,
-       key :: Maybe Offset,
-       searchType :: Int,
-       headWord :: String,
-       headSense :: SenseType
+       hereIAm     :: Offset,
+       ssType      :: EPOS,
+       fnum        :: Int,
+       pos         :: EPOS,
+       ssWords     :: [(String, Int, SenseType)], -- (word, lex-id, sense)
+       whichWord   :: Maybe Int,
+       forms       :: [(Form, Offset, EPOS, Int, Int)],
+       frames      :: [(Int, Int)],
+       defn        :: String,
+       key         :: Maybe Offset,
+       searchType  :: Int,
+       headWord    :: String,
+       headSense   :: SenseType
      } deriving (Show)
 
+synset0 :: Synset
 synset0 = Synset 0 UnknownEPos (-1) undefined [] Nothing [] [] "" Nothing (-1) "" AllSenses
 
 -- | The basic type which holds search results.  Its 'Show' instance simply
@@ -157,14 +172,15 @@ data SearchResult =
 
 data Index = 
      Index {
-       indexWord :: String,
-       indexPOS :: EPOS,
-       indexSenseCount :: Int,
-       indexForms :: [Form],
+       indexWord        :: String,
+       indexPOS         :: EPOS,
+       indexSenseCount  :: Int,
+       indexForms       :: [Form],
        indexTaggedCount :: Int,
-       indexOffsets :: [Offset]
+       indexOffsets     :: [Offset]
      } deriving (Eq, Ord, Show, Typeable)
 
+index0 :: Index
 index0 = Index "" (POS Noun) (-1) [] (-1) []
 
 -- | The different types of relations which can hold between WordNet Synsets.
@@ -178,6 +194,7 @@ data Form = Antonym | Hypernym | Hyponym | Entailment | Similar
           | Unknown
           deriving (Eq, Ord, Show, Enum, Typeable)
 
+allForm :: [Form]
 allForm = [Antonym ..]
 
 readForm :: String -> Form

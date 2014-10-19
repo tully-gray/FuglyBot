@@ -8,7 +8,7 @@ module NLP.WordNet.Common
     )
     where
 
-import Prelude hiding (catch)
+import Prelude
 import Data.Char
 import Data.List
 import Data.Maybe
