@@ -212,7 +212,7 @@ readForm a | (map toLower a) == "hmeronym"        = HMeronym
 readForm a | (map toLower a) == "hholonym"        = HHolonym
 readForm a | (map toLower a) == "wngrep"          = WNGrep
 readForm a | (map toLower a) == "overviewform"    = OverviewForm
-readForm _                                      = Unknown
+readForm _                                        = Unknown
 
 -- | A 'SenseType' is a way of controlling search.  Either you specify
 -- a certain sense (using @SenseNumber n@, or, since 'SenseType' is an

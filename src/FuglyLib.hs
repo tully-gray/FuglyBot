@@ -667,22 +667,25 @@ wnGloss wne' word' pos' = do
       return $ unwords result
 
 wnRelated :: WordNetEnv -> String -> String -> String -> IO String
-wnRelated wne' c d pos' = do
-    x <- wnRelated' wne' c d $ readEPOS pos'
+wnRelated wne' word' []   _    = wnRelated wne' word' "Hypernym" []
+wnRelated wne' word' form []   = do
+    wnPos <- wnPartString wne' (fixUnderscore word')
+    wnRelated wne' word' form wnPos
+wnRelated wne' word' form pos' = do
+    x <- wnRelated' wne' word' form $ readEPOS pos'
     f (filter (not . null) x) []
   where
     f []     a = return a
     f (x:xs) a = f xs (x ++ " " ++ a)
 
 wnRelated' :: WordNetEnv -> String -> String -> EPOS -> IO [String]
-wnRelated' _    [] _ _    = return [[]] :: IO [String]
-wnRelated' wne' c [] pos' = wnRelated' wne' c "Hypernym" pos'
-wnRelated' wne' c d  pos' = catch (do
-    let wnForm = readForm d
-    s <- runs wne' $ search (fixUnderscore c) (fromEPOS pos') AllSenses
+wnRelated' _ [] _ _             = return [[]] :: IO [String]
+wnRelated' wne' word' form pos' = catch (do
+    let wnForm = readForm form
+    s <- runs wne' $ search (fixUnderscore word') (fromEPOS pos') AllSenses
     r <- runs wne' $ relatedByList wnForm s
     ra <- runs wne' $ relatedByListAllForms s
-    let result = if (map toLower d) == "all" then concat $ map (fromMaybe [[]])
+    let result = if (map toLower form) == "all" then concat $ map (fromMaybe [[]])
                     (runs wne' ra)
                  else fromMaybe [[]] (runs wne' r)
     if (null result) || (null $ concat result) then return [] else

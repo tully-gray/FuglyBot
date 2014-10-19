@@ -629,7 +629,7 @@ execCmd b chan nick' (x:xs) = do
                  >> return bot
             2 -> (wnClosure wne' (xs!!0) (xs!!1) []) >>= replyMsg bot chan nick' >> return bot
             1 -> (wnClosure wne' (xs!!0) [] []) >>= replyMsg bot chan nick' >> return bot
-            _ -> replyMsg bot chan nick' "Usage: !closure <word> [part-of-speech]"
+            _ -> replyMsg bot chan nick' "Usage: !closure <word> [form] [part-of-speech]"
                  >> return bot
       | x == "!meet" = case (length xs) of
             3 -> (wnMeet wne' (xs!!0) (xs!!1) (xs!!2)) >>= replyMsg bot chan nick'
