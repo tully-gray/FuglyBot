@@ -214,10 +214,10 @@ qWords :: [String]
 qWords = ["if", "is", "does", "are", "do", "why", "what", "when", "who", "where", "want", "am", "can", "will"]
 
 badEndWords :: [String]
-badEndWords = ["a", "the", "I", "I've", "I'll", "I'm", "I'd", "i", "and", "are", "an", "your", "you're", "you", "who", "with", "was",
+badEndWords = ["a", "the", "i", "i've", "i'll", "i'm", "i'd", "and", "are", "an", "your", "you're", "you", "who", "with", "was",
                "to", "in", "is", "as", "if", "do", "so", "am", "of", "for", "or", "he", "she", "they", "they're", "we", "it", "it's",
                "its", "from", "go", "my", "that", "that's", "whose", "when", "what", "has", "had", "make", "makes", "person's", "but",
-               "our", "their", "than", "at", "on", "into", "just", "by", "he's", "she's", "mr", "Mr"]
+               "our", "their", "than", "at", "on", "into", "just", "by", "he's", "she's", "mr", "mrs"]
 
 -- allowedShortWords :: [String]
 -- allowedShortWords = ["a", "am", "an", "at", "by", "do", "go", "he", "i", "if", "in", "it", "mr", "my", "no", "on", "or", "so", "to",
@@ -753,7 +753,7 @@ asSuggest aspell' word' = do w <- Aspell.suggest aspell' (ByteString.pack word')
 gfParseBool :: PGF -> Int -> String -> Bool
 gfParseBool _ _ [] = False
 gfParseBool pgf' len msg
-  | elem lw badEndWords = False
+  | elem (map toLower lw) badEndWords = False
   | length w > len = (gfParseBoolA pgf' $ take len w) &&
                      (gfParseBool pgf' len (unwords $ drop len w))
   | otherwise      = gfParseBoolA pgf' w
