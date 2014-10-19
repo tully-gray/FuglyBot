@@ -181,7 +181,6 @@ readSynset wne searchPos offset w = do
         case readDec ptrCountS of
           (n, _):_ -> n
           _        -> 0
---  print (toks, ptrCountS, ptrCount)
   wrds' <- readWords ss1 wrds
   let ss2 = ss1 { ssWords = wrds',
                   whichWord = findIndex (==w) wrds }
@@ -204,12 +203,11 @@ readSynset wne searchPos offset w = do
     readWords ss (w':lid:xs) = do
       let s = map toLower $ replaceChar ' ' '_' w'
       idx  <- indexLookup wne s (fromEPOS $ pos ss)
---      print (w,st,idx)
       let posn = case idx of
                    Nothing -> Nothing
                    Just ix -> findIndex (==hereIAm ss) (indexOffsets ix)
       rest <- readWords ss xs
-      return ((w, fst $ head $ readHex lid, maybe AllSenses SenseNumber posn) : rest)
+      return ((w', fst $ head $ readHex lid, maybe AllSenses SenseNumber posn) : rest)
     readWords _ _ = return []
     readPtrs (fp,ss) (typ:off:ppos:lexp:xs) = 
       let (fp',ss') = readPtrs (fp,ss) xs
@@ -233,7 +231,6 @@ indexToSenseKey wne idx sense = do
   let cpos = fromEPOS $ indexPOS idx
   ss1 <- readSynset wne cpos (indexOffsets idx !! (sense-1)) ""
   ss2 <- followSatellites ss1
-  --print ss2
   case findIndex ((==indexWord idx) . map toLower) (map (\ (w,_,_) -> w) $ ssWords ss2) of
     Nothing -> return Nothing
     Just  j -> do
