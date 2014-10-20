@@ -308,18 +308,15 @@ insertWordRaw' (Fugly dict' _ wne' aspell' allow' _ _) w word' before' after' po
   let nn x y  = if elem x allow' then x
                 else if y == UnknownEPos && Aspell.check aspell'
                         (ByteString.pack x) == False then [] else x
-  let i x = Map.insert x (Word x 1 (e (nn before' pb)) (e (nn after' pa)) rel pp) dict'
-  if isJust w then
-    return $ Map.insert word' (Word word' c (nb before' pb) (na after' pa)
-                               (wordGetRelated $ fromJust w)
-                               (wordGetPos $ fromJust w)) dict'
-         else if elem word' allow' then
-           return $ i word'
-           else if pp /= UnknownEPos || Aspell.check aspell'
-                   (ByteString.pack word') then
-                  return $ i word'
-                else
-                  return dict'
+  let insert' x = Map.insert x (Word x 1 (e (nn before' pb)) (e (nn after' pa)) rel pp) dict'
+  if isJust w then return $ Map.insert word' (Word word' c (nb before' pb) (na after' pa)
+                                              (wordGetRelated $ fromJust w)
+                                              (wordGetPos $ fromJust w)) dict'
+    else if elem word' allow' then return $ insert' word'
+         else if pp /= UnknownEPos || Aspell.check aspell' (ByteString.pack word') then
+                return $ insert' word'
+              else
+                return dict'
   where
     e [] = Map.empty
     e x = Map.singleton x 1
@@ -338,7 +335,7 @@ insertName f@(Fugly {dict=d}) w b a = insertName' f (Map.lookup w d) w b a
 
 insertName' :: Fugly -> Maybe Word -> String -> String
               -> String -> IO (Map.Map String Word)
-insertName' (Fugly dict' _ _ _ _ _ _) _ [] _ _ = return dict'
+insertName' (Fugly {dict=d}) _ [] _ _ = return d
 insertName' (Fugly dict' _ wne' aspell' allow' _ _) w name' before' after' = do
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
