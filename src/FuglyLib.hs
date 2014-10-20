@@ -300,18 +300,23 @@ insertWordRaw' (Fugly dict' _ wne' aspell' allow' _ _) w word' before' after' po
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
   rel <- wnRelated' wne' word' "Hypernym" pp
+  as <- asSuggest aspell' word'
+  let asw = words as
   let nn x y  = if elem x allow' then x
                 else if y == UnknownEPos && Aspell.check aspell'
                         (ByteString.pack x) == False then [] else x
   let insert' x = Map.insert x (Word x 1 (e (nn before' pb)) (e (nn after' pa)) rel pp) dict'
+  let msg w' = hPutStrLn stdout ("> inserted new word: " ++ w')
   if isJust w then return $ Map.insert word' (Word word' c (nb before' pb) (na after' pa)
                                               (wordGetRelated $ fromJust w)
                                               (wordGetPos $ fromJust w)) dict'
-    else if elem word' allow' then return $ insert' word'
+    else if elem word' allow' then msg word' >> return (insert' word')
          else if pp /= UnknownEPos || Aspell.check aspell' (ByteString.pack word') then
-                return $ insert' word'
-              else
-                return dict'
+                 msg word' >> return (insert' word')
+              else if (length asw) > 0 then
+                      msg (head asw) >> return (insert' $ head asw)
+                   else
+                     return dict'
   where
     e [] = Map.empty
     e x = Map.singleton x 1
