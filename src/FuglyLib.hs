@@ -214,10 +214,7 @@ qWords :: [String]
 qWords = ["if", "is", "does", "are", "do", "why", "what", "when", "who", "where", "want", "am", "can", "will"]
 
 badEndWords :: [String]
-badEndWords = ["a", "the", "i", "i've", "i'll", "i'm", "i'd", "and", "are", "an", "your", "you're", "you", "who", "with", "was",
-               "to", "in", "is", "as", "if", "do", "so", "am", "of", "for", "or", "he", "she", "they", "they're", "we", "it", "it's",
-               "its", "from", "go", "my", "that", "that's", "whose", "when", "what", "has", "had", "make", "makes", "person's", "but",
-               "our", "their", "than", "at", "on", "into", "just", "by", "he's", "she's", "mr", "mrs"]
+badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "for", "from", "go", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "was", "what", "we", "when", "with", "who", "whose", "you", "your", "you're", "you've"]
 
 -- allowedShortWords :: [String]
 -- allowedShortWords = ["a", "am", "an", "at", "by", "do", "go", "he", "i", "if", "in", "it", "mr", "my", "no", "on", "or", "so", "to",
