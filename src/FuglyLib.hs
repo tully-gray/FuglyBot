@@ -26,12 +26,9 @@ module FuglyLib
          wnClosure,
          wnMeet,
          asReplaceWords,
-         -- gfAll,
-         -- gfRandom,
          gfParseBool,
          gfParseC,
          gfCategories,
-         -- gfTranslate,
          sentence,
          chooseWord,
          findRelated,
@@ -192,8 +189,6 @@ loadDict fuglydir topic = do
       let ww = if l4 == True then case (head wl) of
                            "word:"    -> (Word (unwords ll) 0 Map.empty Map.empty [] UnknownEPos)
                            "name:"    -> (Name (unwords ll) 0 Map.empty Map.empty [])
-                           -- "place:"   -> word{place=(unwords ll)}
-                           -- "phrase:"  -> word{phrase=(unwords ll)}
                            "count:"   -> word'{count=(read (unwords $ ll) :: Int)}
                            "before:"  -> word'{FuglyLib.before=(getNeigh $ ll)}
                            "after:"   -> word'{FuglyLib.after=(getNeigh $ ll)}
@@ -562,26 +557,6 @@ toUpperSentence (x:xs) = toUpperWord x : xs
 endSentence :: [String] -> [String]
 endSentence []  = []
 endSentence msg = (init msg) ++ ((fLast [] msg) ++ if elem (head msg) qWords then "?" else ".") : []
-
-{--
-fReadInt :: String -> Int -> String -> Int
-fReadInt a b c = unsafePerformIO (do catch (evaluate (read c :: Int))
-                                       (\e -> do hPutStrLn stderr ("fRead: " ++ show
-                                                                   (e :: SomeException)
-                                                                   ++ " in " ++ a) ; return b))
-
-fHead :: String -> a -> [a] -> a
-fHead a b [] = unsafePerformIO (do hPutStrLn stderr ("fHead: error in " ++ a) ; return b)
-fHead _ _ c  = head c
-
-fLast :: String -> a -> [a] -> a
-fLast a b [] = unsafePerformIO (do hPutStrLn stderr ("fLast: error in " ++ a) ; return b)
-fLast _ _ c  = last c
-
-fTail :: String -> [a] -> [a] -> [a]
-fTail a b [] = unsafePerformIO (do hPutStrLn stderr ("fTail: error in " ++ a) ; return b)
-fTail _ _ c  = tail c
---}
 
 fHead :: a -> [a] -> a
 fHead b [] = b
