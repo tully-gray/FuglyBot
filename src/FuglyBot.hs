@@ -112,17 +112,17 @@ readParam _                                        = UnknownParam
 
 main :: IO ()
 main = do
-    args <- cmdLine
-    bracket (start args) stop (loop args)
+    bracket start stop loop
   where
-    loop :: [String] -> MVar Bot -> IO ()
-    loop args bot = do catch (evalStateT (run args) bot)
-                         (\e -> do let err = show (e :: SomeException)
-                                   hPutStrLn stderr ("main loop: " ++ err)
-                                   return ())
+    loop :: MVar Bot -> IO ()
+    loop bot = do catch (evalStateT run bot)
+                    (\e -> do let err = show (e :: SomeException)
+                              hPutStrLn stderr ("main loop: " ++ err)
+                              return ())
 
-start :: [String] -> IO (MVar Bot)
-start args = do
+start :: IO (MVar Bot)
+start = do
+    args <- cmdLine
     let servn    = args !! 0
     let port     = args !! 1
     let hints = defaultHints {addrFlags = [AI_NUMERICSERV]}
@@ -136,6 +136,8 @@ start args = do
     let socks5   = args !! 10
     let s5hostn  = takeWhile (\x -> x /= ':') socks5
     let s5port   = tail $ dropWhile (\x -> x /= ':') socks5
+    let channels = words $ args !! 4
+    let passwd   = args !! 9
     s5serv <- getAddrInfo (Just hints) (Just s5hostn) (Just s5port)
     s <- socket AF_INET Stream defaultProtocol
     _ <- setSocketOption s KeepAlive 0
@@ -149,6 +151,10 @@ start args = do
     bot <- newMVar b
     write sh "NICK" nick'
     write sh "USER" (nick' ++ " 0 * :user")
+    _ <- forkIO (do
+                    threadDelay 20000000
+                    if not $ null passwd then replyMsg b "nickserv" [] ("IDENTIFY " ++ passwd) else return ()
+                    joinChannel sh "JOIN" channels)
     return bot
 
 stop :: MVar Bot -> IO ()
@@ -160,19 +166,12 @@ stop bot = do
     hClose $ (\(Bot {sock=s}) -> s) b
     stopFugly fdir f topic'
 
-run :: [String] -> StateT (MVar Bot) IO b
-run args = do
+run :: StateT (MVar Bot) IO b
+run = do
     b <- get
     bot <- lift $ readMVar b
     let s = (\(Bot {sock=s'}) -> s') bot
-    let channels = words $ args !! 4
-    let passwd   = args !! 9
-    lift (forkIO (do
-                     threadDelay 20000000
-                     if not $ null passwd then replyMsg bot "nickserv" [] ("IDENTIFY " ++ passwd) else return ()
-                     joinChannel s "JOIN" channels
-                     forever (do write s "PING" ":foo" ; threadDelay 20000000))) >> return ()
-    forever $ do lift (hGetLine s >>= (\l -> do hPutStrLn stdout l >> return l) >>= listenIRC b s)
+    forever $ do lift (hGetLine s >>= (\l -> do hPutStrLn stdout l >> return l) >>= (\ll -> forkIO $ listenIRC b s ll))
     where
       listenIRC b s l = do
         bot <- readMVar b
@@ -394,15 +393,15 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
     let matchon = map toLower (intercalate "|" (botnick : match'))
     mm <- lift $ chooseWord fmsg
     r <- lift $ Random.getStdRandom (Random.randomR (1, 3 :: Int))
-    _ <- lift $ forkIO (if null chan then
-                          if allowpm' then
-                            sentenceReply s f nick' [] randoms' stries' slen plen r mm
-                          else return ()
-                        else if null nick' then
-                               if map toLower (unwords msg) =~ matchon then
-                                 sentenceReply s f chan chan randoms' stries' slen plen r mm
-                               else return ()
-                             else sentenceReply s f chan nick' randoms' stries' slen plen r mm)
+    _ <- lift $ (if null chan then
+                   if allowpm' then
+                     sentenceReply s f nick' [] randoms' stries' slen plen r mm
+                   else return ()
+                 else if null nick' then
+                        if map toLower (unwords msg) =~ matchon then
+                          sentenceReply s f chan chan randoms' stries' slen plen r mm
+                        else return ()
+                      else sentenceReply s f chan nick' randoms' stries' slen plen r mm)
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords f autoname' fmsg
       lift $ hPutStrLn stdout ">parse<"
