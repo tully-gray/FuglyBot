@@ -651,9 +651,9 @@ execCmd b chan nick' (x:xs) = do
       | x == "!gfcats" = case (length xs) of
             0 -> return (unwords $ gfCategories pgf') >>= replyMsg bot chan nick' >> return bot
             _ -> replyMsg bot chan nick' "Usage: !gfcats" >> return bot
-      -- | x == "!random" = case (length xs) of
-      --       1 -> replyMsg bot chan nick' (gfAll pgf' (read (xs!!0))) >> return bot
-      --       _ -> replyMsg bot chan nick' "Usage: !random <number>" >> return bot
+      | x == "!random" = case (length xs) of
+            1 -> replyMsg bot chan nick' (gfAll pgf' (read (xs!!0))) >> return bot
+            _ -> replyMsg bot chan nick' "Usage: !random <number>" >> return bot
       -- | x == "!test" = if nick' == owner' then
       --       replyMsg bot chan nick' (unwords $ map show $ take 750 $ iterate succ (0 :: Int)) >> return bot
       --       else return bot

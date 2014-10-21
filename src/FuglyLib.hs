@@ -29,6 +29,8 @@ module FuglyLib
          gfParseBool,
          gfParseC,
          gfCategories,
+         gfRandom,
+         gfAll,
          sentence,
          chooseWord,
          findRelated,
@@ -762,6 +764,17 @@ gfParseC pgf' msg = lin pgf' lang (parse_ pgf' lang (startCat pgf') Nothing msg)
 
 gfCategories :: PGF -> [String]
 gfCategories pgf' = map showCId (categories pgf')
+
+gfRandom :: PGF -> Int -> String
+gfRandom pgf' num = unwords $ toUpperSentence $ endSentence $ take 15 $ words $ gfRandom' pgf' num
+
+gfRandom' :: PGF -> Int -> String
+gfRandom' pgf' num = linearize pgf' (head $ languages pgf') $ head $
+                     generateRandomDepth (Random.mkStdGen num) pgf' (startCat pgf') (Just 3)
+
+gfAll :: PGF -> Int -> String
+gfAll pgf' num = unwords $ toUpperSentence $ endSentence $ take 15 $ words $
+                 linearize pgf' (head $ languages pgf') ((generateAllDepth pgf' (startCat pgf') (Just 3))!!num)
 
 sentence :: Fugly -> Int -> Int -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ _ _ [] = [return []] :: [IO String]
