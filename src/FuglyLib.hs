@@ -26,6 +26,8 @@ module FuglyLib
          wnClosure,
          wnMeet,
          asReplaceWords,
+         gfLin,
+         gfShowExpr,
          gfParseBool,
          gfParseC,
          gfCategories,
@@ -731,6 +733,14 @@ asSuggest _       []    = return []
 asSuggest aspell' word' = do w <- Aspell.suggest aspell' (ByteString.pack word')
                              return $ unwords $ map ByteString.unpack w
 
+gfLin :: PGF -> String -> String
+gfLin _ [] = []
+gfLin pgf' msg
+  | isJust expr = linearize pgf' (head $ languages pgf') $ fromJust $ expr
+  | otherwise   = []
+    where
+      expr = readExpr msg
+
 gfParseBool :: PGF -> Int -> String -> Bool
 gfParseBool _ _ [] = False
 gfParseBool pgf' len msg
@@ -766,14 +776,22 @@ gfCategories :: PGF -> [String]
 gfCategories pgf' = map showCId (categories pgf')
 
 gfRandom :: PGF -> Int -> String
-gfRandom pgf' num = unwords $ toUpperSentence $ endSentence $ take 15 $ words $ gfRandom' pgf' num
+gfRandom pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 95 $
+                    filter (not . null) $ map cleanString $ words $ gfRandom'
+    where
+      gfRandom' = linearize pgf' (head $ languages pgf') $ head $
+                  generateRandomDepth (Random.mkStdGen num) pgf' (startCat pgf') (Just num)
 
-gfRandom' :: PGF -> Int -> String
-gfRandom' pgf' num = linearize pgf' (head $ languages pgf') $ head $
-                     generateRandomDepth (Random.mkStdGen num) pgf' (startCat pgf') (Just 3)
+gfShowExpr :: PGF -> String -> Int -> String
+gfShowExpr pgf' type' num = if isJust $ readType type' then
+    let c = fromJust $ readType type'
+    in
+      head $ filter (not . null) $ map (\x -> fromMaybe [] (unStr x))
+      (generateRandomDepth (Random.mkStdGen num) pgf' c (Just num))
+                          else "Not a GF type."
 
 gfAll :: PGF -> Int -> String
-gfAll pgf' num = unwords $ toUpperSentence $ endSentence $ take 15 $ words $
+gfAll pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 15 $ words $
                  linearize pgf' (head $ languages pgf') ((generateAllDepth pgf' (startCat pgf') (Just 3))!!num)
 
 sentence :: Fugly -> Int -> Int -> Int -> Int -> [String] -> [IO String]
