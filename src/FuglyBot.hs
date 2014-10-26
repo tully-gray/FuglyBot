@@ -659,6 +659,11 @@ execCmd b chan nick' (x:xs) = do
       | x == "!gfshowexpr" = case (length xs) of
             2 -> replyMsg bot chan nick' (gfShowExpr pgf' (xs!!0) (read(xs!!1))) >> return bot
             _ -> replyMsg bot chan nick' "Usage: !gfshowexpr <type> <num>" >> return bot
+      | x == "!isname" = case (length xs) of
+            1 -> do n <- asIsName aspell' (xs!!0)
+                    replyMsg bot chan nick' (show n)
+                    return bot
+            _ -> replyMsg bot chan nick' "Usage: !isname <word>" >> return bot
       | x == "!test" = if nick' == owner' then
             replyMsg bot chan nick' (unwords $ map show $ take 750 $ iterate succ (0 :: Int)) >> return bot
             else return bot

@@ -26,6 +26,7 @@ module FuglyLib
          wnClosure,
          wnMeet,
          asReplaceWords,
+         asIsName,
          gfLin,
          gfShowExpr,
          gfParseBool,
@@ -106,7 +107,7 @@ initFugly fuglydir wndir gfdir topic = do
             (Just (\e f -> hPutStrLn stderr (e ++ show (f :: SomeException))))
     a <- Aspell.spellCheckerWithOptions [Aspell.Options.Lang (ByteString.pack "en_US"),
                                          Aspell.Options.IgnoreCase False, Aspell.Options.Size Aspell.Options.Large,
-                                         Aspell.Options.SuggestMode Aspell.Options.Normal]
+                                         Aspell.Options.SuggestMode Aspell.Options.Normal, Aspell.Options.Ignore 2]
     let aspell' = head $ rights [a]
     return (Fugly dict' pgf' wne' aspell' allow' ban' match')
 
@@ -718,10 +719,15 @@ asIsName _       []    = return False
 asIsName aspell' word' = do
     let l = map toLower word'
     let u = toUpperWord l
-    let b = upperLast word'
+    let b = upperLast l
     n1 <- asSuggest aspell' l
     n2 <- asSuggest aspell' u
     n3 <- asSuggest aspell' b
+    -- hPutStrLn stderr ("isname: word: " ++ word')
+    -- hPutStrLn stderr ("isname: u: " ++ u)
+    -- hPutStrLn stderr ("isname: n1: " ++ n1)
+    -- hPutStrLn stderr ("isname: n2: " ++ n2)
+    -- hPutStrLn stderr ("isname: n3: " ++ n3)
     return $ if null n1 && null n2 then u == (head $ words n3)
              else if null n2 && (not $ null n1) then True
                   else False
@@ -741,7 +747,10 @@ dictLookup (Fugly _ _ wne' aspell' _ _ _) word' pos' = do
 asSuggest :: Aspell.SpellChecker -> String -> IO String
 asSuggest _       []    = return []
 asSuggest aspell' word' = do w <- Aspell.suggest aspell' (ByteString.pack word')
-                             return $ unwords $ map ByteString.unpack w
+                             let ww = map ByteString.unpack w
+                             if null ww then return []
+                               else if word' == head ww then return []
+                                    else return $ unwords ww
 
 gfLin :: PGF -> String -> String
 gfLin _ [] = []
