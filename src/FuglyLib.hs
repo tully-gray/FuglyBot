@@ -865,7 +865,7 @@ wnReplaceWords fugly@(Fugly {wne=wne'}) randoms msg = do
   cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
   rr <- Random.getStdRandom (Random.randomR (0, 99))
   w <- if not $ null cw then findRelated wne' (cw!!cr) else return []
-  let out = map cleanString $ filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++ [w] ++ (tail $ dropWhile (/= (cw!!cr)) msg))
+  let out = filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++ [w] ++ (tail $ dropWhile (/= (cw!!cr)) msg))
   if rr + randoms < 90 then
     return out
     else if randoms < 90 then
