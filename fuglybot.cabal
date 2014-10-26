@@ -2,16 +2,20 @@ Name:            FuglyBot
 Version:         0.1.0
 Description:     FuglyBot is an IRC bot.
 Category:        IRC bot
-Synopsis:        FuglyBot is an IRC bot.
+Synopsis:        FuglyBot is an IRC bot which features grammar checking
+                 (Grammatical Framework), spell checking (aspell bindings),
+                 and word cross-referencing (WordNet).
 License:         MIT
 License-file:    src/LICENSE
-Author:          various
-Maintainer:      hmm
+Author:          tully.gray@anapnea.net
+Maintainer:      tully.gray@anapnea.net
 Build-type:      Simple
 Cabal-version:   >= 1.8
 
 Library
-    Build-depends:   base == 4.*, array, binary, bytestring, containers, filepath, gf, haspell, pretty, random, regex-posix, transformers
+    Build-depends:   base == 4.*, array, binary, bytestring, containers,
+                     filepath, gf, haspell, pretty, random, regex-posix,
+                     transformers
     Hs-source-dirs:  src
     Exposed-Modules: FuglyLib, NLP.WordNet
     Other-Modules:
@@ -26,7 +30,9 @@ Library
 
 Executable fuglybot
     Main-is:         FuglyBot.hs
-    Build-depends:   base == 4.*, array, bytestring, containers, filepath, gf, haspell, network, parallel, random, regex-posix, socks, transformers, unix
+    Build-depends:   base == 4.*, array, bytestring, containers, filepath, gf,
+                     haspell, network, parallel, random, regex-posix, socks,
+                     transformers, unix
     Hs-source-dirs:  src
     Extra-libraries: jemalloc
     GHC-Options: -rtsopts=all -threaded -feager-blackholing -Wall
