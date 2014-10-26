@@ -965,11 +965,8 @@ findRelated wne' word' = do
 
 response :: [String] -> IO String
 response [] = return []
-response ("and" : _) = return "no, and "
-response ("i" : xs) = return ("you " ++ head xs)
-response ("some" : _) = return "certainly, but "
-response (x : xs) = do
-    r <- Random.getStdRandom (Random.randomR (0, 12)) :: IO Int
+response (x : _) = do
+    r <- Random.getStdRandom (Random.randomR (0, 14)) :: IO Int
     if elem x qWords || x == "hey" then
       return (case r of
         1  -> "yes, and "
@@ -980,6 +977,8 @@ response (x : xs) = do
         7  -> "why is "
         8  -> "maybe, though "
         9  -> "certainly, "
-        10 -> "never, "
+        10 -> "certainly, but "
+        11 -> "never, "
+        12 -> "no, but "
         _  -> "sure, however ")
       else return []
