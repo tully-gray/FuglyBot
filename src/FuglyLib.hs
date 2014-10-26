@@ -216,9 +216,8 @@ qWords = ["am", "are", "can", "do", "does", "if", "is", "want", "what", "when", 
 badEndWords :: [String]
 badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "for", "from", "go", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "was", "what", "we", "when", "with", "who", "whose", "you", "your", "you're", "you've"]
 
--- allowedShortWords :: [String]
--- allowedShortWords = ["a", "am", "an", "at", "by", "do", "go", "he", "i", "if", "in", "it", "mr", "my", "no", "on", "or", "so", "to",
---                      "us", "we", "yo"]
+sWords :: [String]
+sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "mr", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we", "yo"]
 
 class Word_ a where
   wordIs :: a -> String
@@ -276,10 +275,13 @@ insertWord fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word' b
     na <- asIsName aspell' after'
     let out = if elem (map toLower word') ban' || elem (map toLower before') ban' ||
                  elem (map toLower after') ban' then return dict'
-              else if isJust w then f nb na $ fromJust w
-                   else if n && autoname then insertName' fugly w (toUpperWord $ cleanString word') (bi nb) (ai na)
-                        else if isJust ww then insertWordRaw' fugly ww (map toLower $ cleanString word') (bi nb) (ai na) pos'
-                             else insertWordRaw' fugly w (map toLower $ cleanString word') (bi nb) (ai na) pos'
+              else if length word' < 3 && (not $ elem (map toLower word') sWords) ||
+                      length before' < 3 && (not $ elem (map toLower before') sWords) ||
+                      length after' < 3 && (not $ elem (map toLower after') sWords) then return dict'
+                   else if isJust w then f nb na $ fromJust w
+                        else if n && autoname then insertName' fugly w (toUpperWord $ cleanString word') (bi nb) (ai na)
+                             else if isJust ww then insertWordRaw' fugly ww (map toLower $ cleanString word') (bi nb) (ai na) pos'
+                                  else insertWordRaw' fugly w (map toLower $ cleanString word') (bi nb) (ai na) pos'
     out
   where
     w = Map.lookup word' dict'
@@ -320,7 +322,9 @@ insertWordRaw' (Fugly dict' _ wne' aspell' allow' _ _) w word' before' after' po
          else if pp /= UnknownEPos || Aspell.check aspell' (ByteString.pack word') then
                  msg word' >> return (insert' word')
               else if (length asw) > 0 then
-                      msg (head asw) >> return (insert' $ head asw)
+                     if length (head asw) < 3 && (not $ elem (map toLower (head asw)) sWords)
+                        then return dict' else
+                       msg (head asw) >> return (insert' $ head asw)
                    else
                      return dict'
   where
@@ -346,10 +350,12 @@ insertName' (Fugly dict' _ wne' aspell' allow' _ _) w name' before' after' = do
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
   rel <- wnRelated' wne' name' "Hypernym" (POS Noun)
+  let msg w' = hPutStrLn stdout ("> inserted new name: " ++ w')
   if isJust w then
     return $ Map.insert name' (Name name' c (nb before' pb) (na after' pa)
                                (wordGetRelated (fromJust w))) dict'
-    else
+    else do
+    msg name'
     return $ Map.insert name' (Name name' 1 (e (nn before' pb))
                                (e (nn after' pa)) rel) dict'
   where
@@ -815,10 +821,12 @@ gfAll pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 15 $ w
 
 sentence :: Fugly -> Int -> Int -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ _ _ [] = [return []] :: [IO String]
-sentence fugly@(Fugly {pgf=pgf', ban=ban'}) randoms stries slen plen msg = do
+sentence fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen plen msg = do
   let s1f x = if null x then return []
               else if gfParseBool pgf' plen x && length (words x) > 2 then return x else return []
+  let s1h n x = if n then x else map toLower x
   let s1a x = do
+      n <- asIsName aspell' x
       z <- findNextWord fugly 0 randoms True x
       let zz = if null z then [] else head z
       y <- findNextWord fugly 1 randoms True zz
@@ -826,8 +834,9 @@ sentence fugly@(Fugly {pgf=pgf', ban=ban'}) randoms stries slen plen msg = do
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
       res <- response $ map (\m -> map toLower m) msg
-      rep <- wnReplaceWords fugly randoms $ filter (\a -> length a > 0 && not (elem a ban'))
-             ((words res) ++ [yy] ++ [zz] ++ [x] ++ w)
+      rep <- wnReplaceWords fugly randoms $ filter (\a -> length a > 0 && not (elem a ban')) $
+             filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True)
+             ((words res) ++ [yy] ++ [zz] ++ [s1h n x] ++ w)
       return $ filter (not . null) rep
   let s1d x = do
       w <- x
@@ -837,7 +846,7 @@ sentence fugly@(Fugly {pgf=pgf', ban=ban'}) randoms stries slen plen msg = do
   let s1e x = do
       w <- x
       if null w then return []
-        else return ((s1c w : [] ) ++ fTail [] w)
+        else return ([s1c w] ++ fTail [] w)
   let s1g = if slen == 0 then [return []] else
               take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
   map (\x -> do y <- x ; s1f y) s1g
@@ -847,11 +856,11 @@ sentence fugly@(Fugly {pgf=pgf', ban=ban'}) randoms stries slen plen msg = do
       ww <- msg'
       if null ww then return []
         else if i >= n then return $ nub ww else do
-               www <- findNextWord f i randoms False (fLast [] ww)
+               www <- findNextWord f i randoms False $ fLast [] ww
                s1b f n (i + 1) (return $ ww ++ www)
     s1c :: [String] -> String
     s1c [] = []
-    s1c w = ((toUpper $ head $ head w) : []) ++ (fTail [] $ head w)
+    s1c w = [toUpper $ head $ head w] ++ (fTail [] $ head w)
 
 chooseWord :: [String] -> IO [String]
 chooseWord [] = return []
