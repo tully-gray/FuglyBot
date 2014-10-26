@@ -728,6 +728,15 @@ asIsName aspell' word' = do
     upperLast [] = []
     upperLast w = init w ++ [toUpper $ last w]
 
+dictLookup :: Fugly -> String -> String -> IO String
+dictLookup (Fugly _ _ wne' aspell' _ _ _) word' pos' = do
+    gloss <- wnGloss wne' word' pos'
+    if gloss == "Nothing!" then
+       do a <- asSuggest aspell' word'
+          return (gloss ++ " Perhaps you meant: " ++
+                  (unwords (filter (\x -> x /= word') (words a))))
+      else return gloss
+
 asSuggest :: Aspell.SpellChecker -> String -> IO String
 asSuggest _       []    = return []
 asSuggest aspell' word' = do w <- Aspell.suggest aspell' (ByteString.pack word')
@@ -950,12 +959,3 @@ findRelated wne' word' = do
         r <- Random.getStdRandom (Random.randomR (0, (length anto') - 1))
         return (anto'!!r)
     else return word'
-
-dictLookup :: Fugly -> String -> String -> IO String
-dictLookup (Fugly _ _ wne' aspell' _ _ _) word' pos' = do
-    gloss <- wnGloss wne' word' pos'
-    if gloss == "Nothing!" then
-       do a <- asSuggest aspell' word'
-          return (gloss ++ " Perhaps you meant: " ++
-                  (unwords (filter (\x -> x /= word') (words a))))
-      else return gloss
