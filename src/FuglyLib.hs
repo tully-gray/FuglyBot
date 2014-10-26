@@ -816,8 +816,9 @@ sentence fugly@(Fugly {pgf=pgf', ban=ban'}) randoms stries slen plen msg = do
       let yy = if null y then [] else head y
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
+      res <- response $ map (\m -> map toLower m) msg
       rep <- wnReplaceWords fugly randoms $ filter (\a -> length a > 0 && not (elem a ban'))
-             ([response $ map (\m -> map toLower m) msg] ++ [yy] ++ [zz] ++ [x] ++ w)
+             ((words res) ++ [yy] ++ [zz] ++ [x] ++ w)
       return $ filter (not . null) rep
   let s1d x = do
       w <- x
@@ -962,20 +963,23 @@ findRelated wne' word' = do
         return (anto'!!r)
     else return word'
 
-response :: [String] -> String
-response [] = []
-response ("and" : _) = "no, and "
-response ("hey" : _) = "ultimately "
-response ("some" : _) = "certainly, but "
-response (x : xs)
-    | elem x qWords = case length xs of
-      1  -> "yes, and "
-      2  -> "i don't know, but "
-      3  -> "can the "
-      4  -> "yes, but "
-      5  -> "perhaps the "
-      6  -> "it is possible that "
-      7  -> "why is "
-      8  -> "maybe, though "
-      _  -> "sure, however "
-    | otherwise     = []
+response :: [String] -> IO String
+response [] = return []
+response ("and" : _) = return "no, and "
+response ("i" : xs) = return ("you " ++ head xs)
+response ("some" : _) = return "certainly, but "
+response (x : xs) = do
+    r <- Random.getStdRandom (Random.randomR (0, 12)) :: IO Int
+    if elem x qWords || x == "hey" then
+      return (case r of
+        1  -> "yes, and "
+        3  -> "no, the "
+        4  -> "yes, but "
+        5  -> "perhaps the "
+        6  -> "it is possible, and "
+        7  -> "why is "
+        8  -> "maybe, though "
+        9  -> "certainly, "
+        10 -> "never, "
+        _  -> "sure, however ")
+      else return []
