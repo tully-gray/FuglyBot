@@ -171,7 +171,7 @@ run = do
     b <- get
     bot <- lift $ readMVar b
     let s = (\(Bot {sock=s'}) -> s') bot
-    forever $ do lift (hGetLine s >>= (\l -> do hPutStrLn stdout l >> return l) >>= (\ll -> forkIO $ listenIRC b s ll))
+    forever $ do lift (hGetLine s >>= (\l -> do hPutStrLn stdout l >> return l) >>= (\ll -> listenIRC b s ll))
     where
       listenIRC b s l = do
         bot <- readMVar b
@@ -354,21 +354,21 @@ processLine :: [String] -> StateT (MVar Bot) IO ()
 processLine [] = return ()
 processLine line = do
     b <- get
-    bot <- lift $ readMVar b
+    bot <- lift $ takeMVar b
     let s = (\(Bot a _ _) -> a) bot
     let nick' = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
     let rk = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
     let bk = beenKicked nick' line
-    if (not $ null bk) then do lift (rejoinChannel s bk rk >> swapMVar b bot >> return ())
-      else if null msg then lift $ swapMVar b bot >> return ()
-         else if chan == nick' then do nb <- prvcmd bot ; lift $ swapMVar b nb >> return ()
-           else if spokenTo nick' msg then if null (tail msg) then lift $ swapMVar b bot >> return ()
+    if (not $ null bk) then do lift (rejoinChannel s bk rk >> putMVar b bot >> return ())
+      else if null msg then lift $ putMVar b bot >> return ()
+         else if chan == nick' then do nb <- prvcmd bot ; lift $ putMVar b nb >> return ()
+           else if spokenTo nick' msg then if null (tail msg) then lift $ putMVar b bot >> return ()
                                           else if (head $ head $ tail msg) == '!'
                                             then do nb <- execCmd bot chan who (tail msg)
-                                                    lift $ swapMVar b nb >> return ()
+                                                    lift $ putMVar b nb >> return ()
                                                else do nb <- reply bot chan who (tail msg)
-                                                       lift $ swapMVar b nb >> return ()
-             else do nb <- reply bot chan [] msg ; lift $ swapMVar b nb >> return ()
+                                                       lift $ putMVar b nb >> return ()
+             else do nb <- reply bot chan [] msg ; lift $ putMVar b nb >> return ()
   where
     msg  = getMsg line
     who  = getNick line
@@ -395,13 +395,13 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
     mm <- lift $ chooseWord fmsg
     _ <- lift $ (if null chan then
                    if allowpm' then
-                     sentenceReply s f nick' [] randoms' stries' slen plen mm
+                     sentenceReply s f nick' [] randoms' stries' slen plen mm >> return ()
                    else return ()
                  else if null nick' then
                         if map toLower (unwords msg) =~ matchon then
-                          sentenceReply s f chan chan randoms' stries' slen plen mm
+                          sentenceReply s f chan chan randoms' stries' slen plen mm >> return ()
                         else return ()
-                      else sentenceReply s f chan nick' randoms' stries' slen plen mm)
+                      else sentenceReply s f chan nick' randoms' stries' slen plen mm >> return ())
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords f autoname' fmsg
       lift $ hPutStrLn stdout ">parse<"
@@ -677,8 +677,8 @@ execCmd b chan nick' (x:xs) = do
                        ++ "!closure !meet !parse !related !random !forms !parts") >> return bot
     execCmd' bot = return bot
 
-sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ()
-sentenceReply h fugly' chan nick' randoms' stries' slen plen m = do
+sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
+sentenceReply h fugly' chan nick' randoms' stries' slen plen m = forkIO (do
     num <- Random.getStdRandom (Random.randomR (1, 3 :: Int)) :: IO Int
     x <- f (sentence fugly' randoms' stries' slen plen m) [] num 0
     let ww = unwords x
@@ -688,7 +688,7 @@ sentenceReply h fugly' chan nick' randoms' stries' slen plen m = do
         else if nick' == chan then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
                                    hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\n")
            else hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww) ++ "\r\n") >>
-                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww) ++ "\n")
+                hPutStr stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww) ++ "\n"))
   where
     f :: [IO String] -> [String] -> Int -> Int -> IO [String]
     f []     a _ _ = return a
