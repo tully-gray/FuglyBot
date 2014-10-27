@@ -392,16 +392,15 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
     let parse = if slearn then gfParseBool pgf' plen $ unwords fmsg else True
     let matchon = map toLower (intercalate "|" (botnick : match'))
     mm <- lift $ chooseWord fmsg
-    r <- lift $ Random.getStdRandom (Random.randomR (1, 3 :: Int))
     _ <- lift $ (if null chan then
                    if allowpm' then
-                     sentenceReply s f nick' [] randoms' stries' slen plen r mm
+                     sentenceReply s f nick' [] randoms' stries' slen plen mm
                    else return ()
                  else if null nick' then
                         if map toLower (unwords msg) =~ matchon then
-                          sentenceReply s f chan chan randoms' stries' slen plen r mm
+                          sentenceReply s f chan chan randoms' stries' slen plen mm
                         else return ()
-                      else sentenceReply s f chan nick' randoms' stries' slen plen r mm)
+                      else sentenceReply s f chan nick' randoms' stries' slen plen mm)
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords f autoname' fmsg
       lift $ hPutStrLn stdout ">parse<"
@@ -609,7 +608,7 @@ execCmd b chan nick' (x:xs) = do
                                   replyMsg bot chan nick' "Usage: !internalize <tries> <msg>" >> return bot
                            else return bot
       | x == "!talk" = if nick' == owner' then
-          if length xs > 2 then sentenceReply s f (xs!!0) (xs!!1) randoms' stries' slen plen 2 (drop 2 xs)
+          if length xs > 2 then sentenceReply s f (xs!!0) (xs!!1) randoms' stries' slen plen (drop 2 xs)
                                   >> return bot
           else replyMsg bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
                      else return bot
@@ -677,8 +676,9 @@ execCmd b chan nick' (x:xs) = do
                        ++ "!closure !meet !parse !related !random !forms !parts") >> return bot
     execCmd' bot = return bot
 
-sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> Int -> [String] -> IO ()
-sentenceReply h fugly' chan nick' randoms' stries' slen plen num m = do
+sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ()
+sentenceReply h fugly' chan nick' randoms' stries' slen plen m = do
+    num <- Random.getStdRandom (Random.randomR (1, 3 :: Int)) :: IO Int
     x <- f (sentence fugly' randoms' stries' slen plen m) [] num 0
     let ww = unwords x
     if null ww then return ()
