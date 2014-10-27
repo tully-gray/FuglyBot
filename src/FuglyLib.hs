@@ -734,9 +734,10 @@ asIsName aspell' word' = do
     -- hPutStrLn stderr ("isname: n1: " ++ n1)
     -- hPutStrLn stderr ("isname: n2: " ++ n2)
     -- hPutStrLn stderr ("isname: n3: " ++ n3)
-    return $ if null n1 && null n2 then u == (head $ words n3)
-             else if null n2 && (not $ null n1) then True
-                  else False
+    return $ if length word' < 3 then False
+             else if null n1 && null n2 then u == (head $ words n3)
+                  else if null n2 && (not $ null n1) then True
+                       else False
   where
     upperLast [] = []
     upperLast w = init w ++ [toUpper $ last w]
