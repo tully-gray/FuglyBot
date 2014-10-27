@@ -217,7 +217,7 @@ badEndWords :: [String]
 badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "for", "from", "go", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "was", "what", "we", "when", "with", "who", "whose", "you", "your", "you're", "you've"]
 
 sWords :: [String]
-sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "mr", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we", "yo"]
+sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
 
 class Word_ a where
   wordIs :: a -> String
@@ -985,7 +985,7 @@ response :: [String] -> IO String
 response [] = return []
 response (x : _) = do
     r <- Random.getStdRandom (Random.randomR (0, 14)) :: IO Int
-    if elem x qWords || x == "hey" then
+    if elem x qWords then
       return (case r of
         1  -> "yes, and "
         3  -> "no, the "
