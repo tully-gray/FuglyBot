@@ -833,7 +833,7 @@ sentence fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen 
       let yy = if null y then [] else head y
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
-      res <- response fugly $ map (\m -> map toLower m) msg
+      res <- preSentence fugly $ map (\m -> map toLower m) msg
       rep <- wnReplaceWords fugly randoms $ filter (\a -> length a > 0 && not (elem a ban')) $
              filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True)
              ((words res) ++ [yy] ++ [zz] ++ [s1h n x] ++ w)
@@ -981,10 +981,10 @@ findRelated wne' word' = do
         return (anto'!!r)
     else return word'
 
-response :: Fugly -> [String] -> IO String
-response _ [] = return []
-response (Fugly {ban=ban'}) msg@(x : _) = do
-    r <- Random.getStdRandom (Random.randomR (0, 14)) :: IO Int
+preSentence :: Fugly -> [String] -> IO String
+preSentence _ [] = return []
+preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
+    r <- Random.getStdRandom (Random.randomR (0, 20)) :: IO Int
     if elem x qWords then
       return (case r of
         1  -> "yes, and "
@@ -999,7 +999,8 @@ response (Fugly {ban=ban'}) msg@(x : _) = do
         10 -> "certainly, but "
         11 -> "never, "
         12 -> "no, but "
-        _  -> "sure, however ")
+        13 -> "sure, however "
+        _  -> [])
       else if (msg \\ ban') /= msg then
           return (case r of
             1  -> "that is disgusting, "
@@ -1014,5 +1015,18 @@ response (Fugly {ban=ban'}) msg@(x : _) = do
             10 -> "do not "
             11 -> "stop that, "
             12 -> "ban this "
-            _  -> "stop swearing about ")
+            13 -> "stop swearing about "
+            _  -> [])
+      else if (msg \\ match') /= msg then
+             return (case r of
+               1  -> "great stuff, "
+               2  -> "I like that, "
+               3  -> "keep going, "
+               4  -> "please continue, "
+               5  -> "very enlightening, please "
+               6  -> "fascinating, I "
+               7  -> "this is intriguing, "
+               8  -> "simply wonderful "
+               9  -> "yes indeed, "
+               _  -> [])
            else return []
