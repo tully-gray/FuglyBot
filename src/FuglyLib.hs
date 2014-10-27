@@ -833,7 +833,7 @@ sentence fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen 
       let yy = if null y then [] else head y
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
-      res <- response $ map (\m -> map toLower m) msg
+      res <- response fugly $ map (\m -> map toLower m) msg
       rep <- wnReplaceWords fugly randoms $ filter (\a -> length a > 0 && not (elem a ban')) $
              filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True)
              ((words res) ++ [yy] ++ [zz] ++ [s1h n x] ++ w)
@@ -841,7 +841,7 @@ sentence fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen 
   let s1d x = do
       w <- x
       if null w then return []
-        else return ((init w) ++ ((fLast [] w) ++
+        else return ((init w) ++ ((cleanString $ fLast [] w) ++
                                   if elem (map toLower $ head w) qWords then "?" else ".") : [])
   let s1e x = do
       w <- x
@@ -981,13 +981,14 @@ findRelated wne' word' = do
         return (anto'!!r)
     else return word'
 
-response :: [String] -> IO String
-response [] = return []
-response (x : _) = do
+response :: Fugly -> [String] -> IO String
+response _ [] = return []
+response (Fugly {ban=ban'}) msg@(x : _) = do
     r <- Random.getStdRandom (Random.randomR (0, 14)) :: IO Int
     if elem x qWords then
       return (case r of
         1  -> "yes, and "
+        2  -> "no way "
         3  -> "no, the "
         4  -> "yes, but "
         5  -> "perhaps the "
@@ -999,4 +1000,19 @@ response (x : _) = do
         11 -> "never, "
         12 -> "no, but "
         _  -> "sure, however ")
-      else return []
+      else if (msg \\ ban') /= msg then
+          return (case r of
+            1  -> "that is disgusting, "
+            2  -> "you are disgusting and "
+            3  -> "foul language and "
+            4  -> "you are disturbing me, "
+            5  -> "maybe you should not "
+            6  -> "please do not "
+            7  -> "that is "
+            8  -> "bad thoughts and "
+            9  -> "do not say such "
+            10 -> "do not "
+            11 -> "stop that, "
+            12 -> "ban this "
+            _  -> "stop swearing about ")
+           else return []
