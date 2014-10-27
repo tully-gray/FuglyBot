@@ -147,7 +147,7 @@ start = do
     hSetBuffering sh NoBuffering
     f <- initFugly fdir wndir gfdir topic'
     let b = (Bot sh (Parameter nick' owner' fdir False
-             10 400 100 7 7 True False True False topic' 50) f)
+             10 400 50 7 7 True False True False topic' 50) f)
     bot <- newMVar b
     write sh "NICK" nick'
     write sh "USER" (nick' ++ " 0 * :user")
