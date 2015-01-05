@@ -42,7 +42,8 @@ data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChan
                  autoname    :: Bool,
                  allowpm     :: Bool,
                  topic       :: String,
-                 randoms     :: Int
+                 randoms     :: Int,
+                 threadtime  :: Int
                  }
                deriving (Eq, Ord, Show)
 
@@ -64,7 +65,8 @@ instance Enum Parameter where
     toEnum 12 = AllowPM
     toEnum 13 = Topic
     toEnum 14 = Randoms
-    toEnum 15 = UnknownParam
+    toEnum 15 = ThreadTime
+    toEnum 16 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
@@ -80,8 +82,9 @@ instance Enum Parameter where
     fromEnum AllowPM        = 12
     fromEnum Topic          = 13
     fromEnum Randoms        = 14
-    fromEnum UnknownParam   = 15
-    fromEnum _              = 15
+    fromEnum ThreadTime     = 15
+    fromEnum UnknownParam   = 16
+    fromEnum _              = 16
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -108,6 +111,8 @@ readParam a | (map toLower a) == "autoname"        = Autoname
 readParam a | (map toLower a) == "allowpm"         = AllowPM
 readParam a | (map toLower a) == "topic"           = Topic
 readParam a | (map toLower a) == "randoms"         = Randoms
+readParam a | (map toLower a) == "threadtime"      = ThreadTime
+readParam a | (map toLower a) == "ttime"           = ThreadTime
 readParam _                                        = UnknownParam
 
 main :: IO ()
@@ -147,7 +152,7 @@ start = do
     hSetBuffering sh NoBuffering
     f <- initFugly fdir wndir gfdir topic'
     let b = (Bot sh (Parameter nick' owner' fdir False
-             10 400 10 5 5 True False True False topic' 50) f)
+             10 400 10 5 5 True False True False topic' 50 30) f)
     bot <- newMVar b
     write sh "NICK" nick'
     write sh "USER" (nick' ++ " 0 * :user")
@@ -279,6 +284,7 @@ changeParam bot@(Bot{params=p@(Parameter{fuglydir=fd, topic=t}), fugly=f}) chan 
                            _ <- saveDict f fd t
                            replyMsg' value "Topic" >>= (\x -> return bot{params=p{topic=x}, fugly=f{dict=d, allow=a, ban=b, FuglyLib.match=m}})
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
+      ThreadTime     -> replyMsg' (readInt 0 360 value) "Thread time"         >>= (\x -> return bot{params=p{threadtime=x}})
       _              -> return bot
   where
     replyMsg' v msg = do replyMsg bot chan nick' (msg ++ " set to " ++ show v ++ ".") >> return v
@@ -370,7 +376,7 @@ reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply bot _ _ [] = return bot
 reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
-                                 slen plen learning' slearn autoname' allowpm' _ randoms'),
+                                 slen plen learning' slearn autoname' allowpm' _ randoms' ttime),
            fugly=f@(Fugly {pgf=pgf', FuglyLib.match=match'})}) chan nick' msg = do
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
@@ -390,7 +396,9 @@ reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
                             sentenceReply s f chan chan randoms' stries' slen plen mm
                           else forkIO $ return ()
                         else sentenceReply s f chan nick' randoms' stries' slen plen mm)
-    lift $ forkIO (do threadDelay 60000000 ; hPutStrLn stderr ("killed thread: " ++ show tId) ; killThread tId) >> return ()
+    if ttime > 0 then
+      lift $ forkIO (do threadDelay $ ttime * 1000000 ; hPutStrLn stderr ("killed thread: " ++ show tId) ; killThread tId) >> return ()
+      else return ()
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords f autoname' fmsg
       lift $ hPutStrLn stdout ">parse<"
@@ -409,7 +417,7 @@ execCmd b chan nick' (x:xs) = do
     execCmd' bot@(Bot{sock=s, params=p@(Parameter botnick owner' fdir
                                         usercmd' rkick maxcmsg
                                         stries' slen plen learn slearn
-                                        autoname' allowpm' topic' randoms'),
+                                        autoname' allowpm' topic' randoms' ttime),
                       fugly=f@(Fugly dict' pgf' wne' aspell' allow' ban' match')})
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" =
@@ -450,7 +458,8 @@ execCmd b chan nick' (x:xs) = do
                    ++ show slen ++ "  parselength: " ++ show plen
                    ++ "  learning: " ++ show learn ++ "  strictlearn: " ++ show slearn
                    ++ "  autoname: " ++ show autoname' ++ "  allowpm: " ++ show allowpm'
-                   ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms') >> return bot
+                   ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms'
+                   ++ "  threadtime: " ++ show ttime) >> return bot
             _ -> replyMsg bot chan nick' "Usage: !showparams" >> return bot
           else return bot
       | x == "!setparam" =
@@ -594,8 +603,9 @@ execCmd b chan nick' (x:xs) = do
       | x == "!talk" = if nick' == owner' then
           if length xs > 2 then do
             tId <- sentenceReply s f (xs!!0) (xs!!1) randoms' stries' slen plen (drop 2 xs)
-            _ <- forkIO (do threadDelay 60000000 ; hPutStrLn stderr ("killed thread: " ++ show tId) ; killThread tId)
-            return bot
+            if ttime > 0 then
+              forkIO (do threadDelay $ ttime * 1000000 ; hPutStrLn stderr ("killed thread: " ++ show tId) ; killThread tId) >> return bot
+              else return bot
           else replyMsg bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
                      else return bot
       | x == "!raw" = if nick' == owner' then
