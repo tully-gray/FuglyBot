@@ -402,7 +402,7 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
                             sentenceReply s f chan chan randoms' stries' slen plen mm
                           else forkIO (return ())
                         else sentenceReply s f chan nick' randoms' stries' slen plen mm)
-    lift $ forkIO (do threadDelay 10000000 ; hPutStrLn stderr ("killed thread: " ++ show tId) ; killThread tId) >> return ()
+    lift $ forkIO (do threadDelay 60000000 ; hPutStrLn stderr ("killed thread: " ++ show tId) ; killThread tId) >> return ()
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords f autoname' fmsg
       lift $ hPutStrLn stdout ">parse<"
@@ -612,7 +612,7 @@ execCmd b chan nick' (x:xs) = do
       | x == "!talk" = if nick' == owner' then
           if length xs > 2 then do
             tId <- sentenceReply s f (xs!!0) (xs!!1) randoms' stries' slen plen (drop 2 xs)
-            _ <- forkIO (do threadDelay 10000000 ; hPutStrLn stderr ("killed thread: " ++ show tId) ; killThread tId)
+            _ <- forkIO (do threadDelay 60000000 ; hPutStrLn stderr ("killed thread: " ++ show tId) ; killThread tId)
             return bot
           else replyMsg bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
                      else return bot
