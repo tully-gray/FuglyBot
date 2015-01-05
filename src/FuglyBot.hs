@@ -119,13 +119,14 @@ main :: IO ()
 main = do
     bracket start stop loop
   where
-    loop :: MVar Bot -> IO ()
-    loop bot = do catch (evalStateT run bot)
-                    (\e -> do let err = show (e :: SomeException)
-                              hPutStrLn stderr ("main loop: " ++ err)
-                              return ())
+    loop :: (MVar Bot, MVar Bool) -> IO ()
+    loop st = do catch (evalStateT run st)
+                   (\e -> do let err = show (e :: SomeException)
+                             --hPutStrLn stderr ("main loop: " ++ err)
+                             evalStateT (hPutStrLnLock stderr ("main loop: " ++ err)) st
+                             return ())
 
-start :: IO (MVar Bot)
+start :: IO (MVar Bot, MVar Bool)
 start = do
     args <- cmdLine
     let servn    = args !! 0
@@ -153,28 +154,31 @@ start = do
     f <- initFugly fdir wndir gfdir topic'
     let b = (Bot sh (Parameter nick' owner' fdir False
              10 400 10 5 5 True False True False topic' 50 30) f)
+    let l = False
     bot <- newMVar b
+    lock <- newMVar l
     write sh "NICK" nick'
     write sh "USER" (nick' ++ " 0 * :user")
     _ <- forkIO (do
                     threadDelay 20000000
                     if not $ null passwd then replyMsg b "nickserv" [] ("IDENTIFY " ++ passwd) else return ()
                     joinChannel sh "JOIN" channels)
-    return bot
+    return (bot, lock)
 
-stop :: MVar Bot -> IO ()
-stop bot = do
+stop :: (MVar Bot, MVar Bool) -> IO ()
+stop (bot, _) = do
     Bot{sock=s, params=p@(Parameter{fuglydir=fd, topic=t}), fugly=f} <- readMVar bot
     hClose s
     stopFugly fd f t
 
-run :: StateT (MVar Bot) IO b
+run :: StateT (MVar Bot, MVar Bool) IO b
 run = do
-    b <- get
-    Bot{sock=s} <- lift $ readMVar b
-    forever $ do lift (hGetLine s >>= (\l -> do hPutStrLn stdout l >> return l) >>= (\ll -> listenIRC b s ll))
+    st <- get
+    Bot{sock=s} <- lift $ readMVar $ fst st
+    forever $ do lift (hGetLine s >>= (\l -> do hPutStrLn stdout l >> return l) >>= (\ll -> listenIRC st s ll))
     where
-      listenIRC b s l = do
+      listenIRC st s l = do
+        let b = fst st
         bot@Bot{params=p@(Parameter{nick=bn, owner=o})} <- readMVar b
         let ll = words l
         let lll = take 2 $ drop 1 ll
@@ -186,7 +190,7 @@ run = do
                else if (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == bn then do
                  (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
                     else do
-                      (catch (evalStateT (processLine $ words l) b >> return ())
+                      (catch (evalStateT (processLine $ words l) st >> return ())
                        (\e -> do let err = show (e :: SomeException)
                                  hPutStrLn stderr ("process line: " ++ err)
                                  return ()))
@@ -347,10 +351,11 @@ rejoinChannel h chan rk = do
     rejoin' rk' chan' h' = forkIO (threadDelay (rk' * 1000000) >>
                                    hPutStr h' ("JOIN " ++ chan' ++ "\r\n"))
 
-processLine :: [String] -> StateT (MVar Bot) IO ()
+processLine :: [String] -> StateT (MVar Bot, MVar Bool) IO ()
 processLine [] = return ()
 processLine line = do
-    b <- get
+    st <- get :: StateT (MVar Bot, MVar Bool) IO (MVar Bot, MVar Bool)
+    let b = fst st
     bot@(Bot{sock=s, params=p@(Parameter{nick=n, rejoinkick=rk})}) <- lift $ takeMVar b
     let bk = beenKicked n line
     if (not $ null bk) then do lift (rejoinChannel s bk rk >> putMVar b bot >> return ())
@@ -372,12 +377,12 @@ processLine line = do
                    else reply bot [] who msg
                  else reply bot [] who msg
 
-reply :: (Monad (t IO), MonadTrans t) =>
-          Bot -> String -> String -> [String] -> t IO Bot
+reply :: Bot -> String -> String -> [String] -> StateT (MVar Bot, MVar Bool) IO Bot
 reply bot _ _ [] = return bot
 reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
                                  slen plen learning' slearn autoname' allowpm' _ randoms' ttime),
            fugly=f@(Fugly {pgf=pgf', FuglyLib.match=match'})}) chan nick' msg = do
+    st <- get :: StateT (MVar Bot, MVar Bool) IO (MVar Bot, MVar Bool)
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
                    ':' -> tail msg
@@ -713,12 +718,38 @@ replyMsg bot@(Bot{sock=s, params=p@(Parameter{maxchanmsg=mcm})}) chan nick' msg
         write s "PRIVMSG" (chan ++ " :" ++ nick' ++ ": " ++ msg)
 replyMsg _ _ _ _ = return ()
 
+replyMsgL :: Bot -> String -> String -> String -> StateT (MVar Bot, MVar Bool) IO ()
+replyMsgL bot@(Bot{sock=s, params=p@(Parameter{maxchanmsg=mcm})}) chan nick' msg
+    | null nick'      = if length msg > mcm then do
+      writeL s "PRIVMSG" (chan ++ " :" ++ (take mcm msg))
+      lift $ threadDelay 2000000
+      replyMsgL bot chan [] (drop mcm msg) else
+        writeL s "PRIVMSG" (chan ++ " :" ++ msg)
+    | chan == nick'   = if length msg > mcm then do
+      writeL s "PRIVMSG" (nick' ++ " :" ++ (take mcm msg))
+      lift $ threadDelay 2000000
+      replyMsgL bot chan nick' (drop mcm msg) else
+        writeL s "PRIVMSG" (nick' ++ " :" ++ msg)
+    | otherwise      = if length msg > mcm then do
+      writeL s "PRIVMSG" (chan ++ " :" ++ nick' ++ ": " ++ (take mcm msg))
+      lift $ threadDelay 2000000
+      replyMsgL bot chan nick' (drop mcm msg) else
+        writeL s "PRIVMSG" (chan ++ " :" ++ nick' ++ ": " ++ msg)
+replyMsgL _ _ _ _ = return ()
+
 write :: Handle -> String -> String -> IO ()
 write _ [] _  = return ()
 write _ _ []  = return ()
 write sock' s msg = do
     hPutStr sock'  (s ++ " " ++ msg ++ "\r\n")
     hPutStr stdout ("> " ++ s ++ " " ++ msg ++ "\n")
+
+writeL :: Handle -> [Char] -> [Char] -> StateT (MVar Bot, MVar Bool) IO ()
+writeL _ [] _  = return ()
+writeL _ _ []  = return ()
+writeL sock' s msg = do
+    hPutStrLnLock sock'  (s ++ " " ++ msg ++ "\r")
+    hPutStrLnLock stdout ("> " ++ s ++ " " ++ msg)
 
 insertFromFile :: Bot -> FilePath -> IO Bot
 insertFromFile b [] = return b
@@ -750,3 +781,11 @@ internalize b n msg = internalize' b n 0 msg
       ww <- x
       if null ww then getSentence xs
         else return ww
+
+hPutStrLnLock :: Handle -> String -> StateT (MVar Bot, MVar Bool) IO ()
+hPutStrLnLock s m = do
+  st <- get :: StateT (MVar Bot, MVar Bool) IO (MVar Bot, MVar Bool)
+  let l = snd st
+  lock <- lift $ takeMVar l
+  lift $ hPutStrLn s m
+  lift $ putMVar l lock
