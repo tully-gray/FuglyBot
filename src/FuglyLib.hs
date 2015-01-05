@@ -808,6 +808,15 @@ gfRandom pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 95 
       gfRandom' = linearize pgf' (head $ languages pgf') $ head $
                   generateRandomDepth (Random.mkStdGen num) pgf' (startCat pgf') (Just num)
 
+gfRandom2 :: PGF -> IO String
+gfRandom2 pgf' = do
+  num <- Random.getStdRandom (Random.randomR (0, 9999))
+  return $ dePlenk $ unwords $ toUpperSentence $ endSentence $ take 95 $
+    filter (not . null) $ map cleanString $ words $ gfRandom' num
+    where
+      gfRandom' n = linearize pgf' (head $ languages pgf') $ head $
+                    generateRandomDepth (Random.mkStdGen n) pgf' (startCat pgf') (Just n)
+
 gfShowExpr :: PGF -> String -> Int -> String
 gfShowExpr pgf' type' num = if isJust $ readType type' then
     let c = fromJust $ readType type'
@@ -849,7 +858,9 @@ sentence fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen 
       if null w then return []
         else return ([s1c w] ++ fTail [] w)
   let s1g = if slen == 0 then [return []] else
-              take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (cycle msg))
+              let a = map (\x -> do y <- x ; return $ dePlenk $ unwords y)
+                      (map (s1e . s1d . s1a) (cycle msg)) ++ [gfRandom2 pgf'] in
+              take stries a
   map (\x -> do y <- x ; s1f y) s1g
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
