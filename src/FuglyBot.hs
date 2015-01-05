@@ -185,7 +185,7 @@ run = do
           else if "433 " `isPrefixOf` (unwords (drop 1 ll)) then do
             write s "NICK" (botnick ++ "_") >> swapMVar b bot{params=p{nick=(botnick ++ "_")}}
               >> return ("Nickname is already in use.") >>= replyMsg bot owner' []
-               else if (length ll > 2) && (head lll) == "NICK" && getNick ll == botnick then do
+               else if (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == botnick then do
                  (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
                     else do
                       (catch (evalStateT (processLine $ words l) b >> return ())
@@ -254,8 +254,8 @@ changeNick [] line = do
         | otherwise     = return ("Nick change failed!") >>= replyMsg bot o []
                           >> return (Bot s p{nick = old} f)
       where
-        x = head line'
-        y = last line'
+        x = fHead [] line'
+        y = fLast [] line'
     testNick bot@(Bot _ _ _) _ _ = return bot
 
 joinChannel :: Handle -> String -> [String] -> IO ()
@@ -391,17 +391,18 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
                    _   -> msg
     fmsg <- lift $ asReplaceWords f $ map cleanString mmsg
     let parse = if slearn then gfParseBool pgf' plen $ unwords fmsg else True
-    let matchon = map toLower (intercalate "|" (botnick : match'))
+    let matchon = map toLower (" " ++ intercalate " | " (botnick : match') ++ " ")
     mm <- lift $ chooseWord fmsg
-    _ <- lift $ (if null chan then
-                   if allowpm' then
-                     sentenceReply s f nick' [] randoms' stries' slen plen mm >> return ()
-                   else return ()
-                 else if null nick' then
-                        if map toLower (unwords msg) =~ matchon then
-                          sentenceReply s f chan chan randoms' stries' slen plen mm >> return ()
-                        else return ()
-                      else sentenceReply s f chan nick' randoms' stries' slen plen mm >> return ())
+    tId <- lift $ (if null chan then
+                     if allowpm' then
+                       sentenceReply s f nick' [] randoms' stries' slen plen mm
+                     else forkIO (return ())
+                   else if null nick' then
+                          if map toLower (unwords msg) =~ matchon then
+                            sentenceReply s f chan chan randoms' stries' slen plen mm
+                          else forkIO (return ())
+                        else sentenceReply s f chan nick' randoms' stries' slen plen mm)
+    lift $ forkIO (do threadDelay 10000000 ; hPutStrLn stderr ("killed thread: " ++ show tId) ; killThread tId) >> return ()
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords f autoname' fmsg
       lift $ hPutStrLn stdout ">parse<"
@@ -609,8 +610,10 @@ execCmd b chan nick' (x:xs) = do
                                   replyMsg bot chan nick' "Usage: !internalize <tries> <msg>" >> return bot
                            else return bot
       | x == "!talk" = if nick' == owner' then
-          if length xs > 2 then sentenceReply s f (xs!!0) (xs!!1) randoms' stries' slen plen (drop 2 xs)
-                                  >> return bot
+          if length xs > 2 then do
+            tId <- sentenceReply s f (xs!!0) (xs!!1) randoms' stries' slen plen (drop 2 xs)
+            _ <- forkIO (do threadDelay 10000000 ; hPutStrLn stderr ("killed thread: " ++ show tId) ; killThread tId)
+            return bot
           else replyMsg bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
                      else return bot
       | x == "!raw" = if nick' == owner' then
