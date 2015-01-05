@@ -25,6 +25,7 @@ module FuglyLib
          wnRelated,
          wnClosure,
          wnMeet,
+         asReplace,
          asReplaceWords,
          asIsName,
          gfLin,
@@ -813,7 +814,7 @@ gfRandom2 :: PGF -> IO String
 gfRandom2 pgf' = do
   num <- Random.getStdRandom (Random.randomR (0, 9999))
   return $ dePlenk $ unwords $ toUpperSentence $ endSentence $ take 95 $
-    filter (not . null) $ map cleanString $ words $ gfRandom' num
+    filter (not . null) $ map cleanString $ take 12 $ words $ gfRandom' num
     where
       gfRandom' n = linearize pgf' (head $ languages pgf') $ head $
                     generateRandomDepth (Random.mkStdGen n) pgf' (startCat pgf') (Just n)
@@ -860,7 +861,7 @@ sentence fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen 
         else return ([s1c w] ++ fTail [] w)
   let s1g = if slen == 0 then [return []] else
               let a = map (\x -> do y <- x ; return $ dePlenk $ unwords y)
-                      (map (s1e . s1d . s1a) (cycle msg)) in
+                      (map (s1e . s1d . s1a) (msg ++ ["foal"])) in
               take stries a
   map (\x -> do y <- x ; s1f y) s1g
   where

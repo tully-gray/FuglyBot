@@ -147,7 +147,7 @@ start = do
     hSetBuffering sh NoBuffering
     f <- initFugly fdir wndir gfdir topic'
     let b = (Bot sh (Parameter nick' owner' fdir False
-             10 400 50 7 7 True False True False topic' 50) f)
+             10 400 10 5 5 True False True False topic' 50) f)
     bot <- newMVar b
     write sh "NICK" nick'
     write sh "USER" (nick' ++ " 0 * :user")
@@ -683,7 +683,8 @@ execCmd b chan nick' (x:xs) = do
 sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
 sentenceReply h fugly'@(Fugly {pgf=pgf'}) chan nick' randoms' stries' slen plen m = forkIO (do
     num <- Random.getStdRandom (Random.randomR (1, 3 :: Int)) :: IO Int
-    x <- f ((sentence fugly' randoms' stries' slen plen m) ++ [gfRandom2 pgf']) [] num 0
+    r <- gfRandom2 pgf'
+    x <- f ((sentence fugly' randoms' stries' slen plen m) ++ [asReplace fugly' r]) [] num 0
     let ww = unwords x
     if null ww then return ()
       else if null nick' then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
