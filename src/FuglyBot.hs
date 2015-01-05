@@ -159,33 +159,26 @@ start = do
 
 stop :: MVar Bot -> IO ()
 stop bot = do
-    b <- readMVar bot
-    let f      = (\(Bot {fugly=ff}) -> ff) b
-    let fdir   = (\(Bot _ (Parameter {fuglydir=fd}) _) -> fd) b
-    let topic' = (\(Bot _ (Parameter {topic=t}) _) -> t) b
-    hClose $ (\(Bot {sock=s}) -> s) b
-    stopFugly fdir f topic'
+    Bot{sock=s, params=p@(Parameter{fuglydir=fd, topic=t}), fugly=f} <- readMVar bot
+    hClose s
+    stopFugly fd f t
 
 run :: StateT (MVar Bot) IO b
 run = do
     b <- get
-    bot <- lift $ readMVar b
-    let s = (\(Bot {sock=s'}) -> s') bot
+    Bot{sock=s} <- lift $ readMVar b
     forever $ do lift (hGetLine s >>= (\l -> do hPutStrLn stdout l >> return l) >>= (\ll -> listenIRC b s ll))
     where
       listenIRC b s l = do
-        bot <- readMVar b
+        bot@Bot{params=p@(Parameter{nick=bn, owner=o})} <- readMVar b
         let ll = words l
         let lll = take 2 $ drop 1 ll
-        let p       = (\(Bot _ p' _) -> p') bot
-        let botnick = (\(Bot _ (Parameter {nick=n}) _) -> n) bot
-        let owner'  = (\(Bot _ (Parameter {owner=o}) _) -> o) bot
         if "PING :" `isPrefixOf` l then do
           (write s "PONG" (':' : drop 6 l)) >> return ()
           else if "433 " `isPrefixOf` (unwords (drop 1 ll)) then do
-            write s "NICK" (botnick ++ "_") >> swapMVar b bot{params=p{nick=(botnick ++ "_")}}
-              >> return ("Nickname is already in use.") >>= replyMsg bot owner' []
-               else if (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == botnick then do
+            write s "NICK" (bn ++ "_") >> swapMVar b bot{params=p{nick=(bn ++ "_")}}
+              >> return ("Nickname is already in use.") >>= replyMsg bot o []
+               else if (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == bn then do
                  (do nb <- evalStateT (changeNick [] lll) b ; swapMVar b nb) >> return ()
                     else do
                       (catch (evalStateT (processLine $ words l) b >> return ())
@@ -234,29 +227,27 @@ changeNick (_:_) (_:_) = do
     return bot
 changeNick (x:_) [] = do
     b <- get
-    bot <- lift $ readMVar b
-    let s = (\(Bot a _ _) -> a) bot
+    bot@(Bot{sock=s}) <- lift $ readMVar b
     let new = cleanStringWhite isAscii x
     lift $ write s "NICK" new
     return bot
 changeNick [] line = do
     b <- get
-    bot <- lift $ readMVar b
-    let nick' = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
-    lift $ testNick bot nick' line
+    bot@(Bot{params=p@(Parameter{nick=n})}) <- lift $ readMVar b
+    lift $ testNick bot n line
   where
     testNick :: Bot -> String -> [String] -> IO Bot
     testNick bot [] _ = return bot
     testNick bot _ [] = return bot
-    testNick bot@(Bot s p@(Parameter {owner = o}) f) old line'
+    testNick bot@(Bot{sock=s, params=p@(Parameter{owner = o}), fugly=f}) old line'
         | (x == "NICK") = return ("Nick change successful.") >>= replyMsg bot o []
-                          >> return (Bot s p{nick = drop 1 y} f)
+                          >> return bot{params=p{nick = drop 1 y}}
         | otherwise     = return ("Nick change failed!") >>= replyMsg bot o []
-                          >> return (Bot s p{nick = old} f)
+                          >> return bot{params=p{nick = old}}
       where
         x = fHead [] line'
         y = fLast [] line'
-    testNick bot@(Bot _ _ _) _ _ = return bot
+    testNick bot _ _ = return bot
 
 joinChannel :: Handle -> String -> [String] -> IO ()
 joinChannel _ _  []    = return () :: IO ()
@@ -268,7 +259,7 @@ joinChannel h a (x:xs) = do
         else return ()
 
 changeParam :: Bot -> String -> String -> String -> String -> IO Bot
-changeParam bot@(Bot _ p@(Parameter {fuglydir=fd, topic=t}) f) chan nick' param value = do
+changeParam bot@(Bot{params=p@(Parameter{fuglydir=fd, topic=t}), fugly=f}) chan nick' param value = do
     case (readParam param) of
       Nick           -> do nb <- newMVar bot ; evalStateT (changeNick (value : "" : []) []) nb
       Owner          -> replyMsg' value                 "Owner"               >>= (\x -> return bot{params=p{owner=x}})
@@ -354,21 +345,18 @@ processLine :: [String] -> StateT (MVar Bot) IO ()
 processLine [] = return ()
 processLine line = do
     b <- get
-    bot <- lift $ takeMVar b
-    let s = (\(Bot a _ _) -> a) bot
-    let nick' = (\(Bot _ (Parameter {nick = n}) _) -> n) bot
-    let rk = (\(Bot _ (Parameter {rejoinkick = r}) _) -> r) bot
-    let bk = beenKicked nick' line
+    bot@(Bot{sock=s, params=p@(Parameter{nick=n, rejoinkick=rk})}) <- lift $ takeMVar b
+    let bk = beenKicked n line
     if (not $ null bk) then do lift (rejoinChannel s bk rk >> putMVar b bot >> return ())
       else if null msg then lift $ putMVar b bot >> return ()
-         else if chan == nick' then do nb <- prvcmd bot ; lift $ putMVar b nb >> return ()
-           else if spokenTo nick' msg then if null (tail msg) then lift $ putMVar b bot >> return ()
+         else if chan == n then do nb <- prvcmd bot ; lift $ putMVar b nb >> return ()
+              else if spokenTo n msg then if null (tail msg) then lift $ putMVar b bot >> return ()
                                           else if (head $ head $ tail msg) == '!'
-                                            then do nb <- execCmd bot chan who (tail msg)
-                                                    lift $ putMVar b nb >> return ()
+                                               then do nb <- execCmd bot chan who (tail msg)
+                                                       lift $ putMVar b nb >> return ()
                                                else do nb <- reply bot chan who (tail msg)
                                                        lift $ putMVar b nb >> return ()
-             else do nb <- reply bot chan [] msg ; lift $ putMVar b nb >> return ()
+                   else do nb <- reply bot chan [] msg ; lift $ putMVar b nb >> return ()
   where
     msg  = getMsg line
     who  = getNick line
@@ -381,9 +369,9 @@ processLine line = do
 reply :: (Monad (t IO), MonadTrans t) =>
           Bot -> String -> String -> [String] -> t IO Bot
 reply bot _ _ [] = return bot
-reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
-                         slen plen learning' slearn autoname' allowpm' _ randoms')
-           f@(Fugly {pgf=pgf', FuglyLib.match=match'})) chan nick' msg = do
+reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
+                                 slen plen learning' slearn autoname' allowpm' _ randoms'),
+           fugly=f@(Fugly {pgf=pgf', FuglyLib.match=match'})}) chan nick' msg = do
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
                    ':' -> tail msg
@@ -396,17 +384,17 @@ reply bot@(Bot s p@(Parameter botnick owner' _ _ _ _ stries'
     tId <- lift $ (if null chan then
                      if allowpm' then
                        sentenceReply s f nick' [] randoms' stries' slen plen mm
-                     else forkIO (return ())
+                     else forkIO $ return ()
                    else if null nick' then
                           if map toLower (unwords msg) =~ matchon then
                             sentenceReply s f chan chan randoms' stries' slen plen mm
-                          else forkIO (return ())
+                          else forkIO $ return ()
                         else sentenceReply s f chan nick' randoms' stries' slen plen mm)
     lift $ forkIO (do threadDelay 60000000 ; hPutStrLn stderr ("killed thread: " ++ show tId) ; killThread tId) >> return ()
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords f autoname' fmsg
       lift $ hPutStrLn stdout ">parse<"
-      return (Bot s p f{dict=nd}) else
+      return bot{fugly=f{dict=nd}} else
       return bot
 reply bot _ _ _ = return bot
 
@@ -418,11 +406,11 @@ execCmd b chan nick' (x:xs) = do
     lift $ execCmd' b
   where
     execCmd' :: Bot -> IO Bot
-    execCmd' bot@(Bot s p@(Parameter botnick owner' fdir
-                                     usercmd' rkick maxcmsg
-                                     stries' slen plen learn slearn
-                                     autoname' allowpm' topic' randoms')
-                  f@(Fugly dict' pgf' wne' aspell' allow' ban' match'))
+    execCmd' bot@(Bot{sock=s, params=p@(Parameter botnick owner' fdir
+                                        usercmd' rkick maxcmsg
+                                        stries' slen plen learn slearn
+                                        autoname' allowpm' topic' randoms'),
+                      fugly=f@(Fugly dict' pgf' wne' aspell' allow' ban' match')})
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" =
         if nick' == owner' then case (length xs) of
@@ -440,7 +428,7 @@ execCmd b chan nick' (x:xs) = do
                                                                       hPutStrLn stderr ("load: " ++ err)
                                                                       return (dict', [], [], []))
            replyMsg bot chan nick' "Loaded dict file!"
-           return (Bot s p (Fugly nd pgf' wne' aspell' na nb nm))
+           return bot{fugly=(Fugly nd pgf' wne' aspell' na nb nm)}
                        else return bot
       | x == "!join" = if nick' == owner' then joinChannel s "JOIN" xs >>
                                              return bot else return bot
@@ -493,27 +481,27 @@ execCmd b chan nick' (x:xs) = do
           case (length xs) of
             2 -> do ww <- insertWordRaw f (xs!!1) [] [] (xs!!0)
                     replyMsg bot chan nick' ("Inserted word " ++ (xs!!1))
-                    return (Bot s p f{dict=ww})
+                    return bot{fugly=f{dict=ww}}
             _ -> replyMsg bot chan nick' "Usage: !insertword <pos> <word>" >> return bot
                          else return bot
       | x == "!dropword" = if nick' == owner' then
           case (length xs) of
             1 -> replyMsg bot chan nick' ("Dropped word " ++ (xs!!0)) >>
-                 return (Bot s p f{dict=dropWord dict' (xs!!0)})
+                 return bot{fugly=f{dict=dropWord dict' (xs!!0)}}
             _ -> replyMsg bot chan nick' "Usage: !dropword <word>"
                  >> return bot
                          else return bot
       | x == "!ageword" = if nick' == owner' then
           case (length xs) of
             2 -> replyMsg bot chan nick' ("Aged word " ++ (xs!!0)) >>
-                 return (Bot s p f{dict=ageWord dict' (xs!!0) (read (xs!!1))})
+                 return bot{fugly=f{dict=ageWord dict' (xs!!0) (read (xs!!1))}}
             _ -> replyMsg bot chan nick' "Usage: !ageword <word> <number>"
                  >> return bot
                          else return bot
       | x == "!agewords" = if nick' == owner' then
           case (length xs) of
             1 -> replyMsg bot chan nick' ("Aged all words...") >>
-                 return (Bot s p f{dict=ageWords dict' (read (xs!!0))})
+                 return bot{fugly=f{dict=ageWords dict' (read (xs!!0))}}
             _ -> replyMsg bot chan nick' "Usage: !agewords <number>"
                  >> return bot
                          else return bot
@@ -521,7 +509,7 @@ execCmd b chan nick' (x:xs) = do
           case (length xs) of
             0 -> do nd <- fixWords aspell' dict'
                     replyMsg bot chan nick' ("Cleaned some words...")
-                    return (Bot s p f{dict=nd})
+                    return bot{fugly=f{dict=nd}}
             _ -> replyMsg bot chan nick' "Usage: !cleanwords"
                  >> return bot
                          else return bot
@@ -529,12 +517,10 @@ execCmd b chan nick' (x:xs) = do
           case (length xs) of
             2 -> if (xs!!0) == "add" then
                     replyMsg bot chan nick' ("Banned word " ++ (xs!!1)) >>
-                    return (Bot s p (Fugly (dropWord dict' (xs!!1)) pgf' wne' aspell'
-                                               allow' (nub $ ban' ++ [(xs!!1)]) match'))
+                    return bot{fugly=f{dict=dropWord dict' (xs!!1), ban=nub $ ban' ++ [(xs!!1)]}}
                  else if (xs!!0) == "delete" then
                     replyMsg bot chan nick' ("Unbanned word " ++ (xs!!1)) >>
-                    return (Bot s p (Fugly dict' pgf' wne' aspell' allow'
-                                               (nub $ delete (xs!!1) ban') match'))
+                    return bot{fugly=f{ban=nub $ delete (xs!!1) ban'}}
                  else replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>"
                       >> return bot
             1 -> if (xs!!0) == "list" then
@@ -549,12 +535,10 @@ execCmd b chan nick' (x:xs) = do
           case (length xs) of
             2 -> if (xs!!0) == "add" then
                     replyMsg bot chan nick' ("Allowed word " ++ (xs!!1)) >>
-                    return (Bot s p (Fugly dict' pgf' wne' aspell'
-                                               (nub $ allow' ++ [(xs!!1)]) ban' match'))
+                    return bot{fugly=f{allow=nub $ allow' ++ [(xs!!1)]}}
                  else if (xs!!0) == "delete" then
                     replyMsg bot chan nick' ("Unallowed word " ++ (xs!!1)) >>
-                    return (Bot s p (Fugly dict' pgf' wne' aspell'
-                                               (nub $ delete (xs!!1) allow') ban' match'))
+                    return bot{fugly=f{allow=nub $ delete (xs!!1) allow'}}
                  else replyMsg bot chan nick' "Usage: !allowword <list|add|delete> <word>"
                       >> return bot
             1 -> if (xs!!0) == "list" then
@@ -569,12 +553,10 @@ execCmd b chan nick' (x:xs) = do
           case (length xs) of
             2 -> if (xs!!0) == "add" then
                     replyMsg bot chan nick' ("Matching word " ++ (xs!!1)) >>
-                    return (Bot s p (Fugly dict' pgf' wne' aspell'
-                                          allow' ban' (nub $ match' ++ [(xs!!1)])))
+                    return bot{fugly=f{FuglyLib.match=nub $ match' ++ [(xs!!1)]}}
                  else if (xs!!0) == "delete" then
                     replyMsg bot chan nick' ("No longer matching word " ++ (xs!!1)) >>
-                    return (Bot s p (Fugly dict' pgf' wne' aspell'
-                                          allow' ban' (nub $ delete (xs!!1) match')))
+                    return bot{fugly=f{FuglyLib.match=nub $ delete (xs!!1) match'}}
                  else replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>"
                       >> return bot
             1 -> if (xs!!0) == "list" then
@@ -600,7 +582,7 @@ execCmd b chan nick' (x:xs) = do
           case (length xs) of
             1 -> do ww <- insertName f (xs!!0) [] []
                     replyMsg bot chan nick' ("Inserted name " ++ (xs!!0))
-                    return (Bot s p f{dict=ww})
+                    return bot{fugly=f{dict=ww}}
             _ -> replyMsg bot chan nick' "Usage: !insertname <name>" >> return bot
                            else return bot
       | x == "!internalize" = if nick' == owner' then
@@ -681,7 +663,7 @@ execCmd b chan nick' (x:xs) = do
     execCmd' bot = return bot
 
 sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
-sentenceReply h fugly'@(Fugly {pgf=pgf'}) chan nick' randoms' stries' slen plen m = forkIO (do
+sentenceReply h fugly'@(Fugly{pgf=pgf'}) chan nick' randoms' stries' slen plen m = forkIO (do
     num <- Random.getStdRandom (Random.randomR (1, 3 :: Int)) :: IO Int
     r <- gfRandom2 pgf'
     x <- f ((sentence fugly' randoms' stries' slen plen m) ++ [asReplace fugly' r]) [] num 0
@@ -703,7 +685,7 @@ sentenceReply h fugly'@(Fugly {pgf=pgf'}) chan nick' randoms' stries' slen plen 
         else f xs ([xx ++ " "] ++ a) n (i + 1)
 
 replyMsg :: Bot -> String -> String -> String -> IO ()
-replyMsg bot@(Bot s (Parameter {maxchanmsg=mcm}) _) chan nick' msg
+replyMsg bot@(Bot{sock=s, params=p@(Parameter{maxchanmsg=mcm})}) chan nick' msg
     | null nick'      = if length msg > mcm then do
       write s "PRIVMSG" (chan ++ " :" ++ (take mcm msg))
       threadDelay 2000000
@@ -729,12 +711,12 @@ write sock' s msg = do
     hPutStr stdout ("> " ++ s ++ " " ++ msg ++ "\n")
 
 insertFromFile :: Bot -> FilePath -> IO Bot
-insertFromFile b@(Bot _ _ _) [] = return b
-insertFromFile (Bot s p@(Parameter {autoname=a}) fugly') file = do
-    f <- readFile file
-    fmsg <- asReplaceWords fugly' $ map cleanString $ words f
-    n <- insertWords fugly' a fmsg
-    return (Bot s p fugly'{dict=n})
+insertFromFile b [] = return b
+insertFromFile bot@(Bot{sock=s, params=p@(Parameter{autoname=a}), fugly=f}) file = do
+    ff <- readFile file
+    fmsg <- asReplaceWords f $ map cleanString $ words ff
+    n <- insertWords f a fmsg
+    return bot{fugly=f{dict=n}}
 insertFromFile b _ = return b
 
 internalize :: Bot -> Int -> String -> IO Bot
@@ -744,14 +726,14 @@ internalize b n msg = internalize' b n 0 msg
   where
     internalize' :: Bot -> Int -> Int -> String -> IO Bot
     internalize' bot _ _ [] = return bot
-    internalize' bot@(Bot s p@(Parameter {autoname=aname, stries=tries, slength=slen, plength=plen, randoms=rands}) f) num i imsg = do
+    internalize' bot@(Bot{params=p@(Parameter{autoname=aname, stries=tries, slength=slen, plength=plen, randoms=rands}), fugly=f}) num i imsg = do
       mm <- chooseWord $ words imsg
       st <- getSentence $ sentence f rands tries slen plen mm
       nd <- insertWords f aname $ words st
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot
-        else if r == 0 then hPutStrLn stdout ("> internalize: " ++ msg) >> internalize' (Bot s p f{dict=nd}) num (i + 1) msg
-          else hPutStrLn stdout ("> internalize: " ++ st) >> internalize' (Bot s p f{dict=nd}) num (i + 1) st
+        else if r == 0 then hPutStrLn stdout ("> internalize: " ++ msg) >> internalize' bot{fugly=f{dict=nd}} num (i + 1) msg
+          else hPutStrLn stdout ("> internalize: " ++ st) >> internalize' bot{fugly=f{dict=nd}} num (i + 1) st
     internalize' bot _ _ _ = return bot
     getSentence []     = return []
     getSentence (x:xs) = do
