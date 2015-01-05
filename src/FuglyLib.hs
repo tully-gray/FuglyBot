@@ -33,6 +33,7 @@ module FuglyLib
          gfParseC,
          gfCategories,
          gfRandom,
+         gfRandom2,
          gfAll,
          sentence,
          chooseWord,
@@ -859,7 +860,7 @@ sentence fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen 
         else return ([s1c w] ++ fTail [] w)
   let s1g = if slen == 0 then [return []] else
               let a = map (\x -> do y <- x ; return $ dePlenk $ unwords y)
-                      (map (s1e . s1d . s1a) (cycle msg)) ++ [gfRandom2 pgf'] in
+                      (map (s1e . s1d . s1a) (cycle msg)) in
               take stries a
   map (\x -> do y <- x ; s1f y) s1g
   where

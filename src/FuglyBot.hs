@@ -681,9 +681,9 @@ execCmd b chan nick' (x:xs) = do
     execCmd' bot = return bot
 
 sentenceReply :: Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
-sentenceReply h fugly' chan nick' randoms' stries' slen plen m = forkIO (do
+sentenceReply h fugly'@(Fugly {pgf=pgf'}) chan nick' randoms' stries' slen plen m = forkIO (do
     num <- Random.getStdRandom (Random.randomR (1, 3 :: Int)) :: IO Int
-    x <- f (sentence fugly' randoms' stries' slen plen m) [] num 0
+    x <- f ((sentence fugly' randoms' stries' slen plen m) ++ [gfRandom2 pgf']) [] num 0
     let ww = unwords x
     if null ww then return ()
       else if null nick' then hPutStr h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r\n") >>
