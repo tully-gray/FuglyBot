@@ -680,10 +680,10 @@ sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> I
 sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rand stries' slen plen m = forkIO (do
     num <- Random.getStdRandom (Random.randomR (1, 3 :: Int)) :: IO Int
     r <- gfRandom2 pgf'
-    let rr = filter (\x -> not $ x =~ "NP") $ words r
-    x1 <- f ((sentence fugly' rand stries' slen plen m) ++ map return rr) [] num 0
+    let rr = filter (\x -> x =~ "NP") $ words r
+    x1 <- f ((sentence fugly' rand stries' slen plen m) ++ [return r]) [] num 0
     x2 <- f ((sentence fugly' rand stries' slen plen m)) [] num 0
-    let ww = unwords $ if rand < 50 then x2 else x1
+    let ww = unwords $ if rand > 50 && rr == (\\) rr (words r) then x1 else x2
     evalStateT (do if null ww then return ()
                      else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
                                              hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
