@@ -834,11 +834,12 @@ gfAll :: PGF -> Int -> String
 gfAll pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 15 $ words $
                  linearize pgf' (head $ languages pgf') ((generateAllDepth pgf' (startCat pgf') (Just 3))!!num)
 
-sentence :: Fugly -> Int -> Int -> Int -> Int -> [String] -> [IO String]
-sentence _ _ _ _ _ [] = [return []] :: [IO String]
-sentence fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen plen msg = do
+sentence :: (MVar ()) -> Fugly -> Int -> Int -> Int -> Int -> [String] -> [IO String]
+sentence _ _ _ _ _ _ [] = [return []] :: [IO String]
+sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen plen msg = do
   let s1f x = if null x then return []
-              else if gfParseBool pgf' plen x && length (words x) > 2 then return x else return []
+              else if gfParseBool pgf' plen x && length (words x) > 2 then return x
+                   else evalStateT (hPutStrLnLock stderr ("debug: " ++ x)) st >> return []
   let s1h n x = if n then x else map toLower x
   let s1a x = do
       n <- asIsName aspell' x
@@ -851,7 +852,7 @@ sentence fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen 
       res <- preSentence fugly $ map (\m -> map toLower m) msg
       rep <- wnReplaceWords fugly randoms $ filter (\a -> length a > 0 && not (elem a ban')) $
              filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True)
-             ((words res) ++ [yy] ++ [zz] ++ [s1h n x] ++ w)
+             $ take stries ((words res) ++ [yy] ++ [zz] ++ [s1h n x] ++ w)
       return $ filter (not . null) rep
   let s1d x = do
       w <- x
@@ -862,7 +863,7 @@ sentence fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen 
       w <- x
       if null w then return []
         else return ([s1c w] ++ fTail [] w)
-  let s1g = take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
+  let s1g = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
   map (\x -> do y <- x ; s1f y) s1g
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]

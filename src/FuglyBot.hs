@@ -681,8 +681,8 @@ sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rand stries' slen plen m 
     num <- Random.getStdRandom (Random.randomR (1, 3 :: Int)) :: IO Int
     r <- gfRandom2 pgf'
     let rr = filter (\x -> x =~ "NP") $ words r
-    x1 <- f ((sentence fugly' rand stries' slen plen m) ++ [return r]) [] num 0
-    x2 <- f ((sentence fugly' rand stries' slen plen m)) [] num 0
+    x1 <- f ((sentence (snd st) fugly' rand stries' slen plen m) ++ [return r]) [] num 0
+    x2 <- f ((sentence (snd st) fugly' rand stries' slen plen m)) [] num 0
     let ww = unwords $ if rand > 50 && rr == (\\) rr (words r) then x1 else x2
     evalStateT (do if null ww then return ()
                      else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
@@ -737,7 +737,7 @@ internalize st b n msg = internalize' st b n 0 msg
     internalize' _ bot _ _ [] = return bot
     internalize' st' bot@(Bot{params=p@(Parameter{autoname=aname, stries=tries, slength=slen, plength=plen, randoms=rands}), fugly=f}) num i imsg = do
       mm <- chooseWord $ words imsg
-      sen <- getSentence $ sentence f rands tries slen plen mm
+      sen <- getSentence $ sentence (snd st') f rands tries slen plen mm
       nd <- insertWords (snd st') f aname $ words sen
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot
