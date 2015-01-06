@@ -738,7 +738,9 @@ asIsName aspell' word' = do
     -- hPutStrLn stderr ("isname: n2: " ++ n2)
     -- hPutStrLn stderr ("isname: n3: " ++ n3)
     return $ if length word' < 3 then False
-             else if null n1 && null n2 then u == (head $ words n3)
+             else if null n1 && null n2 then
+                    if null $ words n3 then False
+                    else u == (head $ words n3)
                   else if null n2 && (not $ null n1) then True
                        else False
   where
