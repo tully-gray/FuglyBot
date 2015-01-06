@@ -54,7 +54,7 @@ module FuglyLib
        )
        where
 
-import Control.Concurrent (MVar, putMVar, takeMVar, threadDelay)
+import Control.Concurrent (MVar, putMVar, takeMVar)
 import Control.Exception
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State.Lazy (StateT, evalStateT, get)
@@ -864,7 +864,7 @@ sentence fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen 
         else return ([s1c w] ++ fTail [] w)
   let s1g = if slen == 0 then [return []] else
               let a = map (\x -> do y <- x ; return $ dePlenk $ unwords y)
-                      (map (s1e . s1d . s1a) (msg ++ ["foal"])) in
+                      (map (s1e . s1d . s1a) (msg ++ sWords)) in
               take stries a
   map (\x -> do y <- x ; s1f y) s1g
   where
@@ -931,7 +931,6 @@ asReplace (Fugly dict' _ wne' aspell' _ _ _) word' =
 findNextWord :: Fugly -> Int -> Int -> Bool -> String -> IO [String]
 findNextWord _ _ _ _ [] = return []
 findNextWord (Fugly {dict=dict'}) i randoms prev word' = do
-  threadDelay 250000
   let ln = if isJust w then length neigh else 0
   let lm = if isJust w then length neighmax else 0
   let ll = if isJust w then length neighleast else 0
