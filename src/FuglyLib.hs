@@ -51,7 +51,10 @@ module FuglyLib
        )
        where
 
+import Control.Concurrent (MVar, putMVar, takeMVar)
 import Control.Exception
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.State.Lazy (StateT, evalStateT, get)
 import qualified Data.ByteString.Char8 as ByteString
 import Data.Char
 import Data.Either
@@ -249,29 +252,29 @@ instance Word_ Word where
   wordGetwc (Word w c _ _ _ _) = (c, w)
   wordGetwc (Name w c _ _ _)   = (c, w)
 
-insertWords :: Fugly -> Bool -> [String] -> IO (Map.Map String Word)
-insertWords (Fugly {dict=d}) _ [] = return d
-insertWords fugly autoname [x] = insertWord fugly autoname x [] [] []
-insertWords fugly autoname msg@(x:y:_) =
+insertWords :: (MVar ()) -> Fugly -> Bool -> [String] -> IO (Map.Map String Word)
+insertWords _ (Fugly {dict=d}) _ [] = return d
+insertWords st fugly autoname [x] = insertWord st fugly autoname x [] [] []
+insertWords st fugly autoname msg@(x:y:_) =
   case (len) of
-    2 -> do ff <- insertWord fugly autoname x [] y []
-            insertWord fugly{dict=ff} autoname y x [] []
-    _ -> insertWords' fugly autoname 0 len msg
+    2 -> do ff <- insertWord st fugly autoname x [] y []
+            insertWord st fugly{dict=ff} autoname y x [] []
+    _ -> insertWords' st fugly autoname 0 len msg
   where
     len = length msg
-    insertWords' (Fugly {dict=d}) _ _ _ [] = return d
-    insertWords' f@(Fugly {dict=d}) a i l m
-      | i == 0     = do ff <- insertWord f a (m!!i) [] (m!!(i+1)) []
-                        insertWords' f{dict=ff} a (i+1) l m
+    insertWords' _ (Fugly {dict=d}) _ _ _ [] = return d
+    insertWords' st' f@(Fugly {dict=d}) a i l m
+      | i == 0     = do ff <- insertWord st' f a (m!!i) [] (m!!(i+1)) []
+                        insertWords' st' f{dict=ff} a (i+1) l m
       | i > l - 1  = return d
-      | i == l - 1 = do ff <- insertWord f a (m!!i) (m!!(i-1)) [] []
-                        insertWords' f{dict=ff} a (i+1) l m
-      | otherwise  = do ff <- insertWord f a (m!!i) (m!!(i-1)) (m!!(i+1)) []
-                        insertWords' f{dict=ff} a (i+1) l m
+      | i == l - 1 = do ff <- insertWord st' f a (m!!i) (m!!(i-1)) [] []
+                        insertWords' st' f{dict=ff} a (i+1) l m
+      | otherwise  = do ff <- insertWord st' f a (m!!i) (m!!(i-1)) (m!!(i+1)) []
+                        insertWords' st' f{dict=ff} a (i+1) l m
 
-insertWord :: Fugly -> Bool -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWord (Fugly {dict=d}) _ [] _ _ _ = return d
-insertWord fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word' before' after' pos' = do
+insertWord :: (MVar ()) -> Fugly -> Bool -> String -> String -> String -> String -> IO (Map.Map String Word)
+insertWord _ (Fugly {dict=d}) _ [] _ _ _ = return d
+insertWord st fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word' before' after' pos' = do
     n  <- asIsName aspell' word'
     nb <- asIsName aspell' before'
     na <- asIsName aspell' after'
@@ -280,10 +283,10 @@ insertWord fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word' b
               else if length word' < 3 && (not $ elem (map toLower word') sWords) ||
                       length before' < 3 && (not $ elem (map toLower before') sWords) ||
                       length after' < 3 && (not $ elem (map toLower after') sWords) then return dict'
-                   else if isJust w then f nb na $ fromJust w
-                        else if n && autoname then insertName' fugly w (toUpperWord $ cleanString word') (bi nb) (ai na)
-                             else if isJust ww then insertWordRaw' fugly ww (map toLower $ cleanString word') (bi nb) (ai na) pos'
-                                  else insertWordRaw' fugly w (map toLower $ cleanString word') (bi nb) (ai na) pos'
+                   else if isJust w then f st nb na $ fromJust w
+                        else if n && autoname then insertName' st fugly w (toUpperWord $ cleanString word') (bi nb) (ai na)
+                             else if isJust ww then insertWordRaw' st fugly ww (map toLower $ cleanString word') (bi nb) (ai na) pos'
+                                  else insertWordRaw' st fugly w (map toLower $ cleanString word') (bi nb) (ai na) pos'
     out
   where
     w = Map.lookup word' dict'
@@ -296,16 +299,16 @@ insertWord fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word' b
     bi bn = if isJust b then before'
             else if bn && autoname then toUpperWord $ cleanString before'
                  else map toLower $ cleanString before'
-    f bn an (Word {}) = insertWordRaw' fugly w word' (bi bn) (ai an) pos'
-    f bn an (Name {}) = insertName'    fugly w word' (bi bn) (ai an)
+    f st' bn an (Word {}) = insertWordRaw' st' fugly w word' (bi bn) (ai an) pos'
+    f st' bn an (Name {}) = insertName'    st' fugly w word' (bi bn) (ai an)
 
-insertWordRaw :: Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWordRaw f@(Fugly {dict=d}) w b a p = insertWordRaw' f (Map.lookup w d) w b a p
+insertWordRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
+insertWordRaw st f@(Fugly {dict=d}) w b a p = insertWordRaw' st f (Map.lookup w d) w b a p
 
-insertWordRaw' :: Fugly -> Maybe Word -> String -> String
+insertWordRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
                  -> String -> String -> IO (Map.Map String Word)
-insertWordRaw' (Fugly {dict=d}) _ [] _ _ _ = return d
-insertWordRaw' (Fugly dict' _ wne' aspell' allow' _ _) w word' before' after' pos' = do
+insertWordRaw' _ (Fugly {dict=d}) _ [] _ _ _ = return d
+insertWordRaw' st (Fugly dict' _ wne' aspell' allow' _ _) w word' before' after' pos' = do
   pp <- (if null pos' then wnPartPOS wne' word' else return $ readEPOS pos')
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
@@ -316,13 +319,13 @@ insertWordRaw' (Fugly dict' _ wne' aspell' allow' _ _) w word' before' after' po
                 else if y == UnknownEPos && Aspell.check aspell'
                         (ByteString.pack x) == False then [] else x
   let insert' x = Map.insert x (Word x 1 (e (nn before' pb)) (e (nn after' pa)) rel pp) dict'
-  let msg w' = hPutStrLn stdout ("> inserted new word: " ++ w')
+  let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new word: " ++ w')) st
   if isJust w then return $ Map.insert word' (Word word' c (nb before' pb) (na after' pa)
                                               (wordGetRelated $ fromJust w)
                                               (wordGetPos $ fromJust w)) dict'
     else if elem word' allow' then msg word' >> return (insert' word')
          else if pp /= UnknownEPos || Aspell.check aspell' (ByteString.pack word') then
-                 msg word' >> return (insert' word')
+                msg word' >> return (insert' word')
               else if (length asw) > 0 then
                      if length (head asw) < 3 && (not $ elem (map toLower (head asw)) sWords)
                         then return dict' else
@@ -342,17 +345,17 @@ insertWordRaw' (Fugly dict' _ wne' aspell' allow' _ _) w word' before' after' po
                         (ByteString.pack x) then incBefore' (fromJust w) x 1
                      else wordGetBefore (fromJust w)
 
-insertName :: Fugly -> String -> String -> String -> IO (Map.Map String Word)
-insertName f@(Fugly {dict=d}) w b a = insertName' f (Map.lookup w d) w b a
+insertName :: (MVar ()) -> Fugly -> String -> String -> String -> IO (Map.Map String Word)
+insertName st f@(Fugly {dict=d}) w b a = insertName' st f (Map.lookup w d) w b a
 
-insertName' :: Fugly -> Maybe Word -> String -> String
+insertName' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
               -> String -> IO (Map.Map String Word)
-insertName' (Fugly {dict=d}) _ [] _ _ = return d
-insertName' (Fugly dict' _ wne' aspell' allow' _ _) w name' before' after' = do
+insertName' _ (Fugly {dict=d}) _ [] _ _ = return d
+insertName' st (Fugly dict' _ wne' aspell' allow' _ _) w name' before' after' = do
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
   rel <- wnRelated' wne' name' "Hypernym" (POS Noun)
-  let msg w' = hPutStrLn stdout ("> inserted new name: " ++ w')
+  let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new name: " ++ w')) st
   if isJust w then
     return $ Map.insert name' (Name name' c (nb before' pb) (na after' pa)
                                (wordGetRelated (fromJust w))) dict'
@@ -592,18 +595,10 @@ fTail _ c  = tail c
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
 wnPartString w a  = do
-    ind1 <- catch (indexLookup w a Noun) (\e -> do let err = show (e :: SomeException)
-                                                   hPutStrLn stderr ("WordNet: indexLookup Noun: " ++ err)
-                                                   return Nothing)
-    ind2 <- catch (indexLookup w a Verb) (\e -> do let err = show (e :: SomeException)
-                                                   hPutStrLn stderr ("WordNet: indexLookup Verb: " ++ err)
-                                                   return Nothing)
-    ind3 <- catch (indexLookup w a Adj)  (\e -> do let err = show (e :: SomeException)
-                                                   hPutStrLn stderr ("WordNet: indexLookup Adj: " ++ err)
-                                                   return Nothing)
-    ind4 <- catch (indexLookup w a Adv)  (\e -> do let err = show (e :: SomeException)
-                                                   hPutStrLn stderr ("WordNet: indexLookup Adv: " ++ err)
-                                                   return Nothing)
+    ind1 <- catch (indexLookup w a Noun) (\e -> return (e :: SomeException) >> return Nothing)
+    ind2 <- catch (indexLookup w a Verb) (\e -> return (e :: SomeException) >> return Nothing)
+    ind3 <- catch (indexLookup w a Adj)  (\e -> return (e :: SomeException) >> return Nothing)
+    ind4 <- catch (indexLookup w a Adv)  (\e -> return (e :: SomeException) >> return Nothing)
     return (type' ((count' ind1) : (count' ind2) : (count' ind3) : (count' ind4) : []))
   where
     count' a' = if isJust a' then senseCount (fromJust a') else 0
@@ -619,18 +614,10 @@ wnPartString w a  = do
 wnPartPOS :: WordNetEnv -> String -> IO EPOS
 wnPartPOS _ [] = return UnknownEPos
 wnPartPOS w a  = do
-    ind1 <- catch (indexLookup w a Noun) (\e -> do let err = show (e :: SomeException)
-                                                   hPutStrLn stderr ("WordNet: indexLookup Noun: " ++ err)
-                                                   return Nothing)
-    ind2 <- catch (indexLookup w a Verb) (\e -> do let err = show (e :: SomeException)
-                                                   hPutStrLn stderr ("WordNet: indexLookup Verb: " ++ err)
-                                                   return Nothing)
-    ind3 <- catch (indexLookup w a Adj)  (\e -> do let err = show (e :: SomeException)
-                                                   hPutStrLn stderr ("WordNet: indexLookup Adj: " ++ err)
-                                                   return Nothing)
-    ind4 <- catch (indexLookup w a Adv)  (\e -> do let err = show (e :: SomeException)
-                                                   hPutStrLn stderr ("WordNet: indexLookup Adv: " ++ err)
-                                                   return Nothing)
+    ind1 <- catch (indexLookup w a Noun) (\e -> return (e :: SomeException) >> return Nothing)
+    ind2 <- catch (indexLookup w a Verb) (\e -> return (e :: SomeException) >> return Nothing)
+    ind3 <- catch (indexLookup w a Adj)  (\e -> return (e :: SomeException) >> return Nothing)
+    ind4 <- catch (indexLookup w a Adv)  (\e -> return (e :: SomeException) >> return Nothing)
     return (type' ((count' ind1) : (count' ind2) : (count' ind3) : (count' ind4) : []))
   where
     count' a' = if isJust a' then senseCount (fromJust a') else 0
@@ -680,9 +667,7 @@ wnRelated' wne' word' form pos' = catch (do
     if (null result) || (null $ concat result) then return [] else
       return $ map (\x -> replace '_' ' ' $ unwords $ map (++ "\"") $
                     map ('"' :) $ concat $ map (getWords . getSynset) x) result)
-                            (\e -> do let err = show (e :: SomeException)
-                                      hPutStrLn stderr ("WordNet: relatedBy: " ++ err)
-                                      return [])
+                            (\e -> return (e :: SomeException) >> return [])
 
 wnClosure :: WordNetEnv -> String -> String -> String -> IO String
 wnClosure _ [] _ _           = return []
@@ -1044,3 +1029,9 @@ preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
                9  -> "yes indeed, "
                _  -> [])
            else return []
+
+hPutStrLnLock :: Handle -> String -> StateT (MVar ()) IO ()
+hPutStrLnLock s m = do
+  l <- get :: StateT (MVar ()) IO (MVar ())
+  lock <- lift $ takeMVar l
+  lift (do hPutStrLn s m ; putMVar l lock)
