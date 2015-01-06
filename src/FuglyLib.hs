@@ -862,10 +862,7 @@ sentence fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen 
       w <- x
       if null w then return []
         else return ([s1c w] ++ fTail [] w)
-  let s1g = if slen == 0 then [return []] else
-              let a = map (\x -> do y <- x ; return $ dePlenk $ unwords y)
-                      (map (s1e . s1d . s1a) (msg ++ sWords)) in
-              take stries a
+  let s1g = take stries $ map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
   map (\x -> do y <- x ; s1f y) s1g
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
