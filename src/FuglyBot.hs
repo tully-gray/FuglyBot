@@ -634,7 +634,7 @@ execCmd b chan nick' (x:xs) = do
             2 -> (wnMeet wne' (xs!!0) (xs!!1) []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !meet <word> <word> [part-of-speech]") st >> return bot
       | x == "!parse" = case (length xs) of
-            0 -> evalStateT (replyMsg bot chan nick' "Usage: !parse <sentence>") st >> return bot
+            0 -> evalStateT (replyMsg bot chan nick' "Usage: !parse <msg>") st >> return bot
             _ -> (mapM (\x' -> evalStateT (replyMsg bot chan nick' x') st) $ take 3 (gfParseC pgf' (unwords $ take 12 xs))) >> return bot
       | x == "!forms"  = case (length xs) of
             0 -> evalStateT (replyMsg bot chan nick' (concat $ map (++ " ") $ map show allForm)) st >> return bot
@@ -654,6 +654,9 @@ execCmd b chan nick' (x:xs) = do
       | x == "!gfshowexpr" = case (length xs) of
             2 -> evalStateT (replyMsg bot chan nick' (gfShowExpr pgf' (xs!!0) (read(xs!!1)))) st >> return bot
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !gfshowexpr <type> <num>") st >> return bot
+      | x == "!asreplace" = case (length xs) of
+            0 -> evalStateT (replyMsg bot chan nick' "Usage: !asreplace <msg>") st >> return bot
+            _ -> do ww <- asReplaceWords f xs ; evalStateT (replyMsg bot chan nick' $ unwords ww) st >> return bot
       | x == "!isname" = case (length xs) of
             1 -> do n <- asIsName aspell' (xs!!0)
                     evalStateT (replyMsg bot chan nick' (show n)) st
@@ -664,7 +667,8 @@ execCmd b chan nick' (x:xs) = do
             else return bot
       | otherwise  = if nick' == owner' then evalStateT (replyMsg bot chan nick'
                        ("Commands: !dict !word !wordlist !insertword !dropword !matchword "
-                       ++ "!banword !allowword !namelist !name !insertname !closure !meet !parse "
+                       ++ "!banword !allowword !namelist !name !insertname !isname !closure "
+                       ++ "!meet !parse !gfcats !gflin !gfshowexpr !asreplace "
                        ++ "!related !random !forms !parts !ageword(s) !cleanwords !internalize "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "
                        ++ "!quit !readfile !load !save")) st >> return bot
@@ -673,11 +677,13 @@ execCmd b chan nick' (x:xs) = do
     execCmd' bot _ = return bot
 
 sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
-sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' randoms' stries' slen plen m = forkIO (do
+sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rand stries' slen plen m = forkIO (do
     num <- Random.getStdRandom (Random.randomR (1, 3 :: Int)) :: IO Int
     r <- gfRandom2 pgf'
-    x <- f ((sentence fugly' randoms' stries' slen plen m) ++ [asReplace fugly' r]) [] num 0
-    let ww = unwords x
+    rr <- asReplaceWords fugly' $ words r
+    x1 <- f ((sentence fugly' rand stries' slen plen m) ++ map return rr) [] num 0
+    x2 <- f ((sentence fugly' rand stries' slen plen m)) [] num 0
+    let ww = unwords $ if rand < 50 then x2 else x1
     evalStateT (do if null ww then return ()
                      else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
                                              hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))

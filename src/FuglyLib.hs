@@ -54,7 +54,7 @@ module FuglyLib
        )
        where
 
-import Control.Concurrent (MVar, putMVar, takeMVar)
+import Control.Concurrent (MVar, putMVar, takeMVar, threadDelay)
 import Control.Exception
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State.Lazy (StateT, evalStateT, get)
@@ -573,7 +573,7 @@ fixUnderscore = strip '"' . replace ' ' '_'
 
 toUpperWord :: String -> String
 toUpperWord [] = []
-toUpperWord w = (toUpper $ head w) : tail w
+toUpperWord w = (toUpper $ fHeadUnsafe "toUpperWord" ' '  w) : tail w
 
 toUpperSentence :: [String] -> [String]
 toUpperSentence []     = []
@@ -582,7 +582,7 @@ toUpperSentence (x:xs) = toUpperWord x : xs
 
 endSentence :: [String] -> [String]
 endSentence []  = []
-endSentence msg = (init msg) ++ ((fLast [] msg) ++ if elem (head msg) qWords then "?" else ".") : []
+endSentence msg = (init msg) ++ ((fLastUnsafe "endSentence" [] msg) ++ if elem (fHeadUnsafe "endSentence" [] msg) qWords then "?" else ".") : []
 
 fHead :: a -> [a] -> a
 fHead b [] = b
@@ -598,15 +598,15 @@ fTail _ c  = tail c
 
 fHeadUnsafe :: String -> a -> [a] -> a
 fHeadUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fHead: error in " ++ a) ; return b)
-fHeadUnsafe a b c  = head c
+fHeadUnsafe _ _ c  = head c
 
 fLastUnsafe :: String -> a -> [a] -> a
 fLastUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fLast: error in " ++ a) ; return b)
-fLastUnsafe a b c  = last c
+fLastUnsafe _ _ c  = last c
 
 fTailUnsafe :: String -> [a] -> [a] -> [a]
 fTailUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fTail: error in " ++ a) ; return b)
-fTailUnsafe a b c  = tail c
+fTailUnsafe _ _ c  = tail c
 
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
@@ -816,7 +816,7 @@ gfRandom pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 95 
 gfRandom2 :: PGF -> IO String
 gfRandom2 pgf' = do
   num <- Random.getStdRandom (Random.randomR (0, 9999))
-  return $ dePlenk $ unwords $ toUpperSentence $ endSentence $ take 95 $
+  return $ dePlenk $ unwords $ toUpperSentence $ endSentence $
     filter (not . null) $ map cleanString $ take 12 $ words $ gfRandom' num
     where
       gfRandom' n = linearize pgf' (head $ languages pgf') $ head $
@@ -931,6 +931,7 @@ asReplace (Fugly dict' _ wne' aspell' _ _ _) word' =
 findNextWord :: Fugly -> Int -> Int -> Bool -> String -> IO [String]
 findNextWord _ _ _ _ [] = return []
 findNextWord (Fugly {dict=dict'}) i randoms prev word' = do
+  threadDelay 250000
   let ln = if isJust w then length neigh else 0
   let lm = if isJust w then length neighmax else 0
   let ll = if isJust w then length neighleast else 0
