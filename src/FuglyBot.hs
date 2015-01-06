@@ -152,7 +152,7 @@ start = do
     hSetBuffering sh NoBuffering
     f <- initFugly fdir wndir gfdir topic'
     let b = (Bot sh (Parameter nick' owner' fdir False
-             10 400 10 5 5 True False True False topic' 50 30) f)
+             10 400 20 7 0 True False True False topic' 50 30) f)
     bot <- newMVar b
     lock <- newMVar ()
     evalStateT (write sh "NICK" nick') (bot, lock)
@@ -276,7 +276,7 @@ changeParam bot@(Bot{params=p@(Parameter{fuglydir=fd, topic=t}), fugly=f}) chan 
       MaxChanMsg     -> replyMsg' (readInt 9 450 value) "Max channel message" >>= (\x -> return bot{params=p{maxchanmsg=x}})
       SentenceTries  -> replyMsg' (readInt 5 4096 value) "Sentence tries"     >>= (\x -> return bot{params=p{stries=x}})
       SentenceLength -> replyMsg' (readInt 2 256 value) "Sentence length"     >>= (\x -> return bot{params=p{slength=x}})
-      ParseLength    -> replyMsg' (readInt 2 256 value) "Parse length"        >>= (\x -> return bot{params=p{plength=x}})
+      ParseLength    -> replyMsg' (readInt 0 256 value) "Parse length"        >>= (\x -> return bot{params=p{plength=x}})
       Learning       -> replyMsg' (readBool value)     "Learning"             >>= (\x -> return bot{params=p{learning=x}})
       StrictLearn    -> replyMsg' (readBool value)     "Strict learn"         >>= (\x -> return bot{params=p{strictlearn=x}})
       Autoname       -> replyMsg' (readBool value)     "Autoname"             >>= (\x -> return bot{params=p{autoname=x}})

@@ -775,6 +775,7 @@ gfLin pgf' msg
 gfParseBool :: PGF -> Int -> String -> Bool
 gfParseBool _ _ [] = False
 gfParseBool pgf' len msg
+  | len == 0       = True
   | elem (map toLower lw) badEndWords = False
   | length w > len = (gfParseBoolA pgf' $ take len w) &&
                      (gfParseBool pgf' len (unwords $ drop len w))
@@ -850,8 +851,8 @@ sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries sl
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
       res <- preSentence fugly $ map (\m -> map toLower m) msg
-      rep <- wnReplaceWords fugly randoms $ filter (\a -> length a > 0 && not (elem a ban')) $
-             filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True)
+      rep <- wnReplaceWords fugly randoms $ filter (\a -> length a > 0 && not (elem a ban'))
+             $ filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True)
              $ take stries ((words res) ++ [yy] ++ [zz] ++ [s1h n x] ++ w)
       return $ filter (not . null) rep
   let s1d x = do
