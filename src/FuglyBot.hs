@@ -680,7 +680,7 @@ sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> I
 sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rand stries' slen plen m = forkIO (do
     num <- Random.getStdRandom (Random.randomR (1, 3 :: Int)) :: IO Int
     r <- gfRandom2 pgf'
-    rr <- asReplaceWords fugly' $ words r
+    let rr = filter (\x -> not $ x =~ "NP") $ words r
     x1 <- f ((sentence fugly' rand stries' slen plen m) ++ map return rr) [] num 0
     x2 <- f ((sentence fugly' rand stries' slen plen m)) [] num 0
     let ww = unwords $ if rand < 50 then x2 else x1
