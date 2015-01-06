@@ -1001,7 +1001,7 @@ findRelated wne' word' = do
 preSentence :: Fugly -> [String] -> IO String
 preSentence _ [] = return []
 preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
-    r <- Random.getStdRandom (Random.randomR (0, 20)) :: IO Int
+    r <- Random.getStdRandom (Random.randomR (0, 50)) :: IO Int
     if elem x qWords then
       return (case r of
         1  -> "yes, and "
@@ -1013,10 +1013,16 @@ preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
         7  -> "why is "
         8  -> "maybe, though "
         9  -> "certainly, "
-        10 -> "certainly, but "
+        10 -> "certainly but "
         11 -> "never, "
         12 -> "no, but "
         13 -> "sure, however "
+        14 -> "perhaps you are right "
+        15 -> "maybe this "
+        16 -> "of course "
+        17 -> "sometimes it "
+        18 -> "only when the "
+        19 -> "it is weird that "
         _  -> [])
       else if (msg \\ ban') /= msg then
           return (case r of
@@ -1033,6 +1039,12 @@ preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
             11 -> "stop that, "
             12 -> "ban this "
             13 -> "stop swearing about "
+            14 -> "oh really "
+            15 -> "don't be rude, "
+            16 -> "that's filthy and "
+            17 -> "shameful behavior never "
+            18 -> "it's disgraceful "
+            19 -> "please be nice, "
             _  -> [])
       else if (msg \\ match') /= msg then
              return (case r of
@@ -1045,6 +1057,16 @@ preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
                7  -> "this is intriguing, "
                8  -> "simply wonderful "
                9  -> "yes indeed, "
+               10 -> "if you like "
+               11 -> "yeah it's nice "
+               12 -> "undoubtably "
+               13 -> "it is wonderful and "
+               14 -> "so you like some "
+               15 -> "I also like "
+               16 -> "everybody loves "
+               17 -> "this is great news, "
+               18 -> "it's rather special "
+               19 -> "absolutely fabulous and "
                _  -> [])
            else return []
 
