@@ -44,8 +44,11 @@ module FuglyLib
          endSentence,
          dePlenk,
          fHead,
+         fHeadUnsafe,
          fLast,
+         fLastUnsafe,
          fTail,
+         fTailUnsafe,
          Word (..),
          Fugly (..)
        )
@@ -64,6 +67,7 @@ import Data.Maybe
 import Data.Tree (flatten)
 import qualified System.Random as Random
 import System.IO
+import System.IO.Unsafe {-- For easy debugging. --}
 
 import qualified Language.Aspell as Aspell
 import qualified Language.Aspell.Options as Aspell.Options
@@ -591,6 +595,18 @@ fLast _ c  = last c
 fTail :: [a] -> [a] -> [a]
 fTail b [] = b
 fTail _ c  = tail c
+
+fHeadUnsafe :: String -> a -> [a] -> a
+fHeadUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fHead: error in " ++ a) ; return b)
+fHeadUnsafe a b c  = head c
+
+fLastUnsafe :: String -> a -> [a] -> a
+fLastUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fLast: error in " ++ a) ; return b)
+fLastUnsafe a b c  = last c
+
+fTailUnsafe :: String -> [a] -> [a] -> [a]
+fTailUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fTail: error in " ++ a) ; return b)
+fTailUnsafe a b c  = tail c
 
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
