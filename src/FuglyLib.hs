@@ -776,6 +776,7 @@ gfParseBool :: PGF -> Int -> String -> Bool
 gfParseBool _ _ [] = False
 gfParseBool pgf' len msg
   | elem (map toLower lw) badEndWords = False
+  | elem '\'' (map toLower lw)        = False
   | len == 0       = True
   | length w > len = (gfParseBoolA pgf' $ take len w) &&
                      (gfParseBool pgf' len (unwords $ drop len w))
