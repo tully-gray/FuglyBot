@@ -116,26 +116,26 @@ initFugly fuglydir wndir gfdir topic = do
     let aspell' = head $ rights [a]
     return (Fugly dict' pgf' wne' aspell' allow' ban' match')
 
-stopFugly :: FilePath -> Fugly -> String -> IO ()
-stopFugly fuglydir fugly@(Fugly {wne=wne'}) topic = do
-    catch (saveDict fugly fuglydir topic) (\e -> do let err = show (e :: SomeException)
-                                                    hPutStrLn stderr ("stop fugly: " ++ err)
-                                                    return ())
+stopFugly :: (MVar ()) -> FilePath -> Fugly -> String -> IO ()
+stopFugly st fuglydir fugly@(Fugly {wne=wne'}) topic = do
+    catch (saveDict st fugly fuglydir topic) (\e -> do let err = show (e :: SomeException)
+                                                       evalStateT (hPutStrLnLock stderr ("stop fugly: " ++ err)) st
+                                                       return ())
     closeWordNet wne'
 
-saveDict :: Fugly -> FilePath -> String -> IO ()
-saveDict (Fugly dict' _ _ _ allow' ban' match') fuglydir topic = do
+saveDict :: (MVar ()) -> Fugly -> FilePath -> String -> IO ()
+saveDict st (Fugly dict' _ _ _ allow' ban' match') fuglydir topic = do
     let d = Map.toList dict'
-    if null d then hPutStrLn stderr "Empty dict!"
+    if null d then evalStateT (hPutStrLnLock stderr "Empty dict!") st
       else do
         h <- openFile (fuglydir ++ "/" ++ topic ++ "-dict.txt") WriteMode
         hSetBuffering h LineBuffering
-        hPutStrLn stdout "Saving dict file..."
+        evalStateT (hPutStrLnLock stdout "Saving dict file...") st
         saveDict' h d
-        hPutStrLn h ">END<"
-        hPutStrLn h $ unwords $ sort allow'
-        hPutStrLn h $ unwords $ sort ban'
-        hPutStrLn h $ unwords $ sort match'
+        evalStateT (hPutStrLnLock h ">END<") st
+        evalStateT (hPutStrLnLock h $ unwords $ sort allow') st
+        evalStateT (hPutStrLnLock h $ unwords $ sort ban') st
+        evalStateT (hPutStrLnLock h $ unwords $ sort match') st
         hClose h
   where
     saveDict' :: Handle -> [(String, Word)] -> IO ()

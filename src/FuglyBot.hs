@@ -164,10 +164,10 @@ start = do
     return (bot, lock)
 
 stop :: (MVar Bot, MVar ()) -> IO ()
-stop (bot, _) = do
+stop (bot, lock) = do
     Bot{sock=s, params=p@(Parameter{fuglydir=fd, topic=t}), fugly=f} <- readMVar bot
     hClose s
-    stopFugly fd f t
+    stopFugly lock fd f t
 
 run :: StateT (MVar Bot, MVar ()) IO b
 run = do
@@ -284,7 +284,7 @@ changeParam bot@(Bot{params=p@(Parameter{fuglydir=fd, topic=t}), fugly=f}) chan 
       Topic          -> do (d, a, b, m) <- lift $ catch (loadDict fd value) (\e -> do let err = show (e :: SomeException)
                                                                                       evalStateT (hPutStrLnLock stderr ("change param: " ++ err)) st
                                                                                       return (Map.empty, [], [], []))
-                           _ <- lift $ saveDict f fd t
+                           _ <- lift $ saveDict (snd st) f fd t
                            replyMsg' value "Topic" >>= (\x -> return bot{params=p{topic=x}, fugly=f{dict=d, allow=a, ban=b, FuglyLib.match=m}})
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
       ThreadTime     -> replyMsg' (readInt 0 360 value) "Thread time"         >>= (\x -> return bot{params=p{threadtime=x}})
@@ -432,7 +432,7 @@ execCmd b chan nick' (x:xs) = do
           0 -> do evalStateT (write s "QUIT" ":Bye") st >> return bot
           _ -> do evalStateT (write s "QUIT" (":" ++ unwords xs)) st >> return bot
         else return bot
-      | x == "!save" = if nick' == owner' then catch (saveDict f fdir topic')
+      | x == "!save" = if nick' == owner' then catch (saveDict (snd st) f fdir topic')
                                                (\e -> do let err = show (e :: SomeException)
                                                          evalStateT (hPutStrLnLock stderr ("save: " ++ err)) st
                                                          return ())
