@@ -680,6 +680,7 @@ execCmd b chan nick' (x:xs) = do
 sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
 sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rand stries' slen plen m = forkIO (do
     num <- Random.getStdRandom (Random.randomR (1, 3 :: Int)) :: IO Int
+    bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
     r <- gfRandom2 pgf'
     let rr = filter (\x -> x =~ "NP") $ words r
     x1 <- f ((sentence (snd st) fugly' rand stries' slen plen m) ++ [return r]) [] num 0
@@ -688,8 +689,8 @@ sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rand stries' slen plen m 
     evalStateT (do if null ww then return ()
                      else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
                                              hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
-                          else if nick' == chan then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
-                                                     hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
+                          else if nick' == chan || bloop == 0 then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
+                                                                   hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
                                else hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww) ++ "\r") >>
                                     hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww))) st)
   where
