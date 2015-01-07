@@ -223,7 +223,7 @@ qWords :: [String]
 qWords = ["am", "are", "can", "do", "does", "if", "is", "want", "what", "when", "where", "who", "why", "will"]
 
 badEndWords :: [String]
-badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "for", "from", "go", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "was", "what", "we", "when", "with", "who", "whose", "you", "your", "you're", "you've"]
+badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "for", "from", "go", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "was", "what", "we", "when", "with", "who", "whose", "you", "your", "you're", "you've"]
 
 sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
@@ -730,20 +730,16 @@ asIsName aspell' word' = do
     let l = map toLower word'
     let u = toUpperWord l
     let b = upperLast l
-    n1 <- asSuggest aspell' l
-    n2 <- asSuggest aspell' u
-    n3 <- asSuggest aspell' b
+    nl <- asSuggest aspell' l
+    nb <- asSuggest aspell' b
     -- hPutStrLn stderr ("> debug: isname: word: " ++ word')
-    -- hPutStrLn stderr ("> debug: isname: u: " ++ u)
-    -- hPutStrLn stderr ("> debug: isname: n1: " ++ n1)
-    -- hPutStrLn stderr ("> debug: isname: n2: " ++ n2)
-    -- hPutStrLn stderr ("> debug: isname: n3: " ++ n3)
+    -- hPutStrLn stderr ("> debug: isname: nl: " ++ nl)
+    -- hPutStrLn stderr ("> debug: isname: nb: " ++ nb)
     return $ if length word' < 3 then False
-             else if null n1 && null n2 then
-                    if null $ words n3 then False
-                    else u == (head $ words n3) && u == word'
-                  else if null n2 && (not $ null n1) then u == word'
-                       else False
+             else if (length $ words nb) < 3 then False
+                  else if word' == (words nb)!!1 then False
+                       else if (word' == (words nb)!!0 || u == (words nb)!!0) && (not $ null nl) then True
+                            else False
   where
     upperLast [] = []
     upperLast w = init w ++ [toUpper $ last w]
