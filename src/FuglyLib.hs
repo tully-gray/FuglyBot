@@ -733,16 +733,16 @@ asIsName aspell' word' = do
     n1 <- asSuggest aspell' l
     n2 <- asSuggest aspell' u
     n3 <- asSuggest aspell' b
-    -- hPutStrLn stderr ("isname: word: " ++ word')
-    -- hPutStrLn stderr ("isname: u: " ++ u)
-    -- hPutStrLn stderr ("isname: n1: " ++ n1)
-    -- hPutStrLn stderr ("isname: n2: " ++ n2)
-    -- hPutStrLn stderr ("isname: n3: " ++ n3)
+    -- hPutStrLn stderr ("> debug: isname: word: " ++ word')
+    -- hPutStrLn stderr ("> debug: isname: u: " ++ u)
+    -- hPutStrLn stderr ("> debug: isname: n1: " ++ n1)
+    -- hPutStrLn stderr ("> debug: isname: n2: " ++ n2)
+    -- hPutStrLn stderr ("> debug: isname: n3: " ++ n3)
     return $ if length word' < 3 then False
              else if null n1 && null n2 then
                     if null $ words n3 then False
-                    else u == (head $ words n3)
-                  else if null n2 && (not $ null n1) then True
+                    else u == (head $ words n3) && u == word'
+                  else if null n2 && (not $ null n1) then u == word'
                        else False
   where
     upperLast [] = []
