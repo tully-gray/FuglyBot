@@ -288,13 +288,14 @@ insertWord st fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word
                       length before' < 3 && (not $ elem (map toLower before') sWords) ||
                       length after' < 3 && (not $ elem (map toLower after') sWords) then return dict'
                    else if isJust w then f st nb na $ fromJust w
-                        else if n && autoname then insertName' st fugly w (toUpperWord $ cleanString word') (bi nb) (ai na)
+                        else if n && autoname then insertName' st fugly wn (toUpperWord $ cleanString word') (bi nb) (ai na)
                              else if isJust ww then insertWordRaw' st fugly ww (map toLower $ cleanString word') (bi nb) (ai na) pos'
                                   else insertWordRaw' st fugly w (map toLower $ cleanString word') (bi nb) (ai na) pos'
     out
   where
     w = Map.lookup word' dict'
     ww = Map.lookup (map toLower $ cleanString word') dict'
+    wn = Map.lookup (toUpperWord $ cleanString word') dict'
     a = Map.lookup after' dict'
     b = Map.lookup before' dict'
     ai an = if isJust a then after'
