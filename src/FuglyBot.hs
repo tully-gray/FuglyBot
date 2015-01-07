@@ -510,15 +510,17 @@ execCmd b chan nick' (x:xs) = do
                          else return bot
       | x == "!ageword" = if nick' == owner' then
           case (length xs) of
-            2 -> evalStateT (replyMsg bot chan nick' ("Aged word " ++ (xs!!0))) st >>
-                 return bot{fugly=f{dict=ageWord dict' (xs!!0) (read (xs!!1))}}
+            2 -> do let num = if (read (xs!!1) :: Int) > 50 then 50 else (read (xs!!1) :: Int)
+                    evalStateT (replyMsg bot chan nick' ("Aged word " ++ (xs!!0))) st
+                    return bot{fugly=f{dict=ageWord dict' (xs!!0) num}}
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !ageword <word> <number>") st
                  >> return bot
                          else return bot
       | x == "!agewords" = if nick' == owner' then
           case (length xs) of
-            1 -> evalStateT (replyMsg bot chan nick' ("Aged all words...")) st >>
-                 return bot{fugly=f{dict=ageWords dict' (read (xs!!0))}}
+            1 -> do let num = if (read (xs!!1) :: Int) > 50 then 50 else (read (xs!!1) :: Int)
+                    evalStateT (replyMsg bot chan nick' ("Aged all words...")) st
+                    return bot{fugly=f{dict=ageWords dict' num}}
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !agewords <number>") st
                  >> return bot
                          else return bot
