@@ -848,10 +848,11 @@ sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries sl
       let yy = if null y then [] else head y
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
+      ww <- s1b fugly slen 0 $ return msg
       res <- preSentence fugly $ map (\m -> map toLower m) msg
+      let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n x] ++ w
       rep <- wnReplaceWords fugly randoms $ filter (\a -> length a > 0 && not (elem a ban'))
-             $ filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True)
-             $ take stries ((words res) ++ [yy] ++ [zz] ++ [s1h n x] ++ w)
+             $ filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True) $ take stries d
       return $ filter (not . null) rep
   let s1d x = do
       w <- x
