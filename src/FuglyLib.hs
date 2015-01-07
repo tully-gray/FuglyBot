@@ -108,7 +108,7 @@ initFugly :: FilePath -> FilePath -> FilePath -> String -> IO Fugly
 initFugly fuglydir wndir gfdir topic = do
     (dict', allow', ban', match') <- catch (loadDict fuglydir topic)
                                      (\e -> do let err = show (e :: SomeException)
-                                               hPutStrLn stderr ("init fugly: " ++ err)
+                                               hPutStrLn stderr ("Exception in initFugly: " ++ err)
                                                return (Map.empty, [], [], []))
     pgf' <- readPGF (gfdir ++ "/ParseEng.pgf")
     wne' <- NLP.WordNet.initializeWordNetWithOptions
@@ -123,7 +123,7 @@ initFugly fuglydir wndir gfdir topic = do
 stopFugly :: (MVar ()) -> FilePath -> Fugly -> String -> IO ()
 stopFugly st fuglydir fugly@(Fugly {wne=wne'}) topic = do
     catch (saveDict st fugly fuglydir topic) (\e -> do let err = show (e :: SomeException)
-                                                       evalStateT (hPutStrLnLock stderr ("stop fugly: " ++ err)) st
+                                                       evalStateT (hPutStrLnLock stderr ("Exception in stopFugly: " ++ err)) st
                                                        return ())
     closeWordNet wne'
 

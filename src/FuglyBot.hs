@@ -122,7 +122,7 @@ main = do
     loop :: (MVar Bot, MVar ()) -> IO ()
     loop st = do catch (evalStateT run st)
                    (\e -> do let err = show (e :: SomeException)
-                             evalStateT (hPutStrLnLock stderr ("main loop: " ++ err)) st
+                             evalStateT (hPutStrLnLock stderr ("Exception in main: " ++ err)) st
                              return ())
 
 start :: IO (MVar Bot, MVar ())
@@ -173,7 +173,8 @@ run :: StateT (MVar Bot, MVar ()) IO b
 run = do
     st <- get
     Bot{sock=s} <- lift $ readMVar $ fst st
-    forever $ do lift (hGetLine s >>= (\l -> do evalStateT (hPutStrLnLock stdout l) st >> return l) >>= (\ll -> listenIRC st s ll))
+    -- forever $ do lift (hGetLine s >>= (\l -> do evalStateT (hPutStrLnLock stdout l) st >> return l) >>= (\ll -> listenIRC st s ll))
+    forever $ do lift (hGetLine s >>= (\ll -> listenIRC st s ll))
     where
       listenIRC st s l = do
         let b = fst st
@@ -190,7 +191,7 @@ run = do
                     else do
                       (catch (evalStateT (processLine $ words l) st >> return ())
                        (\e -> do let err = show (e :: SomeException)
-                                 evalStateT (hPutStrLnLock stderr ("process line: " ++ err)) st
+                                 evalStateT (hPutStrLnLock stderr ("Exception in processLine: " ++ err)) st
                                  return ()))
 
 cmdLine :: IO [String]
@@ -282,7 +283,7 @@ changeParam bot@(Bot{params=p@(Parameter{fuglydir=fd, topic=t}), fugly=f}) chan 
       Autoname       -> replyMsg' (readBool value)     "Autoname"             >>= (\x -> return bot{params=p{autoname=x}})
       AllowPM        -> replyMsg' (readBool value)     "Allow PM"             >>= (\x -> return bot{params=p{allowpm=x}})
       Topic          -> do (d, a, b, m) <- lift $ catch (loadDict fd value) (\e -> do let err = show (e :: SomeException)
-                                                                                      evalStateT (hPutStrLnLock stderr ("change param: " ++ err)) st
+                                                                                      evalStateT (hPutStrLnLock stderr ("Exception in changeParam: " ++ err)) st
                                                                                       return (Map.empty, [], [], []))
                            _ <- lift $ saveDict (snd st) f fd t
                            replyMsg' value "Topic" >>= (\x -> return bot{params=p{topic=x}, fugly=f{dict=d, allow=a, ban=b, FuglyLib.match=m}})
@@ -403,7 +404,7 @@ reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
                           else forkIO $ return ()
                         else sentenceReply st s f chan nick' randoms' stries' slen plen mm)
     if ttime > 0 then
-      lift $ forkIO (do threadDelay $ ttime * 1000000 ; evalStateT (hPutStrLnLock stderr ("killed thread: " ++ show tId)) st ; killThread tId) >> return ()
+      lift $ forkIO (do threadDelay $ ttime * 1000000 ; evalStateT (hPutStrLnLock stderr ("Killed thread: " ++ show tId)) st ; killThread tId) >> return ()
       else return ()
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords (snd st) f autoname' fmsg
@@ -434,13 +435,13 @@ execCmd b chan nick' (x:xs) = do
         else return bot
       | x == "!save" = if nick' == owner' then catch (saveDict (snd st) f fdir topic')
                                                (\e -> do let err = show (e :: SomeException)
-                                                         evalStateT (hPutStrLnLock stderr ("save: " ++ err)) st
+                                                         evalStateT (hPutStrLnLock stderr ("Exception in saveDict: " ++ err)) st
                                                          return ())
                                                >> evalStateT (replyMsg bot chan nick' "Saved dict file!") st
                                                >> return bot else return bot
       | x == "!load" = if nick' == owner' then do
            (nd, na, nb, nm) <- catch (loadDict fdir topic') (\e -> do let err = show (e :: SomeException)
-                                                                      evalStateT (hPutStrLnLock stderr ("load: " ++ err)) st
+                                                                      evalStateT (hPutStrLnLock stderr ("Exception in loadDict: " ++ err)) st
                                                                       return (dict', [], [], []))
            evalStateT (replyMsg bot chan nick' "Loaded dict file!") st
            return bot{fugly=(Fugly nd pgf' wne' aspell' na nb nm)}
@@ -452,7 +453,7 @@ execCmd b chan nick' (x:xs) = do
       | x == "!nick" = if nick' == owner' then evalStateT (changeNick xs []) st else return bot
       | x == "!readfile" = if nick' == owner' then case (length xs) of
           1 -> catch (insertFromFile (snd st) bot (xs!!0)) (\e -> do let err = show (e :: SomeException)
-                                                                     evalStateT (hPutStrLnLock stderr ("readfile: " ++ err)) st
+                                                                     evalStateT (hPutStrLnLock stderr ("Exception in insertFromFile: " ++ err)) st
                                                                      return bot)
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !readfile <file>") st >>
                return bot else return bot
@@ -611,7 +612,7 @@ execCmd b chan nick' (x:xs) = do
           if length xs > 2 then do
             tId <- sentenceReply st s f (xs!!0) (xs!!1) randoms' stries' slen plen (drop 2 xs)
             if ttime > 0 then
-              forkIO (do threadDelay $ ttime * 1000000 ; evalStateT (hPutStrLnLock stderr ("killed thread: " ++ show tId)) st ; killThread tId) >> return bot
+              forkIO (do threadDelay $ ttime * 1000000 ; evalStateT (hPutStrLnLock stderr ("Killed thread: " ++ show tId)) st ; killThread tId) >> return bot
               else return bot
           else evalStateT (replyMsg bot chan nick' "Usage: !talk <channel> <nick> <msg>") st >> return bot
                      else return bot
