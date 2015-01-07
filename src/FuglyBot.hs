@@ -407,7 +407,7 @@ reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
       else return ()
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords (snd st) f autoname' fmsg
-      hPutStrLnLock stdout ">parse<"
+      hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd}} else
       return bot
 reply bot _ _ _ = return bot

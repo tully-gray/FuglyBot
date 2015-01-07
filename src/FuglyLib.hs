@@ -841,7 +841,7 @@ sentence _ _ _ _ _ _ [] = [return []] :: [IO String]
 sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen plen msg = do
   let s1f x = if null x then return []
               else if gfParseBool pgf' plen x && length (words x) > 2 then return x
-                   else evalStateT (hPutStrLnLock stderr ("debug: " ++ x)) st >> return []
+                   else evalStateT (hPutStrLnLock stderr ("> debug: " ++ x)) st >> return []
   let s1h n x = if n then x else map toLower x
   let s1a x = do
       n <- asIsName aspell' x
