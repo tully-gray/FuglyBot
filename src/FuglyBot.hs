@@ -194,6 +194,7 @@ run = do
                       (catch (evalStateT (processLine $ words l) st >> return ())
                        (\e -> do let err = show (e :: SomeException)
                                  evalStateT (hPutStrLnLock stderr ("Exception in processLine: " ++ err)) st
+                                 putMVar b bot
                                  return ()))
 
 cmdLine :: IO [String]
@@ -438,7 +439,9 @@ execCmd b _ [] _ = lift $ return b
 execCmd b [] _ _ = lift $ return b
 execCmd b chan nick' (x:xs) = do
     st <- get
-    lift $ execCmd' b st
+    lift $ catch (execCmd' b st) (\e -> do let err = show (e :: SomeException)
+                                           evalStateT (hPutStrLnLock stderr ("Exception in execCmd: " ++ err)) st
+                                           return b)
   where
     execCmd' :: Bot -> (MVar Bot, MVar ()) -> IO Bot
     execCmd' bot@(Bot{sock=s, params=p@(Parameter botnick owner' fdir
@@ -530,7 +533,11 @@ execCmd b chan nick' (x:xs) = do
                          else return bot
       | x == "!ageword" = if nick' == owner' then
           case (length xs) of
-            2 -> do let num = if (read (xs!!1) :: Int) > 50 then 50 else (read (xs!!1) :: Int)
+            {-- This has to be caught here? --}
+            2 -> do num <- catch (if (read (xs!!1) :: Int) > 50 then return 50 else return (read (xs!!1) :: Int))
+                              (\e -> do let err = show (e :: SomeException)
+                                        evalStateT (hPutStrLnLock stderr ("Exception in ageword command: read: " ++ err)) st
+                                        return 0)
                     evalStateT (replyMsg bot chan nick' ("Aged word " ++ (xs!!0))) st
                     return bot{fugly=f{dict=ageWord dict' (xs!!0) num}}
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !ageword <word> <number>") st
@@ -538,7 +545,11 @@ execCmd b chan nick' (x:xs) = do
                          else return bot
       | x == "!agewords" = if nick' == owner' then
           case (length xs) of
-            1 -> do let num = if (read (xs!!1) :: Int) > 50 then 50 else (read (xs!!1) :: Int)
+            {-- This has to be caught here? --}
+            1 -> do num <- catch (if (read (xs!!0) :: Int) > 50 then return 50 else return (read (xs!!0) :: Int))
+                              (\e -> do let err = show (e :: SomeException)
+                                        evalStateT (hPutStrLnLock stderr ("Exception in agewords command: read: " ++ err)) st
+                                        return 0)
                     evalStateT (replyMsg bot chan nick' ("Aged all words...")) st
                     return bot{fugly=f{dict=ageWords dict' num}}
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !agewords <number>") st
