@@ -104,12 +104,12 @@ data Word = Word {
               related :: [String]
               }
 
-initFugly :: FilePath -> FilePath -> FilePath -> String -> IO Fugly
+initFugly :: FilePath -> FilePath -> FilePath -> String -> IO (Fugly, [String])
 initFugly fuglydir wndir gfdir topic = do
-    (dict', allow', ban', match') <- catch (loadDict fuglydir topic)
+    (dict', allow', ban', match', params') <- catch (loadDict fuglydir topic)
                                      (\e -> do let err = show (e :: SomeException)
                                                hPutStrLn stderr ("Exception in initFugly: " ++ err)
-                                               return (Map.empty, [], [], []))
+                                               return (Map.empty, [], [], [], []))
     pgf' <- readPGF (gfdir ++ "/ParseEng.pgf")
     wne' <- NLP.WordNet.initializeWordNetWithOptions
             (return wndir :: Maybe FilePath)
@@ -118,19 +118,20 @@ initFugly fuglydir wndir gfdir topic = do
                                          Aspell.Options.IgnoreCase False, Aspell.Options.Size Aspell.Options.Large,
                                          Aspell.Options.SuggestMode Aspell.Options.Normal, Aspell.Options.Ignore 2]
     let aspell' = head $ rights [a]
-    return (Fugly dict' pgf' wne' aspell' allow' ban' match')
+    return ((Fugly dict' pgf' wne' aspell' allow' ban' match'), params')
 
-stopFugly :: (MVar ()) -> FilePath -> Fugly -> String -> IO ()
-stopFugly st fuglydir fugly@(Fugly {wne=wne'}) topic = do
-    catch (saveDict st fugly fuglydir topic) (\e -> do let err = show (e :: SomeException)
-                                                       evalStateT (hPutStrLnLock stderr ("Exception in stopFugly: " ++ err)) st
-                                                       return ())
+stopFugly :: (MVar ()) -> FilePath -> Fugly -> String -> [String] -> IO ()
+stopFugly st fuglydir fugly@(Fugly {wne=wne'}) topic params = do
+    catch (saveDict st fugly fuglydir topic params)
+      (\e -> do let err = show (e :: SomeException)
+                evalStateT (hPutStrLnLock stderr ("Exception in stopFugly: " ++ err)) st
+                return ())
     closeWordNet wne'
 
-saveDict :: (MVar ()) -> Fugly -> FilePath -> String -> IO ()
-saveDict st (Fugly dict' _ _ _ allow' ban' match') fuglydir topic = do
+saveDict :: (MVar ()) -> Fugly -> FilePath -> String -> [String] -> IO ()
+saveDict st (Fugly dict' _ _ _ allow' ban' match') fuglydir topic params = do
     let d = Map.toList dict'
-    if null d then evalStateT (hPutStrLnLock stderr "Empty dict!") st
+    if null d then evalStateT (hPutStrLnLock stderr "> Empty dict!") st
       else do
         h <- openFile (fuglydir ++ "/" ++ topic ++ "-dict.txt") WriteMode
         hSetBuffering h LineBuffering
@@ -140,13 +141,14 @@ saveDict st (Fugly dict' _ _ _ allow' ban' match') fuglydir topic = do
         evalStateT (hPutStrLnLock h $ unwords $ sort allow') st
         evalStateT (hPutStrLnLock h $ unwords $ sort ban') st
         evalStateT (hPutStrLnLock h $ unwords $ sort match') st
+        evalStateT (hPutStrLnLock h $ unwords params) st
         hClose h
   where
     saveDict' :: Handle -> [(String, Word)] -> IO ()
     saveDict' _ [] = return ()
     saveDict' h (x:xs) = do
       let l = format' $ snd x
-      if null l then return () else hPutStr h l
+      if null l then return () else evalStateT (hPutStrLock h l) st
       saveDict' h xs
     format' (Word w c b a r p)
       | null w    = []
@@ -166,13 +168,13 @@ saveDict st (Fugly dict' _ _ _ allow' ban' match') fuglydir topic = do
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("end: \n")]
 
-loadDict :: FilePath -> String -> IO (Map.Map String Word, [String], [String], [String])
+loadDict :: FilePath -> String -> IO (Map.Map String Word, [String], [String], [String], [String])
 loadDict fuglydir topic = do
     let w = (Word [] 0 Map.empty Map.empty [] UnknownEPos)
     h <- openFile (fuglydir ++ "/" ++ topic ++ "-dict.txt") ReadMode
     eof <- hIsEOF h
     if eof then
-      return (Map.empty, [], [], [])
+      return (Map.empty, [], [], [], [])
       else do
       hSetBuffering h LineBuffering
       hPutStrLn stdout "Loading dict file..."
@@ -180,7 +182,8 @@ loadDict fuglydir topic = do
       allow' <- hGetLine h
       ban' <- hGetLine h
       match' <- hGetLine h
-      let out = (Map.fromList dict', words allow', words ban', words match')
+      params' <- hGetLine h
+      let out = (Map.fromList dict', words allow', words ban', words match', words params')
       hClose h
       return out
   where
@@ -1067,6 +1070,12 @@ preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
                19 -> "absolutely fabulous and "
                _  -> [])
            else return []
+
+hPutStrLock :: Handle -> String -> StateT (MVar ()) IO ()
+hPutStrLock s m = do
+  l <- get :: StateT (MVar ()) IO (MVar ())
+  lock <- lift $ takeMVar l
+  lift (do hPutStr s m ; putMVar l lock)
 
 hPutStrLnLock :: Handle -> String -> StateT (MVar ()) IO ()
 hPutStrLnLock s m = do

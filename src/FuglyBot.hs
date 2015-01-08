@@ -150,9 +150,10 @@ start = do
          else socksConnectAddr s (addrAddress $ head s5serv) (addrAddress $ head serv)
     sh <- socketToHandle s ReadWriteMode
     hSetBuffering sh NoBuffering
-    f <- initFugly fdir wndir gfdir topic'
-    let b = (Bot sh (Parameter nick' owner' fdir False
-             10 400 20 7 0 True False True False topic' 50 30) f)
+    (f, p) <- initFugly fdir wndir gfdir topic'
+    let b = if null p then
+              Bot sh (Parameter nick' owner' fdir False 10 400 20 7 0 True False True False topic' 50 30) f
+              else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, topic=topic'}) f
     bot <- newMVar b
     lock <- newMVar ()
     evalStateT (write sh "NICK" nick') (bot, lock)
@@ -167,7 +168,7 @@ stop :: (MVar Bot, MVar ()) -> IO ()
 stop (bot, lock) = do
     Bot{sock=s, params=p@(Parameter{fuglydir=fd, topic=t}), fugly=f} <- readMVar bot
     hClose s
-    stopFugly lock fd f t
+    stopFugly lock fd f t (paramsToList p)
 
 run :: StateT (MVar Bot, MVar ()) IO b
 run = do
@@ -266,8 +267,22 @@ joinChannel h a (x:xs) = do
       joinChannel h a xs
         else return ()
 
+readParamsFromList :: [String] -> Parameter
+readParamsFromList a = Parameter{nick="", owner="", fuglydir="", usercmd=read (a!!0),
+                                 rejoinkick=read (a!!1), maxchanmsg=read (a!!2), stries=read (a!!3),
+                                 slength=read (a!!4), plength=read (a!!5), learning=read (a!!6),
+                                 strictlearn=read (a!!7), autoname=read (a!!8), allowpm=read (a!!9),
+                                 topic="", randoms=read (a!!10), threadtime=read (a!!11)}
+
+paramsToList :: Parameter -> [String]
+paramsToList (Parameter _ _ _ uc rk mcm st sl pl l stl an apm _ r tt) = [show uc, show rk, show mcm, show st,
+                                                                        show sl, show pl, show l, show stl,
+                                                                        show an, show apm, show r, show tt]
+paramsToList _ = []
+
 changeParam :: Bot -> String -> String -> String -> String -> StateT (MVar Bot, MVar ()) IO Bot
-changeParam bot@(Bot{params=p@(Parameter{fuglydir=fd, topic=t}), fugly=f}) chan nick' param value = do
+changeParam bot@(Bot{params=p@(Parameter{nick=botnick, owner=owner', fuglydir=fdir, topic=t}),
+                     fugly=f@(Fugly{dict=dict', allow=allow', ban=ban', FuglyLib.match=match'})}) chan nick' param value = do
     st <- get
     case (readParam param) of
       Nick           -> changeNick (value : "" : []) []
@@ -282,11 +297,13 @@ changeParam bot@(Bot{params=p@(Parameter{fuglydir=fd, topic=t}), fugly=f}) chan 
       StrictLearn    -> replyMsg' (readBool value)     "Strict learn"         >>= (\x -> return bot{params=p{strictlearn=x}})
       Autoname       -> replyMsg' (readBool value)     "Autoname"             >>= (\x -> return bot{params=p{autoname=x}})
       AllowPM        -> replyMsg' (readBool value)     "Allow PM"             >>= (\x -> return bot{params=p{allowpm=x}})
-      Topic          -> do (d, a, b, m) <- lift $ catch (loadDict fd value) (\e -> do let err = show (e :: SomeException)
-                                                                                      evalStateT (hPutStrLnLock stderr ("Exception in changeParam: " ++ err)) st
-                                                                                      return (Map.empty, [], [], []))
-                           _ <- lift $ saveDict (snd st) f fd t
-                           replyMsg' value "Topic" >>= (\x -> return bot{params=p{topic=x}, fugly=f{dict=d, allow=a, ban=b, FuglyLib.match=m}})
+      Topic          -> do (d, a, b, m, pl) <- lift $ catch (loadDict fdir value)
+                                           (\e -> do let err = show (e :: SomeException)
+                                                     evalStateT (hPutStrLnLock stderr ("Exception in changeParam: " ++ err)) st
+                                                     return (dict', allow', ban', match', (paramsToList p)))
+                           _ <- lift $ saveDict (snd st) f fdir t (paramsToList p)
+                           let pp = (readParamsFromList pl){nick=botnick, owner=owner', fuglydir=fdir}
+                           replyMsg' value "Topic" >>= (\x -> return bot{params=pp{topic=x}, fugly=f{dict=d, allow=a, ban=b, FuglyLib.match=m}})
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
       ThreadTime     -> replyMsg' (readInt 0 360 value) "Thread time"         >>= (\x -> return bot{params=p{threadtime=x}})
       _              -> return bot
@@ -433,18 +450,19 @@ execCmd b chan nick' (x:xs) = do
           0 -> do evalStateT (write s "QUIT" ":Bye") st >> return bot
           _ -> do evalStateT (write s "QUIT" (":" ++ unwords xs)) st >> return bot
         else return bot
-      | x == "!save" = if nick' == owner' then catch (saveDict (snd st) f fdir topic')
+      | x == "!save" = if nick' == owner' then catch (saveDict (snd st) f fdir topic' (paramsToList p))
                                                (\e -> do let err = show (e :: SomeException)
                                                          evalStateT (hPutStrLnLock stderr ("Exception in saveDict: " ++ err)) st
                                                          return ())
                                                >> evalStateT (replyMsg bot chan nick' "Saved dict file!") st
                                                >> return bot else return bot
       | x == "!load" = if nick' == owner' then do
-           (nd, na, nb, nm) <- catch (loadDict fdir topic') (\e -> do let err = show (e :: SomeException)
-                                                                      evalStateT (hPutStrLnLock stderr ("Exception in loadDict: " ++ err)) st
-                                                                      return (dict', [], [], []))
+           (nd, na, nb, nm, np) <- catch (loadDict fdir topic') (\e -> do let err = show (e :: SomeException)
+                                                                          evalStateT (hPutStrLnLock stderr ("Exception in loadDict: " ++ err)) st
+                                                                          return (dict', allow', ban', match', paramsToList p))
            evalStateT (replyMsg bot chan nick' "Loaded dict file!") st
-           return bot{fugly=(Fugly nd pgf' wne' aspell' na nb nm)}
+           return bot{params=(readParamsFromList np){nick=botnick, owner=owner', fuglydir=fdir, topic=topic'},
+                      fugly=(Fugly nd pgf' wne' aspell' na nb nm)}
                        else return bot
       | x == "!join" = if nick' == owner' then evalStateT (joinChannel s "JOIN" xs) st >>
                                              return bot else return bot
