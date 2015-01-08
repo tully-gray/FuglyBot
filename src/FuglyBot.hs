@@ -11,6 +11,7 @@ import Network.Socket
 import Network.Socks5
 import System.Environment
 import System.IO
+import System.IO.Error
 import qualified System.Random as Random
 import Text.Regex.Posix
 import Prelude
@@ -297,10 +298,11 @@ changeParam bot@(Bot{params=p@(Parameter{nick=botnick, owner=owner', fuglydir=fd
       StrictLearn    -> replyMsg' (readBool value)     "Strict learn"         >>= (\x -> return bot{params=p{strictlearn=x}})
       Autoname       -> replyMsg' (readBool value)     "Autoname"             >>= (\x -> return bot{params=p{autoname=x}})
       AllowPM        -> replyMsg' (readBool value)     "Allow PM"             >>= (\x -> return bot{params=p{allowpm=x}})
-      Topic          -> do (d, a, b, m, pl) <- lift $ catch (loadDict fdir value)
-                                           (\e -> do let err = show (e :: SomeException)
-                                                     evalStateT (hPutStrLnLock stderr ("Exception in changeParam: " ++ err)) st
-                                                     return (dict', allow', ban', match', (paramsToList p)))
+      Topic          -> do (d, a, b, m, pl) <- lift $ catchJust (\e -> if isDoesNotExistErrorType (ioeGetErrorType e) then
+                                                                         return (Map.empty, [], [], [], (paramsToList p))
+                                                                       else
+                                                                         return (dict', allow', ban', match', (paramsToList p)))
+                                               (loadDict fdir value) (\_ -> return (Map.empty, [], [], [], (paramsToList p)))
                            _ <- lift $ saveDict (snd st) f fdir t (paramsToList p)
                            let pp = (readParamsFromList pl){nick=botnick, owner=owner', fuglydir=fdir}
                            replyMsg' value "Topic" >>= (\x -> return bot{params=pp{topic=x}, fugly=f{dict=d, allow=a, ban=b, FuglyLib.match=m}})
