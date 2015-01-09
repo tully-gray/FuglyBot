@@ -905,11 +905,12 @@ wnReplaceWords fugly@(Fugly {wne=wne'}) randoms msg = do
   rr <- Random.getStdRandom (Random.randomR (0, 99))
   w <- if not $ null cw then findRelated wne' (cw!!cr) else return []
   let out = filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++ [w] ++ (tail $ dropWhile (/= (cw!!cr)) msg))
-  if rr + randoms < 90 then
+  if randoms == 0 then
     return out
-    else if randoms < 90 then
+    else if rr + 10 < randoms then
       wnReplaceWords fugly randoms out
-      else mapM (\x -> findRelated wne' x) msg
+      else
+        return out
 
 asReplaceWords :: Fugly -> [String] -> IO [String]
 asReplaceWords _ [] = return [[]]
