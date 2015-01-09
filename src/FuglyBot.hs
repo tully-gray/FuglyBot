@@ -630,7 +630,7 @@ execCmd b chan nick' (x:xs) = do
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !name <name>") st >> return bot
       | x == "!insertname" = if nick' == owner' then
           case (length xs) of
-            1 -> do ww <- insertName (snd st) f (xs!!0) [] []
+            1 -> do ww <- insertName (snd st) f (xs!!0) [] [] True
                     evalStateT (replyMsg bot chan nick' ("Inserted name " ++ (xs!!0))) st
                     return bot{fugly=f{dict=ww}}
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertname <name>") st >> return bot

@@ -291,7 +291,7 @@ insertWord st fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word
                       length before' < 3 && (not $ elem (map toLower before') sWords) ||
                       length after' < 3 && (not $ elem (map toLower after') sWords) then return dict'
                    else if isJust w then f st nb na $ fromJust w
-                        else if n && autoname then insertName' st fugly wn (toUpperWord $ cleanString word') (bi nb) (ai na)
+                        else if n && autoname then insertName' st fugly wn (toUpperWord $ cleanString word') (bi nb) (ai na) False
                              else if isJust ww then insertWordRaw' st fugly ww (map toLower $ cleanString word') (bi nb) (ai na) pos'
                                   else insertWordRaw' st fugly w (map toLower $ cleanString word') (bi nb) (ai na) pos'
     out
@@ -308,7 +308,7 @@ insertWord st fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word
             else if bn && autoname then toUpperWord $ cleanString before'
                  else map toLower $ cleanString before'
     f st' bn an (Word {}) = insertWordRaw' st' fugly w word' (bi bn) (ai an) pos'
-    f st' bn an (Name {}) = insertName'    st' fugly w word' (bi bn) (ai an)
+    f st' bn an (Name {}) = insertName'    st' fugly w word' (bi bn) (ai an) False
 
 insertWordRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWordRaw st f@(Fugly {dict=d}) w b a p = insertWordRaw' st f (Map.lookup w d) w b a p
@@ -353,17 +353,17 @@ insertWordRaw' st (Fugly dict' _ wne' aspell' allow' _ _) w word' before' after'
                         (ByteString.pack x) then incBefore' (fromJust w) x 1
                      else wordGetBefore (fromJust w)
 
-insertName :: (MVar ()) -> Fugly -> String -> String -> String -> IO (Map.Map String Word)
-insertName st f@(Fugly {dict=d}) w b a = insertName' st f (Map.lookup w d) w b a
+insertName :: (MVar ()) -> Fugly -> String -> String -> String -> Bool -> IO (Map.Map String Word)
+insertName st f@(Fugly {dict=d}) w b a s = insertName' st f (Map.lookup w d) w b a s
 
 insertName' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
-              -> String -> IO (Map.Map String Word)
-insertName' _ (Fugly {dict=d}) _ [] _ _ = return d
-insertName' st (Fugly dict' _ wne' aspell' allow' _ _) w name' before' after' = do
+              -> String -> Bool -> IO (Map.Map String Word)
+insertName' _ (Fugly {dict=d}) _ [] _ _ _ = return d
+insertName' st (Fugly dict' _ wne' aspell' allow' _ _) w name' before' after' s = do
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
   rel <- wnRelated' wne' name' "Hypernym" (POS Noun)
-  let n = toUpperWord $ map toLower name'
+  let n = if s then name' else toUpperWord $ map toLower name'
   let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new name: " ++ w')) st
   if isJust w then
     return $ Map.insert name' (Name name' c (nb before' pb) (na after' pa)
