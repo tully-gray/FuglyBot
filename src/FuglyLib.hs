@@ -288,9 +288,9 @@ insertWord st fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word
     na <- asIsName aspell' after'
     let out = if elem (map toLower word') ban' || elem (map toLower before') ban' ||
                  elem (map toLower after') ban' then return dict'
-              else if length word' < 3 && (not $ elem (map toLower word') sWords) ||
-                      length before' < 3 && (not $ elem (map toLower before') sWords) ||
-                      length after' < 3 && (not $ elem (map toLower after') sWords) then return dict'
+              else if (length word' == 1 || length word' == 2) && (not $ elem (map toLower word') sWords) ||
+                      (length before' == 1 || length before' == 2) && (not $ elem (map toLower before') sWords) ||
+                      (length after' == 1 || length after' == 2) && (not $ elem (map toLower after') sWords) then return dict'
                    else if isJust w then f st nb na $ fromJust w
                         else if n && autoname then insertName' st fugly wn (toUpperWord $ cleanString word') (bi nb) (ai na) False
                              else if isJust ww then insertWordRaw' st fugly ww (map toLower $ cleanString word') (bi nb) (ai na) pos'
