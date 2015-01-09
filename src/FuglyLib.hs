@@ -914,7 +914,7 @@ wnReplaceWords fugly@(Fugly {wne=wne'}) randoms msg = do
       else if rr + 20 < randoms then
         wnReplaceWords fugly randoms out
         else
-          return out
+          return msg
 
 asReplaceWords :: Fugly -> [String] -> IO [String]
 asReplaceWords _ [] = return [[]]
