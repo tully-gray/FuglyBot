@@ -363,14 +363,15 @@ insertName' st (Fugly dict' _ wne' aspell' allow' _ _) w name' before' after' = 
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
   rel <- wnRelated' wne' name' "Hypernym" (POS Noun)
+  let n = toUpperWord $ map toLower name'
   let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new name: " ++ w')) st
   if isJust w then
     return $ Map.insert name' (Name name' c (nb before' pb) (na after' pa)
                                (wordGetRelated (fromJust w))) dict'
     else do
-    msg name'
-    return $ Map.insert name' (Name name' 1 (e (nn before' pb))
-                               (e (nn after' pa)) rel) dict'
+    msg n
+    return $ Map.insert n (Name n 1 (e (nn before' pb))
+                           (e (nn after' pa)) rel) dict'
   where
     e [] = Map.empty
     e x = Map.singleton x 1
