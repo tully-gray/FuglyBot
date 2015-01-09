@@ -691,6 +691,9 @@ execCmd b chan nick' (x:xs) = do
       | x == "!asreplace" = case (length xs) of
             0 -> evalStateT (replyMsg bot chan nick' "Usage: !asreplace <msg>") st >> return bot
             _ -> do ww <- asReplaceWords f xs ; evalStateT (replyMsg bot chan nick' $ unwords ww) st >> return bot
+      | x == "!wnreplace" = case (length xs) of
+            0 -> evalStateT (replyMsg bot chan nick' "Usage: !wnreplace <msg>") st >> return bot
+            _ -> do ww <- wnReplaceWords f randoms' xs ; evalStateT (replyMsg bot chan nick' $ unwords ww) st >> return bot
       | x == "!isname" = case (length xs) of
             1 -> do n <- asIsName aspell' (xs!!0)
                     evalStateT (replyMsg bot chan nick' (show n)) st
@@ -702,7 +705,7 @@ execCmd b chan nick' (x:xs) = do
       | otherwise  = if nick' == owner' then evalStateT (replyMsg bot chan nick'
                        ("Commands: !dict !word !wordlist !insertword !dropword !matchword "
                        ++ "!banword !allowword !namelist !name !insertname !isname !closure "
-                       ++ "!meet !parse !gfcats !gflin !gfshowexpr !asreplace "
+                       ++ "!meet !parse !gfcats !gflin !gfshowexpr !asreplace !wnreplace "
                        ++ "!related !random !forms !parts !ageword(s) !cleanwords !internalize "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "
                        ++ "!quit !readfile !load !save")) st >> return bot

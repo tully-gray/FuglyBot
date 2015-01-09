@@ -25,6 +25,7 @@ module FuglyLib
          wnRelated,
          wnClosure,
          wnMeet,
+         wnReplaceWords,
          asReplace,
          asReplaceWords,
          asIsName,
@@ -907,11 +908,13 @@ wnReplaceWords fugly@(Fugly {wne=wne'}) randoms msg = do
   w <- if not $ null cw then findRelated wne' (cw!!cr) else return []
   let out = filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++ [w] ++ (tail $ dropWhile (/= (cw!!cr)) msg))
   if randoms == 0 then
-    return out
-    else if rr + 10 < randoms then
-      wnReplaceWords fugly randoms out
-      else
-        return out
+    return msg
+    else if randoms == 100 then
+      mapM (\x -> findRelated wne' x) msg
+      else if rr + 20 < randoms then
+        wnReplaceWords fugly randoms out
+        else
+          return out
 
 asReplaceWords :: Fugly -> [String] -> IO [String]
 asReplaceWords _ [] = return [[]]
@@ -979,32 +982,33 @@ findNextWord (Fugly {dict=dict'}) i randoms prev word' = do
 findRelated :: WordNetEnv -> String -> IO String
 findRelated wne' word' = do
   pp <- wnPartPOS wne' word'
-  if pp /= UnknownEPos then do
-    hyper <- wnRelated' wne' word' "Hypernym" pp
-    hypo  <- wnRelated' wne' word' "Hyponym" pp
-    anto  <- wnRelated' wne' word' "Antonym" pp
-    let hyper' = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') hyper
-    let hypo'  = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') hypo
-    let anto'  = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') anto
-    if null anto' then
-      if null hypo' then
-        if null hyper' then
-          return word'
-          else do
-            r <- Random.getStdRandom (Random.randomR (0, (length hyper') - 1))
-            return (hyper'!!r)
-        else do
-          r <- Random.getStdRandom (Random.randomR (0, (length hypo') - 1))
-          return (hypo'!!r)
-      else do
-        r <- Random.getStdRandom (Random.randomR (0, (length anto') - 1))
-        return (anto'!!r)
-    else return word'
+  out <- do if pp /= UnknownEPos then do
+              hyper <- wnRelated' wne' word' "Hypernym" pp
+              hypo  <- wnRelated' wne' word' "Hyponym" pp
+              anto  <- wnRelated' wne' word' "Antonym" pp
+              let hyper' = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') hyper
+              let hypo'  = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') hypo
+              let anto'  = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') anto
+              if null anto' then
+                if null hypo' then
+                  if null hyper' then
+                    return word'
+                    else do
+                      r <- Random.getStdRandom (Random.randomR (0, (length hyper') - 1))
+                      return (hyper'!!r)
+                  else do
+                    r <- Random.getStdRandom (Random.randomR (0, (length hypo') - 1))
+                    return (hypo'!!r)
+                else do
+                  r <- Random.getStdRandom (Random.randomR (0, (length anto') - 1))
+                  return (anto'!!r)
+              else return word'
+  if null out then return word' else return out
 
 preSentence :: Fugly -> [String] -> IO String
 preSentence _ [] = return []
 preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
-    r <- Random.getStdRandom (Random.randomR (0, 50)) :: IO Int
+    r <- Random.getStdRandom (Random.randomR (0, 60)) :: IO Int
     if elem x qWords then
       return (case r of
         1  -> "yes, and "
