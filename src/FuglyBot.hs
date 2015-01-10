@@ -353,6 +353,7 @@ spokenTo _ []         = False
 spokenTo n b
     | c == n          = True
     | c == (n ++ ":") = True
+    | c == (n ++ ",") = True
     | otherwise       = False
   where
     c = head b
