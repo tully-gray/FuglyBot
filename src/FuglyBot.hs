@@ -508,7 +508,7 @@ execCmd b chan nick' (x:xs) = do
             1 -> (dictLookup f (xs!!0) []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !dict <word> [part-of-speech]") st >> return bot
       | x == "!wordlist" =
-          let num = if read (xs!!0) > (100 :: Integer) then 100 :: Int else read (xs!!0) in
+          let num = if read (xs!!0) > (100 :: Int) then 100 :: Int else read (xs!!0) in
           case (length xs) of
             1 -> evalStateT (replyMsg bot chan nick' (unwords $ listWordsCountSort2 dict' num)
                  >> replyMsg bot chan nick' ("Total word count: " ++ (show $ Map.size dict'))) st
@@ -520,16 +520,18 @@ execCmd b chan nick' (x:xs) = do
       | x == "!insertword" = if nick' == owner' then
           case (length xs) of
             2 -> do ww <- insertWordRaw (snd st) f (xs!!1) [] [] (xs!!0)
-                    evalStateT (replyMsg bot chan nick' ("Inserted word " ++ (xs!!1))) st
+                    evalStateT (replyMsg bot chan nick' ("Inserted word " ++ (xs!!1) ++ ".")) st
                     return bot{fugly=f{dict=ww}}
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertword <pos> <word>") st >> return bot
                          else return bot
       | x == "!dropword" = if nick' == owner' then
           case (length xs) of
-            1 -> evalStateT (replyMsg bot chan nick' ("Dropped word " ++ (xs!!0))) st >>
-                 return bot{fugly=f{dict=dropWord dict' (xs!!0)}}
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !dropword <word>") st
-                 >> return bot
+            1 -> if isJust $ Map.lookup (xs!!0) dict' then
+                   evalStateT (replyMsg bot chan nick' ("Dropped word " ++ (xs!!0) ++ ".")) st >>
+                   return bot{fugly=f{dict=dropWord dict' (xs!!0)}}
+                   else
+                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.")) st >> return bot
+            _ -> evalStateT (replyMsg bot chan nick' "Usage: !dropword <word>") st >> return bot
                          else return bot
       | x == "!ageword" = if nick' == owner' then
           case (length xs) of
@@ -538,8 +540,11 @@ execCmd b chan nick' (x:xs) = do
                               (\e -> do let err = show (e :: SomeException)
                                         evalStateT (hPutStrLnLock stderr ("Exception in ageword command: read: " ++ err)) st
                                         return 0)
-                    evalStateT (replyMsg bot chan nick' ("Aged word " ++ (xs!!0))) st
-                    return bot{fugly=f{dict=ageWord dict' (xs!!0) num}}
+                    if isJust $ Map.lookup (xs!!0) dict' then
+                      evalStateT (replyMsg bot chan nick' ("Aged word " ++ (xs!!0) ++ ".")) st >>
+                      return bot{fugly=f{dict=ageWord dict' (xs!!0) num}}
+                      else
+                      evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.")) st >> return bot
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !ageword <word> <number>") st
                  >> return bot
                          else return bot
@@ -566,20 +571,22 @@ execCmd b chan nick' (x:xs) = do
       | x == "!banword" = if nick' == owner' then
           case (length xs) of
             2 -> if (xs!!0) == "add" then
-                    evalStateT (replyMsg bot chan nick' ("Banned word " ++ (xs!!1))) st >>
-                    return bot{fugly=f{dict=dropWord dict' (xs!!1), ban=nub $ ban' ++ [(xs!!1)]}}
+                   if elem (xs!!1) ban' then
+                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " already banned.")) st >> return bot
+                     else
+                     evalStateT (replyMsg bot chan nick' ("Banned word " ++ (xs!!1) ++ ".")) st >>
+                     return bot{fugly=f{dict=dropWord dict' (xs!!1), ban=nub $ ban' ++ [(xs!!1)]}}
                  else if (xs!!0) == "delete" then
-                    evalStateT (replyMsg bot chan nick' ("Unbanned word " ++ (xs!!1))) st >>
-                    return bot{fugly=f{ban=nub $ delete (xs!!1) ban'}}
-                 else evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st
-                      >> return bot
+                   if not $ elem (xs!!1) ban' then
+                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " not in ban list.")) st >> return bot
+                     else
+                     evalStateT (replyMsg bot chan nick' ("Unbanned word " ++ (xs!!1) ++ ".")) st >>
+                     return bot{fugly=f{ban=nub $ delete (xs!!1) ban'}}
+                 else evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st >> return bot
             1 -> if (xs!!0) == "list" then
-                    evalStateT (replyMsg bot chan nick' ("Banned word list: " ++ unwords ban')) st
-                    >> return bot
-                 else evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st
-                      >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st
-                 >> return bot
+                   evalStateT (replyMsg bot chan nick' ("Banned word list: " ++ unwords ban')) st >> return bot
+                 else evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st >> return bot
+            _ -> evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st >> return bot
                          else return bot
       | x == "!allowword" = if nick' == owner' then
           case (length xs) of
@@ -602,23 +609,25 @@ execCmd b chan nick' (x:xs) = do
       | x == "!matchword" = if nick' == owner' then
           case (length xs) of
             2 -> if (xs!!0) == "add" then
-                    evalStateT (replyMsg bot chan nick' ("Matching word " ++ (xs!!1))) st >>
-                    return bot{fugly=f{FuglyLib.match=nub $ match' ++ [(xs!!1)]}}
+                   if elem (xs!!1) match' then
+                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " already matched.")) st >> return bot
+                     else
+                     evalStateT (replyMsg bot chan nick' ("Matching word " ++ (xs!!1) ++ ".")) st >>
+                     return bot{fugly=f{FuglyLib.match=nub $ match' ++ [(xs!!1)]}}
                  else if (xs!!0) == "delete" then
-                    evalStateT (replyMsg bot chan nick' ("No longer matching word " ++ (xs!!1))) st >>
-                    return bot{fugly=f{FuglyLib.match=nub $ delete (xs!!1) match'}}
-                 else evalStateT (replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>") st
-                      >> return bot
+                   if not $ elem (xs!!1) match' then
+                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " not in match list.")) st >> return bot
+                     else
+                     evalStateT (replyMsg bot chan nick' ("No longer matching word " ++ (xs!!1) ++ ".")) st >>
+                     return bot{fugly=f{FuglyLib.match=nub $ delete (xs!!1) match'}}
+                 else evalStateT (replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>") st >> return bot
             1 -> if (xs!!0) == "list" then
-                    evalStateT (replyMsg bot chan nick' ("Matched word list: " ++ unwords match')) st
-                    >> return bot
-                 else evalStateT (replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>") st
-                      >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>") st
-                 >> return bot
+                    evalStateT (replyMsg bot chan nick' ("Matched word list: " ++ unwords match')) st >> return bot
+                 else evalStateT (replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>") st >> return bot
+            _ -> evalStateT (replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>") st >> return bot
                          else return bot
       | x == "!namelist" =
-          let num = if read (xs!!0) > (100 :: Integer) then 100 :: Int else read (xs!!0) in
+          let num = if read (xs!!0) > (100 :: Int) then 100 :: Int else read (xs!!0) in
           case (length xs) of
             1 -> evalStateT (replyMsg bot chan nick' (unwords $ listNamesCountSort2 dict' num)) st
                  >> evalStateT (replyMsg bot chan nick' ("Total name count: " ++ (show $ length $
