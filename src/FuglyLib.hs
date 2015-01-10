@@ -1062,14 +1062,17 @@ preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
                9  -> "yes indeed, "
                10 -> "if you like "
                11 -> "yeah it's nice "
-               12 -> "undoubtably "
+               12 -> "undoubtedly "
                13 -> "it is wonderful and "
                14 -> "so you like some "
                15 -> "I also like "
                16 -> "everybody loves "
                17 -> "this is great news, "
                18 -> "it's rather special "
-               19 -> "absolutely fabulous and "
+               19 -> "absolutely, "
+               20 -> "hey fabulous "
+               21 -> "somewhat yes, but"
+               22 -> "people agree that "
                _  -> [])
            else return []
 
