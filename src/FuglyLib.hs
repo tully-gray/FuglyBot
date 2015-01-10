@@ -865,6 +865,9 @@ sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries sl
               else if gfParseBool pgf' plen x && length (words x) > 2 then return x
                    else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
   let s1h n x = if n then x else map toLower x
+  let s1i x = do
+      n <- asIsName aspell' x
+      return $ if n then x else map toLower x
   let s1a x = do
       n <- asIsName aspell' x
       z <- findNextWord fugly 0 randoms True x
@@ -873,7 +876,7 @@ sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries sl
       let yy = if null y then [] else head y
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
       w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
-      ww <- s1b fugly slen 0 $ return $ words $ s1h n $ unwords msg
+      ww <- s1b fugly slen 0 $ mapM s1i msg
       res <- preSentence fugly $ map (\m -> map toLower m) msg
       let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n x] ++ w
       rep <- wnReplaceWords fugly randoms $ filter (\a -> length a > 0 && not (elem a ban'))
