@@ -520,8 +520,11 @@ execCmd b chan nick' (x:xs) = do
       | x == "!insertword" = if nick' == owner' then
           case (length xs) of
             2 -> do ww <- insertWordRaw (snd st) f (xs!!1) [] [] (xs!!0)
-                    evalStateT (replyMsg bot chan nick' ("Inserted word " ++ (xs!!1) ++ ".")) st
-                    return bot{fugly=f{dict=ww}}
+                    if isJust $ Map.lookup (xs!!1) dict' then
+                      evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " already in dict.")) st >> return bot
+                      else
+                      evalStateT (replyMsg bot chan nick' ("Inserted word " ++ (xs!!1) ++ ".")) st >>
+                      return bot{fugly=f{dict=ww}}
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertword <pos> <word>") st >> return bot
                          else return bot
       | x == "!dropword" = if nick' == owner' then
@@ -640,8 +643,11 @@ execCmd b chan nick' (x:xs) = do
       | x == "!insertname" = if nick' == owner' then
           case (length xs) of
             1 -> do ww <- insertName (snd st) f (xs!!0) [] [] True
-                    evalStateT (replyMsg bot chan nick' ("Inserted name " ++ (xs!!0))) st
-                    return bot{fugly=f{dict=ww}}
+                    if isJust $ Map.lookup (xs!!0) dict' then
+                      evalStateT (replyMsg bot chan nick' ("Name " ++ (xs!!0) ++ " already in dict.")) st >> return bot
+                      else
+                      evalStateT (replyMsg bot chan nick' ("Inserted name " ++ (xs!!0) ++ ".")) st >>
+                      return bot{fugly=f{dict=ww}}
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertname <name>") st >> return bot
                            else return bot
       | x == "!internalize" = if nick' == owner' then
