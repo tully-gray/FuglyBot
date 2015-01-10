@@ -537,6 +537,16 @@ execCmd b chan nick' (x:xs) = do
                      return bot{fugly=f{dict=dropWord dict' (xs!!0)}}
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !dropword <word>") st >> return bot
                          else return bot
+      | x == "!dropafter" = if nick' == owner' then
+          case (length xs) of
+            2 -> if (isJust $ Map.lookup (xs!!0) dict') && (isJust $ Map.lookup (xs!!1) dict') then
+                   evalStateT (replyMsg bot chan nick' ("Dropped word " ++ (xs!!1) ++ " after word " ++ (xs!!0) ++ ".")) st >>
+                   return bot{fugly=f{dict=dropAfter (dropBefore dict' (xs!!1) (xs!!0)) (xs!!0) (xs!!1)}}
+                   else {-- Drop the association anyway, but report errors. --}
+                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " or word " ++ (xs!!1) ++ " not in dict.")) st >>
+                     return bot{fugly=f{dict=dropAfter (dropBefore dict' (xs!!1) (xs!!0)) (xs!!0) (xs!!1)}}
+            _ -> evalStateT (replyMsg bot chan nick' "Usage: !dropafter <word> <after-word>") st >> return bot
+                         else return bot
       | x == "!ageword" = if nick' == owner' then
           case (length xs) of
             {-- This has to be caught here? --}
@@ -701,8 +711,8 @@ execCmd b chan nick' (x:xs) = do
             evalStateT (replyMsg bot chan nick' (unwords $ map show $ take 750 $ iterate succ (0 :: Int))) st >> return bot
             else return bot
       | otherwise  = if nick' == owner' then evalStateT (replyMsg bot chan nick'
-                       ("Commands: !dict !word !wordlist !insertword !dropword !matchword "
-                       ++ "!banword !namelist !name !insertname !isname !closure "
+                       ("Commands: !dict !word !wordlist !insertword !dropword !dropafter "
+                       ++ "!banword !matchword !namelist !name !insertname !isname !closure "
                        ++ "!meet !parse !gfcats !gflin !gfshowexpr !asreplace !wnreplace "
                        ++ "!related !random !forms !parts !ageword(s) !cleanwords !internalize "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "

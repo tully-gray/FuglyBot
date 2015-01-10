@@ -10,6 +10,8 @@ module FuglyLib
          insertWordRaw,
          insertWords,
          dropWord,
+         dropAfter,
+         dropBefore,
          ageWord,
          ageWords,
          fixWords,
@@ -386,10 +388,22 @@ insertName' st (Fugly dict' _ wne' aspell' _ _) w name' before' after' s = do
                 else if y == UnknownEPos && Aspell.check aspell' (ByteString.pack x) == False then [] else x
 
 dropWord :: Map.Map String Word -> String -> Map.Map String Word
-dropWord m word' = Map.map del' (Map.delete word' m)
+dropWord m word' = Map.map del' $ Map.delete word' m
     where
-      del' (Word w c b a r p) = (Word w c (Map.delete word' b) (Map.delete word' a) r p)
-      del' (Name w c b a r) = (Name w c (Map.delete word' b) (Map.delete word' a) r)
+      del' (Word w c b a r p) = Word w c (Map.delete word' b) (Map.delete word' a) r p
+      del' (Name w c b a r)   = Name w c (Map.delete word' b) (Map.delete word' a) r
+
+dropAfter :: Map.Map String Word -> String -> String -> Map.Map String Word
+dropAfter m word' after' = Map.adjust del' word' m
+    where
+      del' (Word w c b a r p) = Word w c b (Map.delete after' a) r p
+      del' (Name w c b a r)   = Name w c b (Map.delete after' a) r
+
+dropBefore :: Map.Map String Word -> String -> String -> Map.Map String Word
+dropBefore m word' before' = Map.adjust del' word' m
+    where
+      del' (Word w c b a r p) = Word w c (Map.delete before' b) a r p
+      del' (Name w c b a r)   = Name w c (Map.delete before' b) a r
 
 ageWord :: Map.Map String Word -> String -> Int -> Map.Map String Word
 ageWord m word' num = age m word' num 0
