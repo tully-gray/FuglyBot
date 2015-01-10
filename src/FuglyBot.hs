@@ -411,7 +411,7 @@ reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
                    ',' -> tail msg
                    _   -> msg
     fmsg <- lift $ asReplaceWords f $ map cleanString mmsg
-    let parse = if slearn then gfParseBool pgf' plen $ unwords fmsg else True
+    let parse = if slearn then gfParseBool pgf' 7 $ unwords fmsg else True
     let matchon = map toLower (" " ++ intercalate " | " (botnick : match') ++ " ")
     mm <- lift $ chooseWord fmsg
     tId <- lift $ (if null chan then
