@@ -545,7 +545,13 @@ execCmd b chan nick' (x:xs) = do
                    else {-- Drop the association anyway, but report errors. --}
                      evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " or word " ++ (xs!!1) ++ " not in dict.")) st >>
                      return bot{fugly=f{dict=dropAfter (dropBefore dict' (xs!!1) (xs!!0)) (xs!!0) (xs!!1)}}
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !dropafter <word> <after-word>") st >> return bot
+            1 -> if isJust $ Map.lookup (xs!!0) dict' then
+                   evalStateT (replyMsg bot chan nick' ("Dropped all words after word " ++ (xs!!0) ++ ".")) st >>
+                   return bot{fugly=f{dict=dropAllAfter dict' (xs!!0)}}
+                   else
+                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.")) st >>
+                     return bot{fugly=f{dict=dropAllAfter dict' (xs!!0)}}
+            _ -> evalStateT (replyMsg bot chan nick' "Usage: !dropafter <word> [after-word]") st >> return bot
                          else return bot
       | x == "!ageword" = if nick' == owner' then
           case (length xs) of

@@ -11,6 +11,7 @@ module FuglyLib
          insertWords,
          dropWord,
          dropAfter,
+         dropAllAfter,
          dropBefore,
          ageWord,
          ageWords,
@@ -398,6 +399,12 @@ dropAfter m word' after' = Map.adjust del' word' m
     where
       del' (Word w c b a r p) = Word w c b (Map.delete after' a) r p
       del' (Name w c b a r)   = Name w c b (Map.delete after' a) r
+
+dropAllAfter :: Map.Map String Word -> String -> Map.Map String Word
+dropAllAfter m word' = Map.adjust del' word' m
+    where
+      del' (Word w c b a r p) = Word w c b (Map.empty) r p
+      del' (Name w c b a r)   = Name w c b (Map.empty) r
 
 dropBefore :: Map.Map String Word -> String -> String -> Map.Map String Word
 dropBefore m word' before' = Map.adjust del' word' m
