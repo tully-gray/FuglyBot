@@ -875,7 +875,7 @@ sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries sl
   let s1d x = do
       w <- x
       if null w then return []
-        else return ((init w) ++ ((cleanString $ fLast [] w) ++
+        else return ((replace "i" "I" (init w)) ++ ((cleanString $ fLast [] w) ++
                                   if elem (map toLower $ head w) qWords then "?" else ".") : [])
   let s1e x = do
       w <- x
@@ -979,12 +979,11 @@ findNextWord (Fugly {dict=dict'}) i randoms prev word' = do
         _ -> []
            else []
   let f5 = if isJust w && length neigh > 0 then neighmax!!mr else []
-  let out = return . replace "i" "I"
-  if randoms > 89 then out $ words f1 else
-    if rr < randoms - 25 then out $ words f2 else
-      if rr < randoms + 35 then out $ words f3 else
-        if rr < randoms + 65 then out $ words f4 else
-          out $ words f5
+  if randoms > 89 then return $ words f1 else
+    if rr < randoms - 25 then return $ words f2 else
+      if rr < randoms + 35 then return $ words f3 else
+        if rr < randoms + 65 then return $ words f4 else
+          return $ words f5
     where
       w          = Map.lookup word' dict'
       wordGet'   = if prev then wordGetBefore else wordGetAfter
