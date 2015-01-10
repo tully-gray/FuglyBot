@@ -224,7 +224,7 @@ qWords :: [String]
 qWords = ["am", "are", "can", "do", "does", "if", "is", "want", "what", "when", "where", "who", "why", "will"]
 
 badEndWords :: [String]
-badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "for", "from", "go", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "was", "what", "we", "when", "with", "who", "whose", "you", "your", "you're", "you've"]
+badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "for", "from", "go", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "was", "we", "what", "when", "which", "with", "who", "whose", "you", "your", "you're", "you've"]
 
 sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
@@ -1027,6 +1027,7 @@ preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
         17 -> "sometimes it "
         18 -> "only when the "
         19 -> "it is weird that "
+        20 -> "exactly, "
         _  -> [])
       else if (msg \\ ban') /= msg then
           return (case r of
@@ -1063,7 +1064,7 @@ preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
                9  -> "yes indeed, "
                10 -> "if you like "
                11 -> "yeah it's nice "
-               12 -> "undoubtedly "
+               12 -> "undoubtedly, "
                13 -> "it is wonderful and "
                14 -> "so you like some "
                15 -> "I also like "
