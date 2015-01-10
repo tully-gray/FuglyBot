@@ -532,8 +532,9 @@ execCmd b chan nick' (x:xs) = do
             1 -> if isJust $ Map.lookup (xs!!0) dict' then
                    evalStateT (replyMsg bot chan nick' ("Dropped word " ++ (xs!!0) ++ ".")) st >>
                    return bot{fugly=f{dict=dropWord dict' (xs!!0)}}
-                   else
-                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.")) st >> return bot
+                   else {-- Drop the word anyway because it might be a before or after word. --}
+                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.")) st >>
+                     return bot{fugly=f{dict=dropWord dict' (xs!!0)}}
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !dropword <word>") st >> return bot
                          else return bot
       | x == "!ageword" = if nick' == owner' then
