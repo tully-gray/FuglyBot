@@ -403,8 +403,8 @@ dropAfter m word' after' = Map.adjust del' word' m
 dropAllAfter :: Map.Map String Word -> String -> Map.Map String Word
 dropAllAfter m word' = Map.adjust del' word' m
     where
-      del' (Word w c b a r p) = Word w c b (Map.empty) r p
-      del' (Name w c b a r)   = Name w c b (Map.empty) r
+      del' (Word w c b _ r p) = Word w c b (Map.empty) r p
+      del' (Name w c b _ r)   = Name w c b (Map.empty) r
 
 dropBefore :: Map.Map String Word -> String -> String -> Map.Map String Word
 dropBefore m word' before' = Map.adjust del' word' m
@@ -858,9 +858,9 @@ gfAll :: PGF -> Int -> String
 gfAll pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 15 $ words $
                  linearize pgf' (head $ languages pgf') ((generateAllDepth pgf' (startCat pgf') (Just 3))!!num)
 
-sentence :: (MVar ()) -> Fugly -> Int -> Int -> Int -> Int -> [String] -> [IO String]
-sentence _ _ _ _ _ _ [] = [return []] :: [IO String]
-sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries slen plen msg = do
+sentence :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int -> [String] -> [IO String]
+sentence _ _ _ _ _ _ _ [] = [return []] :: [IO String]
+sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) rwords randoms stries slen plen msg = do
   let s1f x = if null x then return []
               else if gfParseBool pgf' plen x && length (words x) > 2 then return x
                    else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
@@ -879,7 +879,7 @@ sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) randoms stries sl
       ww <- s1b fugly slen 0 $ mapM s1i msg
       res <- preSentence fugly $ map (\m -> map toLower m) msg
       let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n x] ++ w
-      rep <- wnReplaceWords fugly randoms $ filter (\a -> length a > 0 && not (elem a ban'))
+      rep <- wnReplaceWords fugly rwords randoms $ filter (\a -> length a > 0 && not (elem a ban'))
              $ filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True) $ take stries d
       return $ filter (not . null) rep
   let s1d x = do
@@ -922,9 +922,10 @@ chooseWord msg = do
       if r == 0 then c2 xs (m ++ [x])
         else c2 ([x] ++ tail xs) (m ++ [head xs])
 
-wnReplaceWords :: Fugly -> Int -> [String] -> IO [String]
-wnReplaceWords _ _ [] = return []
-wnReplaceWords fugly@(Fugly {wne=wne'}) randoms msg = do
+wnReplaceWords :: Fugly -> Bool -> Int -> [String] -> IO [String]
+wnReplaceWords _ _     _ []  = return []
+wnReplaceWords _ False _ msg = return msg
+wnReplaceWords fugly@(Fugly {wne=wne'}) True randoms msg = do
   cw <- chooseWord msg
   cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
   rr <- Random.getStdRandom (Random.randomR (0, 99))
@@ -935,7 +936,7 @@ wnReplaceWords fugly@(Fugly {wne=wne'}) randoms msg = do
     else if randoms == 100 then
       mapM (\x -> findRelated wne' x) msg
       else if rr + 20 < randoms then
-        wnReplaceWords fugly randoms out
+        wnReplaceWords fugly True randoms out
         else
           return msg
 

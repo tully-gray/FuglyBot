@@ -27,7 +27,7 @@ data Bot = Bot {
 
 data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
                | SentenceTries | SentenceLength | ParseLength | Learning | StrictLearn
-               | Autoname | AllowPM | Topic | Randoms | UnknownParam
+               | Autoname | AllowPM | Topic | Randoms | ReplaceWords | UnknownParam
                | Parameter {
                  nick        :: String,
                  owner       :: String,
@@ -44,6 +44,7 @@ data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChan
                  allowpm     :: Bool,
                  topic       :: String,
                  randoms     :: Int,
+                 rwords      :: Bool,
                  threadtime  :: Int
                  }
                deriving (Eq, Ord, Show)
@@ -66,8 +67,9 @@ instance Enum Parameter where
     toEnum 12 = AllowPM
     toEnum 13 = Topic
     toEnum 14 = Randoms
-    toEnum 15 = ThreadTime
-    toEnum 16 = UnknownParam
+    toEnum 15 = ReplaceWords
+    toEnum 16 = ThreadTime
+    toEnum 17 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
@@ -83,9 +85,10 @@ instance Enum Parameter where
     fromEnum AllowPM        = 12
     fromEnum Topic          = 13
     fromEnum Randoms        = 14
-    fromEnum ThreadTime     = 15
-    fromEnum UnknownParam   = 16
-    fromEnum _              = 16
+    fromEnum ReplaceWords   = 15
+    fromEnum ThreadTime     = 16
+    fromEnum UnknownParam   = 17
+    fromEnum _              = 17
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -112,6 +115,8 @@ readParam a | (map toLower a) == "autoname"        = Autoname
 readParam a | (map toLower a) == "allowpm"         = AllowPM
 readParam a | (map toLower a) == "topic"           = Topic
 readParam a | (map toLower a) == "randoms"         = Randoms
+readParam a | (map toLower a) == "rwords"          = ReplaceWords
+readParam a | (map toLower a) == "replacewords"    = ReplaceWords
 readParam a | (map toLower a) == "threadtime"      = ThreadTime
 readParam a | (map toLower a) == "ttime"           = ThreadTime
 readParam _                                        = UnknownParam
@@ -153,7 +158,7 @@ start = do
     hSetBuffering sh NoBuffering
     (f, p) <- initFugly fdir wndir gfdir topic'
     let b = if null p then
-              Bot sh (Parameter nick' owner' fdir False 10 400 20 7 0 True False True False topic' 50 30) f
+              Bot sh (Parameter nick' owner' fdir False 10 400 20 7 0 True False True False topic' 50 False 30) f
               else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, topic=topic'}) f
     bot <- newMVar b
     lock <- newMVar ()
@@ -274,12 +279,14 @@ readParamsFromList a = Parameter{nick="", owner="", fuglydir="", usercmd=read (a
                                  rejoinkick=read (a!!1), maxchanmsg=read (a!!2), stries=read (a!!3),
                                  slength=read (a!!4), plength=read (a!!5), learning=read (a!!6),
                                  strictlearn=read (a!!7), autoname=read (a!!8), allowpm=read (a!!9),
-                                 topic="", randoms=read (a!!10), threadtime=read (a!!11)}
+                                 topic="", randoms=read (a!!10), rwords=read (a!!11),
+                                 threadtime=read (a!!12)}
 
 paramsToList :: Parameter -> [String]
-paramsToList (Parameter _ _ _ uc rk mcm st sl pl l stl an apm _ r tt) = [show uc, show rk, show mcm, show st,
-                                                                        show sl, show pl, show l, show stl,
-                                                                        show an, show apm, show r, show tt]
+paramsToList (Parameter _ _ _ uc rk mcm st sl pl l stl an apm _ r rw tt) = [show uc, show rk, show mcm, show st,
+                                                                            show sl, show pl, show l, show stl,
+                                                                            show an, show apm, show r, show rw,
+                                                                            show tt]
 paramsToList _ = []
 
 changeParam :: Bot -> String -> String -> String -> String -> StateT (MVar Bot, MVar ()) IO Bot
@@ -308,6 +315,7 @@ changeParam bot@(Bot{params=p@(Parameter{nick=botnick, owner=owner', fuglydir=fd
                            let pp = (readParamsFromList pl){nick=botnick, owner=owner', fuglydir=fdir}
                            replyMsg' value "Topic" >>= (\x -> return bot{params=pp{topic=x}, fugly=f{dict=d, ban=b, FuglyLib.match=m}})
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
+      ReplaceWords   -> replyMsg' (readBool value)      "Replace words"       >>= (\x -> return bot{params=p{rwords=x}})
       ThreadTime     -> replyMsg' (readInt 0 360 value) "Thread time"         >>= (\x -> return bot{params=p{threadtime=x}})
       _              -> return bot
   where
@@ -403,7 +411,8 @@ processLine line = do
 reply :: Bot -> String -> String -> [String] -> StateT (MVar Bot, MVar ()) IO Bot
 reply bot _ _ [] = return bot
 reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
-                                 slen plen learning' slearn autoname' allowpm' _ randoms' ttime),
+                                 slen plen learning' slearn autoname' allowpm'
+                                 _ randoms' rwords' ttime),
            fugly=f@(Fugly {pgf=pgf', FuglyLib.match=match'})}) chan nick' msg = do
     st <- get :: StateT (MVar Bot, MVar ()) IO (MVar Bot, MVar ())
     let mmsg = if null $ head msg then msg
@@ -417,13 +426,13 @@ reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
     mm <- lift $ chooseWord fmsg
     tId <- lift $ (if null chan then
                      if allowpm' then
-                       sentenceReply st s f nick' [] randoms' stries' slen plen mm
+                       sentenceReply st s f nick' [] rwords' randoms' stries' slen plen mm
                      else forkIO $ return ()
                    else if null nick' then
                           if map toLower (unwords msg) =~ matchon then
-                            sentenceReply st s f chan chan randoms' stries' slen plen mm
+                            sentenceReply st s f chan chan rwords' randoms' stries' slen plen mm
                           else forkIO $ return ()
-                        else sentenceReply st s f chan nick' randoms' stries' slen plen mm)
+                        else sentenceReply st s f chan nick' rwords' randoms' stries' slen plen mm)
     if ttime > 0 then
       lift $ forkIO (do threadDelay $ ttime * 1000000 ; evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st ; killThread tId) >> return ()
       else return ()
@@ -448,7 +457,7 @@ execCmd b chan nick' (x:xs) = do
     execCmd' bot@(Bot{sock=s, params=p@(Parameter botnick owner' fdir
                                         usercmd' rkick maxcmsg
                                         stries' slen plen learn slearn
-                                        autoname' allowpm' topic' randoms' ttime),
+                                        autoname' allowpm' topic' randoms' rwords' ttime),
                       fugly=f@(Fugly dict' pgf' wne' aspell' ban' match')}) st
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" =
@@ -491,7 +500,7 @@ execCmd b chan nick' (x:xs) = do
                    ++ "  learning: " ++ show learn ++ "  strictlearn: " ++ show slearn
                    ++ "  autoname: " ++ show autoname' ++ "  allowpm: " ++ show allowpm'
                    ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms'
-                   ++ "  threadtime: " ++ show ttime)) st >> return bot
+                   ++ "  replacewords: " ++ show rwords' ++ "  threadtime: " ++ show ttime)) st >> return bot
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !showparams") st >> return bot
           else return bot
       | x == "!setparam" =
@@ -658,7 +667,7 @@ execCmd b chan nick' (x:xs) = do
                            else return bot
       | x == "!talk" = if nick' == owner' then
           if length xs > 2 then do
-            tId <- sentenceReply st s f (xs!!0) (xs!!1) randoms' stries' slen plen (drop 2 xs)
+            tId <- sentenceReply st s f (xs!!0) (xs!!1) rwords' randoms' stries' slen plen (drop 2 xs)
             if ttime > 0 then
               forkIO (do threadDelay $ ttime * 1000000 ; evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st ; killThread tId) >> return bot
               else return bot
@@ -708,7 +717,7 @@ execCmd b chan nick' (x:xs) = do
             _ -> do ww <- asReplaceWords f xs ; evalStateT (replyMsg bot chan nick' $ unwords ww) st >> return bot
       | x == "!wnreplace" = case (length xs) of
             0 -> evalStateT (replyMsg bot chan nick' "Usage: !wnreplace <msg>") st >> return bot
-            _ -> do ww <- wnReplaceWords f randoms' xs ; evalStateT (replyMsg bot chan nick' $ unwords ww) st >> return bot
+            _ -> do ww <- wnReplaceWords f True randoms' xs ; evalStateT (replyMsg bot chan nick' $ unwords ww) st >> return bot
       | x == "!isname" = case (length xs) of
             1 -> do n <- asIsName aspell' (xs!!0)
                     evalStateT (replyMsg bot chan nick' (show n)) st
@@ -728,15 +737,15 @@ execCmd b chan nick' (x:xs) = do
                        ++ "!closure !meet !parse !related !random !forms !parts")) st >> return bot
     execCmd' bot _ = return bot
 
-sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
-sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rand stries' slen plen m = forkIO (do
+sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> Bool -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
+sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rwords' rand stries' slen plen m = forkIO (do
     num' <- Random.getStdRandom (Random.randomR (1, 5 :: Int)) :: IO Int
     let num = if num' - 2 < 1 then 1 else num' - 2
     bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
     r <- gfRandom2 pgf'
     let rr = filter (\x -> x =~ "NP") $ words r
-    x1 <- f ((sentence (snd st) fugly' rand stries' slen plen m) ++ [return r]) [] num 0
-    x2 <- f ((sentence (snd st) fugly' rand stries' slen plen m)) [] num 0
+    x1 <- f ((sentence (snd st) fugly' rwords' rand stries' slen plen m) ++ [return r]) [] num 0
+    x2 <- f ((sentence (snd st) fugly' rwords' rand stries' slen plen m)) [] num 0
     let ww = unwords $ if rr == (\\) rr (words r) then x1 else x2
     evalStateT (do if null ww then return ()
                      else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
@@ -789,9 +798,10 @@ internalize st b n msg = internalize' st b n 0 msg
   where
     internalize' :: (MVar Bot, MVar ()) -> Bot -> Int -> Int -> String -> IO Bot
     internalize' _ bot _ _ [] = return bot
-    internalize' st' bot@(Bot{params=p@(Parameter{autoname=aname, stries=tries, slength=slen, plength=plen, randoms=rands}), fugly=f}) num i imsg = do
+    internalize' st' bot@(Bot{params=p@(Parameter{autoname=aname, stries=tries, slength=slen,
+                                                  plength=plen, rwords=rw, randoms=rands}), fugly=f}) num i imsg = do
       mm <- chooseWord $ words imsg
-      sen <- getSentence $ sentence (snd st') f rands tries slen plen mm
+      sen <- getSentence $ sentence (snd st') f rw rands tries slen plen mm
       nd <- insertWords (snd st') f aname $ words sen
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot
