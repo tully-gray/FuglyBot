@@ -332,9 +332,10 @@ insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' pos' =
     else if pp /= UnknownEPos || Aspell.check aspell' (ByteString.pack word') then
     msg word' >> return (insert' word')
               else if (length asw) > 0 then
-                     if length (head asw) < 3 && (not $ elem (map toLower (head asw)) sWords)
+                     let hasw = head asw in
+                     if (length hasw < 3 && (not $ elem (map toLower hasw) sWords)) || (isJust $ Map.lookup hasw dict')
                         then return dict' else
-                       msg (head asw) >> return (insert' $ head asw)
+                       msg hasw >> return (insert' hasw)
                    else
                      return dict'
   where
