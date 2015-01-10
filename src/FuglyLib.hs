@@ -247,8 +247,10 @@ instance Word_ Word where
   wordGetCount (Word {count=c}) = c
   wordGetCount _                = 0
   wordGetAfter (Word {after=a}) = a
+  wordGetAfter (Name {after=a}) = a
   wordGetAfter _                = Map.empty
   wordGetBefore (Word {before=b}) = b
+  wordGetBefore (Name {before=b}) = b
   wordGetBefore _                 = Map.empty
   wordGetRelated (Word {related=r}) = r
   wordGetRelated _                  = []
