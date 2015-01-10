@@ -284,7 +284,7 @@ paramsToList _ = []
 
 changeParam :: Bot -> String -> String -> String -> String -> StateT (MVar Bot, MVar ()) IO Bot
 changeParam bot@(Bot{params=p@(Parameter{nick=botnick, owner=owner', fuglydir=fdir, topic=t}),
-                     fugly=f@(Fugly{dict=dict', allow=allow', ban=ban', FuglyLib.match=match'})}) chan nick' param value = do
+                     fugly=f@(Fugly{dict=dict', ban=ban', FuglyLib.match=match'})}) chan nick' param value = do
     st <- get
     case (readParam param) of
       Nick           -> changeNick (value : "" : []) []
@@ -299,14 +299,14 @@ changeParam bot@(Bot{params=p@(Parameter{nick=botnick, owner=owner', fuglydir=fd
       StrictLearn    -> replyMsg' (readBool value)     "Strict learn"         >>= (\x -> return bot{params=p{strictlearn=x}})
       Autoname       -> replyMsg' (readBool value)     "Autoname"             >>= (\x -> return bot{params=p{autoname=x}})
       AllowPM        -> replyMsg' (readBool value)     "Allow PM"             >>= (\x -> return bot{params=p{allowpm=x}})
-      Topic          -> do (d, a, b, m, pl) <- lift $ catchJust (\e -> if isDoesNotExistErrorType (ioeGetErrorType e) then
-                                                                         return (Map.empty, [], [], [], (paramsToList p))
+      Topic          -> do (d, b, m, pl) <- lift $ catchJust (\e -> if isDoesNotExistErrorType (ioeGetErrorType e) then
+                                                                       return (Map.empty, [], [], (paramsToList p))
                                                                        else
-                                                                         return (dict', allow', ban', match', (paramsToList p)))
-                                               (loadDict fdir value) (\_ -> return (Map.empty, [], [], [], (paramsToList p)))
+                                                                         return (dict', ban', match', (paramsToList p)))
+                                               (loadDict fdir value) (\_ -> return (Map.empty, [], [], (paramsToList p)))
                            _ <- lift $ saveDict (snd st) f fdir t (paramsToList p)
                            let pp = (readParamsFromList pl){nick=botnick, owner=owner', fuglydir=fdir}
-                           replyMsg' value "Topic" >>= (\x -> return bot{params=pp{topic=x}, fugly=f{dict=d, allow=a, ban=b, FuglyLib.match=m}})
+                           replyMsg' value "Topic" >>= (\x -> return bot{params=pp{topic=x}, fugly=f{dict=d, ban=b, FuglyLib.match=m}})
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
       ThreadTime     -> replyMsg' (readInt 0 360 value) "Thread time"         >>= (\x -> return bot{params=p{threadtime=x}})
       _              -> return bot
@@ -448,7 +448,7 @@ execCmd b chan nick' (x:xs) = do
                                         usercmd' rkick maxcmsg
                                         stries' slen plen learn slearn
                                         autoname' allowpm' topic' randoms' ttime),
-                      fugly=f@(Fugly dict' pgf' wne' aspell' allow' ban' match')}) st
+                      fugly=f@(Fugly dict' pgf' wne' aspell' ban' match')}) st
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" =
         if nick' == owner' then case (length xs) of
@@ -462,12 +462,12 @@ execCmd b chan nick' (x:xs) = do
                                                >> evalStateT (replyMsg bot chan nick' "Saved dict file!") st
                                                >> return bot else return bot
       | x == "!load" = if nick' == owner' then do
-           (nd, na, nb, nm, np) <- catch (loadDict fdir topic') (\e -> do let err = show (e :: SomeException)
-                                                                          evalStateT (hPutStrLnLock stderr ("Exception in loadDict: " ++ err)) st
-                                                                          return (dict', allow', ban', match', paramsToList p))
+           (nd, nb, nm, np) <- catch (loadDict fdir topic') (\e -> do let err = show (e :: SomeException)
+                                                                      evalStateT (hPutStrLnLock stderr ("Exception in loadDict: " ++ err)) st
+                                                                      return (dict', ban', match', paramsToList p))
            evalStateT (replyMsg bot chan nick' "Loaded dict file!") st
            return bot{params=(readParamsFromList np){nick=botnick, owner=owner', fuglydir=fdir, topic=topic'},
-                      fugly=(Fugly nd pgf' wne' aspell' na nb nm)}
+                      fugly=(Fugly nd pgf' wne' aspell' nb nm)}
                        else return bot
       | x == "!join" = if nick' == owner' then evalStateT (joinChannel s "JOIN" xs) st >>
                                              return bot else return bot
@@ -591,24 +591,6 @@ execCmd b chan nick' (x:xs) = do
                  else evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st >> return bot
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st >> return bot
                          else return bot
-      | x == "!allowword" = if nick' == owner' then
-          case (length xs) of
-            2 -> if (xs!!0) == "add" then
-                    evalStateT (replyMsg bot chan nick' ("Allowed word " ++ (xs!!1))) st >>
-                    return bot{fugly=f{allow=nub $ allow' ++ [(xs!!1)]}}
-                 else if (xs!!0) == "delete" then
-                    evalStateT (replyMsg bot chan nick' ("Unallowed word " ++ (xs!!1))) st >>
-                    return bot{fugly=f{allow=nub $ delete (xs!!1) allow'}}
-                 else evalStateT (replyMsg bot chan nick' "Usage: !allowword <list|add|delete> <word>") st
-                      >> return bot
-            1 -> if (xs!!0) == "list" then
-                    evalStateT (replyMsg bot chan nick' ("Allowed word list: " ++ unwords allow')) st
-                    >> return bot
-                 else evalStateT (replyMsg bot chan nick' "Usage: !allowword <list|add|delete> <word>") st
-                      >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !allowword <list|add|delete> <word>") st
-                 >> return bot
-                         else return bot
       | x == "!matchword" = if nick' == owner' then
           case (length xs) of
             2 -> if (xs!!0) == "add" then
@@ -719,7 +701,7 @@ execCmd b chan nick' (x:xs) = do
             else return bot
       | otherwise  = if nick' == owner' then evalStateT (replyMsg bot chan nick'
                        ("Commands: !dict !word !wordlist !insertword !dropword !matchword "
-                       ++ "!banword !allowword !namelist !name !insertname !isname !closure "
+                       ++ "!banword !namelist !name !insertname !isname !closure "
                        ++ "!meet !parse !gfcats !gflin !gfshowexpr !asreplace !wnreplace "
                        ++ "!related !random !forms !parts !ageword(s) !cleanwords !internalize "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "
