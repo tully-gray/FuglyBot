@@ -651,7 +651,7 @@ execCmd b chan nick' (x:xs) = do
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !name <name>") st >> return bot
       | x == "!insertname" = if nick' == owner' then
           case (length xs) of
-            1 -> do ww <- insertName (snd st) f (xs!!0) [] [] True
+            1 -> do ww <- insertNameRaw (snd st) f (xs!!0) [] [] True
                     if isJust $ Map.lookup (xs!!0) dict' then
                       evalStateT (replyMsg bot chan nick' ("Name " ++ (xs!!0) ++ " already in dict.")) st >> return bot
                       else

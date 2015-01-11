@@ -5,10 +5,10 @@ module FuglyLib
          loadDict,
          saveDict,
          dictLookup,
-         insertName,
+         insertWords,
          insertWord,
          insertWordRaw,
-         insertWords,
+         insertNameRaw,
          dropWord,
          dropAfter,
          dropAllAfter,
@@ -263,8 +263,8 @@ instance Word_ Word where
   wordGetwc (Name w c _ _ _)   = (c, w)
 
 insertWords :: (MVar ()) -> Fugly -> Bool -> [String] -> IO (Map.Map String Word)
-insertWords _ (Fugly {dict=d}) _ [] = return d
-insertWords st fugly autoname [x] = insertWord st fugly autoname x [] [] []
+insertWords _ (Fugly{dict=d}) _ []        = return d
+insertWords st fugly autoname [x]         = insertWord st fugly autoname x [] [] []
 insertWords st fugly autoname msg@(x:y:_) =
   case (len) of
     2 -> do ff <- insertWord st fugly autoname x [] y []
@@ -272,8 +272,8 @@ insertWords st fugly autoname msg@(x:y:_) =
     _ -> insertWords' st fugly autoname 0 len msg
   where
     len = length msg
-    insertWords' _ (Fugly {dict=d}) _ _ _ [] = return d
-    insertWords' st' f@(Fugly {dict=d}) a i l m
+    insertWords' _ (Fugly{dict=d}) _ _ _ [] = return d
+    insertWords' st' f@(Fugly{dict=d}) a i l m
       | i == 0     = do ff <- insertWord st' f a (m!!i) [] (m!!(i+1)) []
                         insertWords' st' f{dict=ff} a (i+1) l m
       | i > l - 1  = return d
@@ -283,8 +283,8 @@ insertWords st fugly autoname msg@(x:y:_) =
                         insertWords' st' f{dict=ff} a (i+1) l m
 
 insertWord :: (MVar ()) -> Fugly -> Bool -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWord _ (Fugly {dict=d}) _ [] _ _ _ = return d
-insertWord st fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word' before' after' pos' = do
+insertWord _ (Fugly{dict=d}) _ [] _ _ _ = return d
+insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word' before' after' pos' = do
     n  <- asIsName aspell' word'
     nb <- asIsName aspell' before'
     na <- asIsName aspell' after'
@@ -294,7 +294,7 @@ insertWord st fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word
               (length before' == 1 || length before' == 2) && (not $ elem (map toLower before') sWords) ||
               (length after' == 1 || length after' == 2) && (not $ elem (map toLower after') sWords) then return dict'
         else if isJust w then f st nb na $ fromJust w
-          else if n && autoname then insertName' st fugly wn (toUpperWord $ cleanString word') (bi nb) (ai na) False
+          else if n && autoname then insertNameRaw' st fugly wn (toUpperWord $ cleanString word') (bi nb) (ai na) False
             else if isJust ww then insertWordRaw' st fugly ww (map toLower $ cleanString word') (bi nb) (ai na) pos'
               else insertWordRaw' st fugly w (map toLower $ cleanString word') (bi nb) (ai na) pos'
   where
@@ -310,14 +310,14 @@ insertWord st fugly@(Fugly {dict=dict', aspell=aspell', ban=ban'}) autoname word
             else if bn && autoname then toUpperWord $ cleanString before'
                  else map toLower $ cleanString before'
     f st' bn an (Word {}) = insertWordRaw' st' fugly w word' (bi bn) (ai an) pos'
-    f st' bn an (Name {}) = insertName'    st' fugly w word' (bi bn) (ai an) False
+    f st' bn an (Name {}) = insertNameRaw' st' fugly w word' (bi bn) (ai an) False
 
 insertWordRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWordRaw st f@(Fugly {dict=d}) w b a p = insertWordRaw' st f (Map.lookup w d) w b a p
+insertWordRaw st f@(Fugly{dict=d}) w b a p = insertWordRaw' st f (Map.lookup w d) w b a p
 
 insertWordRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
                  -> String -> String -> IO (Map.Map String Word)
-insertWordRaw' _ (Fugly {dict=d}) _ [] _ _ _ = return d
+insertWordRaw' _ (Fugly{dict=d}) _ [] _ _ _ = return d
 insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' pos' = do
   pp <- (if null pos' then wnPartPOS wne' word' else return $ readEPOS pos')
   pa <- wnPartPOS wne' after'
@@ -355,13 +355,13 @@ insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' pos' =
                         (ByteString.pack x) then incBefore' (fromJust w) x 1
                      else wordGetBefore (fromJust w)
 
-insertName :: (MVar ()) -> Fugly -> String -> String -> String -> Bool -> IO (Map.Map String Word)
-insertName st f@(Fugly {dict=d}) w b a s = insertName' st f (Map.lookup w d) w b a s
+insertNameRaw :: (MVar ()) -> Fugly -> String -> String -> String -> Bool -> IO (Map.Map String Word)
+insertNameRaw st f@(Fugly{dict=d}) w b a s = insertNameRaw' st f (Map.lookup w d) w b a s
 
-insertName' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
-              -> String -> Bool -> IO (Map.Map String Word)
-insertName' _ (Fugly {dict=d}) _ [] _ _ _ = return d
-insertName' st (Fugly dict' _ wne' aspell' _ _) w name' before' after' s = do
+insertNameRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
+                  -> String -> Bool -> IO (Map.Map String Word)
+insertNameRaw' _  (Fugly{dict=d}) _ [] _ _ _ = return d
+insertNameRaw' st (Fugly dict' _ wne' aspell' _ _) w name' before' after' s = do
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
   rel <- wnRelated' wne' name' "Hypernym" (POS Noun)
