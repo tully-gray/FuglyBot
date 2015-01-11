@@ -859,16 +859,16 @@ gfAll pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 15 $ w
 
 sentence :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ _ _ _ _ [] = [return []] :: [IO String]
-sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) rwords randoms stries slen plen msg = do
+sentence st fugly@(Fugly{dict=dict', pgf=pgf', aspell=aspell', ban=ban'}) rwords randoms stries slen plen msg = do
   let s1f x = if null x then return []
               else if gfParseBool pgf' plen x && length (words x) > 2 then return x
                    else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
   let s1h n x = if n then x else map toLower x
   let s1i x = do
-      n <- asIsName aspell' x
+      n <- s1n x
       return $ if n then x else map toLower x
   let s1a x = do
-      n <- asIsName aspell' x
+      n <- s1n x
       z <- findNextWord fugly 0 randoms True x
       let zz = if null z then [] else head z
       y <- findNextWord fugly 1 randoms True zz
@@ -903,6 +903,13 @@ sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) rwords randoms st
     s1c :: [String] -> String
     s1c [] = []
     s1c w = [toUpper $ head $ head w] ++ (fTail [] $ head w)
+    s1n :: String -> IO Bool
+    s1n [] = return False
+    s1n w = do
+      n <- asIsName aspell' w
+      let ww = Map.lookup w dict'
+      let out = if isJust ww then wordIs (fromJust ww) == "name" else n
+      return out
 
 chooseWord :: [String] -> IO [String]
 chooseWord [] = return []
