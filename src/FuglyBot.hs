@@ -723,12 +723,17 @@ execCmd b chan nick' (x:xs) = do
                     evalStateT (replyMsg bot chan nick' (show n)) st
                     return bot
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !isname <word>") st >> return bot
+      | x == "!isacronym" = case (length xs) of
+            1 -> do n <- asIsAcronym aspell' (xs!!0)
+                    evalStateT (replyMsg bot chan nick' (show n)) st
+                    return bot
+            _ -> evalStateT (replyMsg bot chan nick' "Usage: !isacronym <word>") st >> return bot
       | x == "!test" = if nick' == owner' then
             evalStateT (replyMsg bot chan nick' (unwords $ map show $ take 750 $ iterate succ (0 :: Int))) st >> return bot
             else return bot
       | otherwise  = if nick' == owner' then evalStateT (replyMsg bot chan nick'
                        ("Commands: !dict !word !wordlist !insertword !dropword !dropafter "
-                       ++ "!banword !matchword !namelist !name !insertname !isname !closure "
+                       ++ "!banword !matchword !namelist !name !insertname !isname !isacronym !closure "
                        ++ "!meet !parse !gfcats !gflin !gfshowexpr !asreplace !wnreplace "
                        ++ "!related !random !forms !parts !ageword(s) !cleanwords !internalize "
                        ++ "!params !setparam !showparams !nick !join !part !talk !raw "

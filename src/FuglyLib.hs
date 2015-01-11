@@ -32,6 +32,7 @@ module FuglyLib
          asReplace,
          asReplaceWords,
          asIsName,
+         asIsAcronym,
          gfLin,
          gfShowExpr,
          gfParseBool,
@@ -286,7 +287,7 @@ badEndWords :: [String]
 badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "for", "from", "go", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "was", "we", "what", "when", "which", "with", "who", "whose", "you", "your", "you're", "you've"]
 
 sWords :: [String]
-sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
+sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
 
 insertWords :: (MVar ()) -> Fugly -> Bool -> [String] -> IO (Map.Map String Word)
 insertWords _ (Fugly{dict=d}) _ []        = return d
@@ -628,6 +629,10 @@ toUpperWord :: String -> String
 toUpperWord [] = []
 toUpperWord w = (toUpper $ fHeadUnsafe "toUpperWord" ' '  w) : tail w
 
+toUpperLast :: String -> String
+toUpperLast [] = []
+toUpperLast w = init w ++ [toUpper $ last w]
+
 toUpperSentence :: [String] -> [String]
 toUpperSentence []     = []
 toUpperSentence [x]    = [toUpperWord x]
@@ -781,20 +786,26 @@ asIsName _       []    = return False
 asIsName aspell' word' = do
     let l = map toLower word'
     let u = toUpperWord l
-    let b = upperLast l
+    let b = toUpperLast l
     nl <- asSuggest aspell' l
     nb <- asSuggest aspell' b
-    -- hPutStrLn stderr ("> debug: isname: word: " ++ word')
-    -- hPutStrLn stderr ("> debug: isname: nl: " ++ nl)
-    -- hPutStrLn stderr ("> debug: isname: nb: " ++ nb)
     return $ if length word' < 3 then False
              else if (length $ words nb) < 3 then False
                   else if word' == (words nb)!!1 then False
                        else if (word' == (words nb)!!0 || u == (words nb)!!0) && (not $ null nl) then True
                             else False
-  where
-    upperLast [] = []
-    upperLast w = init w ++ [toUpper $ last w]
+
+asIsAcronym :: Aspell.SpellChecker -> String -> IO Bool
+asIsAcronym _       []    = return False
+asIsAcronym _      (_:[]) = return False
+asIsAcronym aspell' word' = do
+    let a = [toLower $ head word'] ++ (tail $ map toUpper word')
+    let u = map toUpper word'
+    na <- asSuggest aspell' a
+    return $ if u == word' && null na then True
+             else if (length $ words na) > 2 && word' == (words na)!!1 || elem word' sWords then False
+               else if (not $ null na) && u == (words na)!!0 then True
+                    else False
 
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup (Fugly _ _ wne' aspell' _ _) word' pos' = do
