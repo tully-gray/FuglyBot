@@ -105,7 +105,52 @@ data Word = Word {
               before  :: Map.Map String Int,
               after   :: Map.Map String Int,
               related :: [String]
+              } |
+            Acronym {
+              acronym    :: String,
+              count      :: Int,
+              before     :: Map.Map String Int,
+              after      :: Map.Map String Int,
+              related    :: [String],
+              definition :: String
               }
+
+class Word_ a where
+  wordIs :: a -> String
+  wordGetWord :: a -> String
+  wordGetCount :: a -> Int
+  wordGetAfter :: a -> Map.Map String Int
+  wordGetBefore :: a -> Map.Map String Int
+  wordGetRelated :: a -> [String]
+  wordGetPos :: a -> EPOS
+  wordGetwc :: a -> (Int, String)
+
+instance Word_ Word where
+  wordIs Word{}    = "word"
+  wordIs Name{}    = "name"
+  wordIs Acronym{} = "acronym"
+  wordGetWord Word{word=w}         = w
+  wordGetWord Name{name=n}         = n
+  wordGetWord Acronym{acronym=a}   = a
+  wordGetCount Word{count=c}       = c
+  wordGetCount Name{count=c}       = c
+  wordGetCount Acronym{count=c}    = c
+  wordGetCount _                   = 0
+  wordGetAfter Word{after=a}       = a
+  wordGetAfter Name{after=a}       = a
+  wordGetAfter Acronym{after=a}    = a
+  wordGetAfter _                   = Map.empty
+  wordGetBefore Word{before=b}     = b
+  wordGetBefore Name{before=b}     = b
+  wordGetBefore Acronym{before=b}  = b
+  wordGetBefore _                  = Map.empty
+  wordGetRelated Word{related=r}   = r
+  wordGetRelated _                 = []
+  wordGetPos Word{FuglyLib.pos=p}  = p
+  wordGetPos _                     = UnknownEPos
+  wordGetwc (Word w c _ _ _ _)     = (c, w)
+  wordGetwc (Name n c _ _ _)       = (c, n)
+  wordGetwc (Acronym a c _ _ _ _)  = (c, a)
 
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO (Fugly, [String])
 initFugly fuglydir wndir gfdir topic = do
@@ -169,6 +214,15 @@ saveDict st (Fugly dict' _ _ _ ban' match') fuglydir topic params = do
                              ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("end: \n")]
+    format' (Acronym w c b a r d)
+      | null w    = []
+      | otherwise = unwords [("acronym: " ++ w ++ "\n"),
+                             ("count: " ++ (show c) ++ "\n"),
+                             ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
+                             ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
+                             ("related: " ++ (unwords r) ++ "\n"),
+                             ("definition: " ++ d ++ "\n"),
+                             ("end: \n")]
 
 loadDict :: FilePath -> String -> IO (Map.Map String Word, [String], [String], [String])
 loadDict fuglydir topic = do
@@ -180,9 +234,9 @@ loadDict fuglydir topic = do
       else do
       hSetBuffering h LineBuffering
       hPutStrLn stdout "Loading dict file..."
-      dict' <- ff h w [([], w)]
-      ban' <- hGetLine h
-      match' <- hGetLine h
+      dict'   <- ff h w [([], w)]
+      ban'    <- hGetLine h
+      match'  <- hGetLine h
       params' <- hGetLine h
       let out = (Map.fromList dict', words ban', words match', words params')
       hClose h
@@ -205,15 +259,17 @@ loadDict fuglydir topic = do
       let l4 = if l1 > 3 && l2 > 0 && l3 == True then True else False
       let ll = if l4 == True then tail wl else ["BAD BAD BAD"]
       let ww = if l4 == True then case (head wl) of
-                           "word:"    -> (Word (unwords ll) 0 Map.empty Map.empty [] UnknownEPos)
-                           "name:"    -> (Name (unwords ll) 0 Map.empty Map.empty [])
-                           "count:"   -> word'{count=(read (unwords $ ll) :: Int)}
-                           "before:"  -> word'{FuglyLib.before=(getNeigh $ ll)}
-                           "after:"   -> word'{FuglyLib.after=(getNeigh $ ll)}
-                           "related:" -> word'{related=(joinWords '"' ll)}
-                           "pos:"     -> word'{FuglyLib.pos=(readEPOS $ unwords $ ll)}
-                           "end:"     -> word'
-                           _          -> word'
+                           "word:"       -> Word    (unwords ll) 0 Map.empty Map.empty [] UnknownEPos
+                           "name:"       -> Name    (unwords ll) 0 Map.empty Map.empty []
+                           "acronym:"    -> Acronym (unwords ll) 0 Map.empty Map.empty [] []
+                           "count:"      -> word'{count=read (unwords $ ll) :: Int}
+                           "before:"     -> word'{before=getNeigh ll}
+                           "after:"      -> word'{after=getNeigh ll}
+                           "related:"    -> word'{related=joinWords '"' ll}
+                           "pos:"        -> word'{FuglyLib.pos=readEPOS $ unwords ll}
+                           "definition:" -> word'{definition=unwords ll}
+                           "end:"        -> word'
+                           _             -> word'
                else word'
       if l4 == False then do hPutStrLn stderr ("Oops: " ++ l) >> return nm
         else if (head wl) == "end:" then
@@ -231,36 +287,6 @@ badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "fo
 
 sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
-
-class Word_ a where
-  wordIs :: a -> String
-  wordGetWord :: a -> String
-  wordGetCount :: a -> Int
-  wordGetAfter :: a -> Map.Map String Int
-  wordGetBefore :: a -> Map.Map String Int
-  wordGetRelated :: a -> [String]
-  wordGetPos :: a -> EPOS
-  wordGetwc :: a -> (Int, String)
-
-instance Word_ Word where
-  wordIs (Word {}) = "word"
-  wordIs (Name {}) = "name"
-  wordGetWord (Word {word=w}) = w
-  wordGetWord (Name {name=n}) = n
-  wordGetCount (Word {count=c}) = c
-  wordGetCount _                = 0
-  wordGetAfter (Word {after=a}) = a
-  wordGetAfter (Name {after=a}) = a
-  wordGetAfter _                = Map.empty
-  wordGetBefore (Word {before=b}) = b
-  wordGetBefore (Name {before=b}) = b
-  wordGetBefore _                 = Map.empty
-  wordGetRelated (Word {related=r}) = r
-  wordGetRelated _                  = []
-  wordGetPos (Word {FuglyLib.pos=p}) = p
-  wordGetPos _                       = UnknownEPos
-  wordGetwc (Word w c _ _ _ _) = (c, w)
-  wordGetwc (Name w c _ _ _)   = (c, w)
 
 insertWords :: (MVar ()) -> Fugly -> Bool -> [String] -> IO (Map.Map String Word)
 insertWords _ (Fugly{dict=d}) _ []        = return d
@@ -309,8 +335,9 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word'
     bi bn = if isJust b then before'
             else if bn && autoname then toUpperWord $ cleanString before'
                  else map toLower $ cleanString before'
-    f st' bn an (Word {}) = insertWordRaw' st' fugly w word' (bi bn) (ai an) pos'
-    f st' bn an (Name {}) = insertNameRaw' st' fugly w word' (bi bn) (ai an) False
+    f st' bn an (Word{})    = insertWordRaw' st' fugly w word' (bi bn) (ai an) pos'
+    f st' bn an (Name{})    = insertNameRaw' st' fugly w word' (bi bn) (ai an) False
+    f st' bn an (Acronym{}) = insertNameRaw' st' fugly w word' (bi bn) (ai an) False
 
 insertWordRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWordRaw st f@(Fugly{dict=d}) w b a p = insertWordRaw' st f (Map.lookup w d) w b a p
@@ -390,26 +417,22 @@ insertNameRaw' st (Fugly dict' _ wne' aspell' _ _) w name' before' after' s = do
 dropWord :: Map.Map String Word -> String -> Map.Map String Word
 dropWord m word' = Map.map del' $ Map.delete word' m
     where
-      del' (Word w c b a r p) = Word w c (Map.delete word' b) (Map.delete word' a) r p
-      del' (Name w c b a r)   = Name w c (Map.delete word' b) (Map.delete word' a) r
+      del' w = w{before=Map.delete word' (wordGetBefore w), after=Map.delete word' (wordGetAfter w)}
 
 dropAfter :: Map.Map String Word -> String -> String -> Map.Map String Word
 dropAfter m word' after' = Map.adjust del' word' m
     where
-      del' (Word w c b a r p) = Word w c b (Map.delete after' a) r p
-      del' (Name w c b a r)   = Name w c b (Map.delete after' a) r
+      del' w = w{after=Map.delete after' (wordGetAfter w)}
 
 dropAllAfter :: Map.Map String Word -> String -> Map.Map String Word
 dropAllAfter m word' = Map.adjust del' word' m
     where
-      del' (Word w c b _ r p) = Word w c b (Map.empty) r p
-      del' (Name w c b _ r)   = Name w c b (Map.empty) r
+      del' w = w{after=Map.empty}
 
 dropBefore :: Map.Map String Word -> String -> String -> Map.Map String Word
 dropBefore m word' before' = Map.adjust del' word' m
     where
-      del' (Word w c b a r p) = Word w c (Map.delete before' b) a r p
-      del' (Name w c b a r)   = Name w c (Map.delete before' b) a r
+      del' w = w{after=Map.delete before' (wordGetBefore w)}
 
 ageWord :: Map.Map String Word -> String -> Int -> Map.Map String Word
 ageWord m word' num = age m word' num 0
@@ -421,10 +444,10 @@ ageWord m word' num = age m word' num 0
 ageWord' :: Map.Map String Word -> String -> Map.Map String Word
 ageWord' m word' = Map.map age m
     where
-      age ww@(Word w c _ _ r p) = (Word w (if w == word' then if c - 1 < 1 then 1 else c - 1 else c)
-                                   (incBefore' ww word' (-1)) (incAfter' ww word' (-1)) r p)
-      age ww@(Name w c _ _ r)   = (Name w (if w == word' then if c - 1 < 1 then 1 else c - 1 else c)
-                                   (incBefore' ww word' (-1)) (incAfter' ww word' (-1)) r)
+      w = wordGetWord  $ fromJust $ Map.lookup word' m
+      c = wordGetCount $ fromJust $ Map.lookup word' m
+      age w' = w'{count=if w == word' then if c - 1 < 1 then 1 else c - 1 else c,
+                  before=incBefore' w' word' (-1), after=incAfter' w' word' (-1)}
 
 ageWords :: Map.Map String Word -> Int -> Map.Map String Word
 ageWords m num = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m) num
@@ -458,6 +481,11 @@ fixWords aspell' m = do
         cnb <- cn b
         return (toUpperWord $ cleanString s, (Name (toUpperWord $ cleanString w)
                                               c (Map.fromList cnb) (Map.fromList cna) r))
+      f (s, (Acronym w c b a r d)) = do
+        cna <- cn a
+        cnb <- cn b
+        return (map toUpper $ cleanString s, (Acronym (map toUpper $ cleanString w)
+                                              c (Map.fromList cnb) (Map.fromList cna) r d))
       cn m' = mapM cm $ Map.toList $ Map.filter (\x -> x > 0) m'
       cm (w, c) = do
         n <- asIsName aspell' w
@@ -466,34 +494,31 @@ fixWords aspell' m = do
           else return ((map toLower cw), c)
 
 incCount' :: Word -> Int -> Int
-incCount' (Word _ c _ _ _ _) n = if c + n < 1 then 1 else c + n
-incCount' (Name _ c _ _ _)   n = if c + n < 1 then 1 else c + n
+incCount' w n = let c = wordGetCount w in if c + n < 1 then 1 else c + n
 
 incBefore' :: Word -> String -> Int -> Map.Map String Int
-incBefore' (Word _ _ b _ _ _) []      _ = b
-incBefore' (Word _ _ b _ _ _) before' n =
-  if isJust w then
-    if (fromJust w) + n < 1 then b
-    else Map.insert before' ((fromJust w) + n) b
+incBefore' w []      _ = wordGetBefore w
+incBefore' w before' n =
+  if isJust w' then
+    if (fromJust w') + n < 1 then b
+    else Map.insert before' ((fromJust w') + n) b
   else if n < 0 then b
        else Map.insert before' n b
   where
-    w = Map.lookup before' b
-incBefore' (Name _ _ b _ _)   []    _ = b
-incBefore' (Name w c b a r) before' n = incBefore' (Word w c b a r (POS Noun)) before' n
+    b  = wordGetBefore w
+    w' = Map.lookup before' b
 
 incAfter' :: Word -> String -> Int -> Map.Map String Int
-incAfter' (Word _ _ _ a _ _) []     _ = a
-incAfter' (Word _ _ _ a _ _) after' n =
-  if isJust w then
-    if (fromJust w) + n < 1 then a
-    else Map.insert after' ((fromJust w) + n) a
+incAfter' w []     _ = wordGetAfter w
+incAfter' w after' n =
+  if isJust w' then
+    if (fromJust w') + n < 1 then a
+    else Map.insert after' ((fromJust w') + n) a
   else if n < 0 then a
        else Map.insert after' n a
   where
-    w = Map.lookup after' a
-incAfter' (Name _ _ _ a _)   []   _ = a
-incAfter' (Name w c b a r) after' n = incAfter' (Word w c b a r (POS Noun)) after' n
+    a  = wordGetAfter w
+    w' = Map.lookup after' a
 
 listNeigh :: Map.Map String Int -> [String]
 listNeigh m = [w | (w, _) <- Map.toList m]
@@ -536,6 +561,9 @@ listWordFull m word' =
     f (Name w c b a r) = ["name:", w, "count:", show c, " before:",
                  unwords $ listNeigh2 b, " after:", unwords $ listNeigh2 a,
                  " related:", unwords r]
+    f (Acronym w c b a r d) = ["acronym:", w, "count:", show c, " before:",
+                 unwords $ listNeigh2 b, " after:", unwords $ listNeigh2 a,
+                 " definition:", d, " related:", unwords r]
 
 cleanStringWhite :: (Char -> Bool) -> String -> String
 cleanStringWhite _ [] = []
