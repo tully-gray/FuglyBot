@@ -1031,8 +1031,10 @@ asReplaceWords fugly msg = do
 
 asReplace :: Fugly -> String -> IO String
 asReplace _ [] = return []
-asReplace (Fugly dict' _ wne' aspell' _ _) word' =
-  if (elem ' ' word') || (elem '\'' word') || (head word' == (toUpper $ head word')) then return word'
+asReplace (Fugly dict' _ wne' aspell' _ _) word' = do
+  n  <- asIsName aspell' word'
+  ac <- asIsAcronym aspell' word'
+  if (elem ' ' word') || (elem '\'' word') || (head word' == (toUpper $ head word')) || n || ac then return word'
     else do
     a <- asSuggest aspell' word'
     p <- wnPartPOS wne' word'
