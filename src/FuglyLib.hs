@@ -941,11 +941,13 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', aspell=aspell', ban=ban'}) rwords
   let s1f x = if null x then return []
               else if gfParseBool pgf' plen x && length (words x) > 2 then return x
                    else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
-  let s1h n x = if n then x else map toLower x
+  let s1h n a x = if a then map toUpper x else if n then x else map toLower x
   let s1i x = do
+      a <- s1m x
       n <- s1n x
-      return $ if n then x else map toLower x
+      return $ if a then map toUpper x else if n then x else map toLower x
   let s1a x = do
+      a <- s1m x
       n <- s1n x
       z <- findNextWord fugly 0 randoms True x
       let zz = if null z then [] else head z
@@ -955,7 +957,7 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', aspell=aspell', ban=ban'}) rwords
       w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
       ww <- s1b fugly slen 0 $ mapM s1i msg
       res <- preSentence fugly $ map (\m -> map toLower m) msg
-      let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n x] ++ w
+      let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n a x] ++ w
       rep <- wnReplaceWords fugly rwords randoms $ filter (\a -> length a > 0 && not (elem a ban'))
              $ filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True) $ take stries d
       return $ filter (\p -> {-- gfParseBool pgf' plen p && --}(not $ null p)) rep
@@ -981,13 +983,18 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', aspell=aspell', ban=ban'}) rwords
     s1c :: [String] -> String
     s1c [] = []
     s1c w = [toUpper $ head $ head w] ++ (fTail [] $ head w)
+    s1m :: String -> IO Bool
+    s1m [] = return False
+    s1m w = do
+      a <- asIsAcronym aspell' w
+      let ww = Map.lookup w dict'
+      return $ if isJust ww then wordIs (fromJust ww) == "acronym" else a
     s1n :: String -> IO Bool
     s1n [] = return False
     s1n w = do
       n <- asIsName aspell' w
       let ww = Map.lookup w dict'
-      let out = if isJust ww then wordIs (fromJust ww) == "name" else n
-      return out
+      return $ if isJust ww then wordIs (fromJust ww) == "name" else n
 
 chooseWord :: [String] -> IO [String]
 chooseWord [] = return []
