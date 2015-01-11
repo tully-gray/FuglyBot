@@ -880,12 +880,12 @@ sentence st fugly@(Fugly {pgf=pgf', aspell=aspell', ban=ban'}) rwords randoms st
       let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n x] ++ w
       rep <- wnReplaceWords fugly rwords randoms $ filter (\a -> length a > 0 && not (elem a ban'))
              $ filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True) $ take stries d
-      return $ filter (not . null) rep
+      return $ filter (\p -> {-- gfParseBool pgf' plen p && --}(not $ null p)) rep
   let s1d x = do
       w <- x
       if null w then return []
         else return ((replace "i" "I" (init w)) ++ ((cleanString $ fLast [] w) ++
-                                  if elem (map toLower $ head w) qWords then "?" else ".") : [])
+                      if elem (map toLower $ head w) qWords then "?" else ".") : [])
   let s1e x = do
       w <- x
       if null w then return []
