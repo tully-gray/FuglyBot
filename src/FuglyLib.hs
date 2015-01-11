@@ -9,6 +9,7 @@ module FuglyLib
          insertWord,
          insertWordRaw,
          insertNameRaw,
+         insertAcroRaw,
          dropWord,
          dropAfter,
          dropAllAfter,
@@ -312,33 +313,40 @@ insertWords st fugly autoname msg@(x:y:_) =
 insertWord :: (MVar ()) -> Fugly -> Bool -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWord _ (Fugly{dict=d}) _ [] _ _ _ = return d
 insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word' before' after' pos' = do
-    n  <- asIsName aspell' word'
-    nb <- asIsName aspell' before'
-    na <- asIsName aspell' after'
+    n   <- asIsName aspell' word'
+    nb  <- asIsName aspell' before'
+    na  <- asIsName aspell' after'
+    ac  <- asIsAcronym aspell' word'
+    acb <- asIsAcronym aspell' before'
+    aca <- asIsAcronym aspell' after'
     if elem (map toLower word') ban' || elem (map toLower before') ban' ||
        elem (map toLower after') ban' then return dict'
       else if (length word' == 1 || length word' == 2) && (not $ elem (map toLower word') sWords) ||
               (length before' == 1 || length before' == 2) && (not $ elem (map toLower before') sWords) ||
               (length after' == 1 || length after' == 2) && (not $ elem (map toLower after') sWords) then return dict'
-        else if isJust w then f st nb na $ fromJust w
-          else if n && autoname then insertNameRaw' st fugly wn (toUpperWord $ cleanString word') (bi nb) (ai na) False
-            else if isJust ww then insertWordRaw' st fugly ww (map toLower $ cleanString word') (bi nb) (ai na) pos'
-              else insertWordRaw' st fugly w (map toLower $ cleanString word') (bi nb) (ai na) pos'
+        else if isJust w then f st nb na acb aca $ fromJust w
+          else if ac && autoname then insertAcroRaw' st fugly wa (map toUpper $ cleanString word') (bi nb acb) (ai na aca) []
+            else if n && autoname then insertNameRaw' st fugly wn (toUpperWord $ cleanString word') (bi nb acb) (ai na aca) False
+              else if isJust ww then insertWordRaw' st fugly ww (map toLower $ cleanString word') (bi nb acb) (ai na aca) pos'
+                else insertWordRaw' st fugly w (map toLower $ cleanString word') (bi nb acb) (ai na aca) pos'
   where
     w = Map.lookup word' dict'
-    ww = Map.lookup (map toLower $ cleanString word') dict'
+    wa = Map.lookup (map toUpper $ cleanString word') dict'
     wn = Map.lookup (toUpperWord $ cleanString word') dict'
+    ww = Map.lookup (map toLower $ cleanString word') dict'
     a = Map.lookup after' dict'
     b = Map.lookup before' dict'
-    ai an = if isJust a then after'
-            else if an && autoname then toUpperWord $ cleanString after'
-                 else map toLower $ cleanString after'
-    bi bn = if isJust b then before'
-            else if bn && autoname then toUpperWord $ cleanString before'
-                 else map toLower $ cleanString before'
-    f st' bn an (Word{})    = insertWordRaw' st' fugly w word' (bi bn) (ai an) pos'
-    f st' bn an (Name{})    = insertNameRaw' st' fugly w word' (bi bn) (ai an) False
-    f st' bn an (Acronym{}) = insertNameRaw' st' fugly w word' (bi bn) (ai an) False
+    ai an aa = if isJust a then after'
+               else if an && autoname then toUpperWord $ cleanString after'
+                    else if aa && autoname then map toUpper $ cleanString after'
+                         else map toLower $ cleanString after'
+    bi bn ba = if isJust b then before'
+               else if bn && autoname then toUpperWord $ cleanString before'
+                    else if ba && autoname then map toUpper $ cleanString before'
+                         else map toLower $ cleanString before'
+    f st' bn an ba aa (Word{})    = insertWordRaw' st' fugly w word' (bi bn ba) (ai an aa) pos'
+    f st' bn an ba aa (Name{})    = insertNameRaw' st' fugly w word' (bi bn ba) (ai an aa) False
+    f st' bn an ba aa (Acronym{}) = insertAcroRaw' st' fugly w word' (bi bn ba) (ai an aa) []
 
 insertWordRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWordRaw st f@(Fugly{dict=d}) w b a p = insertWordRaw' st f (Map.lookup w d) w b a p
@@ -402,6 +410,37 @@ insertNameRaw' st (Fugly dict' _ wne' aspell' _ _) w name' before' after' s = do
     msg n
     return $ Map.insert n (Name n 1 (e (nn before' pb))
                            (e (nn after' pa)) rel) dict'
+  where
+    e [] = Map.empty
+    e x = Map.singleton x 1
+    c = incCount' (fromJust w) 1
+    na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1
+                else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incAfter' (fromJust w) x 1
+                     else wordGetAfter (fromJust w)
+    nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1
+                else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incBefore' (fromJust w) x 1
+                     else wordGetBefore (fromJust w)
+    nn x y  = if isJust $ Map.lookup x dict' then x
+                else if y == UnknownEPos && Aspell.check aspell' (ByteString.pack x) == False then [] else x
+
+insertAcroRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
+insertAcroRaw st f@(Fugly{dict=d}) w b a def = insertAcroRaw' st f (Map.lookup w d) w b a def
+
+insertAcroRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
+                  -> String -> String -> IO (Map.Map String Word)
+insertAcroRaw' _  (Fugly{dict=d}) _ [] _ _ _ = return d
+insertAcroRaw' st (Fugly dict' _ wne' aspell' _ _) w acro' before' after' def = do
+  pa <- wnPartPOS wne' after'
+  pb <- wnPartPOS wne' before'
+  rel <- wnRelated' wne' acro' "Hypernym" (POS Noun)
+  let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new acronym: " ++ w')) st
+  if isJust w then
+    return $ Map.insert acro' (Acronym acro' c (nb before' pb) (na after' pa)
+                               (wordGetRelated (fromJust w)) def) dict'
+    else do
+    msg acro'
+    return $ Map.insert acro' (Acronym acro' 1 (e (nn before' pb))
+                               (e (nn after' pa)) rel def) dict'
   where
     e [] = Map.empty
     e x = Map.singleton x 1
@@ -995,7 +1034,7 @@ asReplace _ [] = return []
 asReplace (Fugly dict' _ wne' aspell' _ _) word' =
   if (elem ' ' word') || (elem '\'' word') || (head word' == (toUpper $ head word')) then return word'
     else do
-    a  <- asSuggest aspell' word'
+    a <- asSuggest aspell' word'
     p <- wnPartPOS wne' word'
     let w = Map.lookup word' dict'
     let rw = words a
