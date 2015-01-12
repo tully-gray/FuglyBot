@@ -513,7 +513,7 @@ execCmd b chan nick' (x:xs) = do
       | x == "!wordlist" =
           let num = if read (xs!!0) > (100 :: Int) then 100 :: Int else read (xs!!0) in
           case (length xs) of
-            1 -> evalStateT (replyMsg bot chan nick' (unwords $ listWordsCountSort dict' num) >>
+            1 -> evalStateT (replyMsg bot chan nick' (unwords $ listWordsCountSort dict' num "word") >>
                    replyMsg bot chan nick' ("Total word count: " ++ (show $ Map.size dict'))) st >> return bot
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !wordlist <number>") st >> return bot
       | x == "!insertword" = if nick' == owner' then case (length xs) of
@@ -529,7 +529,7 @@ execCmd b chan nick' (x:xs) = do
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !name <name>") st >> return bot
       | x == "!namelist" = let num = if read (xs!!0) > (100 :: Int) then 100 :: Int else read (xs!!0) in
           case (length xs) of
-            1 -> evalStateT (replyMsg bot chan nick' (unwords $ listNamesCountSort dict' num)) st
+            1 -> evalStateT (replyMsg bot chan nick' (unwords $ listWordsCountSort dict' num "name")) st
                  >> evalStateT (replyMsg bot chan nick' ("Total name count: " ++ (show $ length $
                                              filter (\x' -> wordIs x' == "name") $ Map.elems dict'))) st
                  >> return bot
