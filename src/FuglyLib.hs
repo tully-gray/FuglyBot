@@ -20,8 +20,7 @@ module FuglyLib
          listWords,
          listWordFull,
          listWordsCountSort,
-         listWordsCountSort2,
-         listNamesCountSort2,
+         listNamesCountSort,
          wordIs,
          cleanStringWhite,
          cleanStringBlack,
@@ -575,17 +574,15 @@ listNeighLeast m = [w | (w, c) <- Map.toList m, c == minimum [c' | (_, c') <- Ma
 listWords :: Map.Map String Word -> [String]
 listWords m = map wordGetWord $ Map.elems m
 
-listWordsCountSort :: Map.Map String Word -> [String]
-listWordsCountSort m = reverse $ map snd (sort $ map wordGetwc $ Map.elems m)
+listWordsCountSort :: Map.Map String Word -> Int -> [String]
+listWordsCountSort m num = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
+                           sort $ map wordGetwc $ filter (\x -> wordIs x == "word") $
+                           Map.elems m]
 
-listWordsCountSort2 :: Map.Map String Word -> Int -> [String]
-listWordsCountSort2 m num = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
-                            sort $ map wordGetwc $ Map.elems m]
-
-listNamesCountSort2 :: Map.Map String Word -> Int -> [String]
-listNamesCountSort2 m num = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
-                            sort $ map wordGetwc $ filter (\x -> wordIs x == "name") $
-                            Map.elems m]
+listNamesCountSort :: Map.Map String Word -> Int -> [String]
+listNamesCountSort m num = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
+                           sort $ map wordGetwc $ filter (\x -> wordIs x == "name") $
+                           Map.elems m]
 
 listWordFull :: Map.Map String Word -> String -> String
 listWordFull m word' =
