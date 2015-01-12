@@ -240,7 +240,7 @@ loadDict fuglydir topic = do
       ban'    <- hGetLine h
       match'  <- hGetLine h
       params' <- hGetLine h
-      let out = (Map.fromList dict', words ban', words match', words params')
+      let out = (Map.fromList $ tail dict', words ban', words match', words params')
       hClose h
       return out
   where
@@ -958,7 +958,7 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', aspell=aspell', ban=ban'}) rwords
       ww <- s1b fugly slen 0 $ mapM s1i msg
       res <- preSentence fugly $ map (\m -> map toLower m) msg
       let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n a x] ++ w
-      rep <- wnReplaceWords fugly rwords randoms $ filter (\a -> length a > 0 && not (elem a ban'))
+      rep <- wnReplaceWords fugly rwords randoms $ filter (\a' -> length a' > 0 && not (elem a' ban'))
              $ filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True) $ take stries d
       return $ filter (\p -> {-- gfParseBool pgf' plen p && --}(not $ null p)) rep
   let s1d x = do
