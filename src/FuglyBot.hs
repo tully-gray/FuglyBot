@@ -194,7 +194,7 @@ run = do
             evalStateT (write s "NICK" (bn ++ "_")) st >> swapMVar b bot{params=p{nick=(bn ++ "_")}}
               >> return ("Nickname is already in use.") >>= (\x -> evalStateT (replyMsg bot o [] x) st)
                else if (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == bn then do
-                 (do nb <- evalStateT (changeNick [] lll) st ; swapMVar b nb) >> return ()
+                 (do nb <- evalStateT (changeNick lll) st ; swapMVar b nb) >> return ()
                     else do
                       (catch (evalStateT (processLine $ words l) st >> return ())
                        (\e -> do let err = show (e :: SomeException)
@@ -236,18 +236,12 @@ cmdLine = do
     maximum' [] = 1000
     maximum' a  = maximum a
 
-changeNick :: [String] -> [String] -> StateT (MVar Bot, MVar ()) IO Bot
-changeNick (_:_) (_:_) = do
+changeNick :: [String] -> StateT (MVar Bot, MVar ()) IO Bot
+changeNick [] = do
     st <- get
     bot <- lift $ readMVar $ fst st
     return bot
-changeNick (x:_) [] = do
-    st <- get
-    bot@(Bot{sock=s}) <- lift $ readMVar $ fst st
-    let new = cleanStringWhite isAscii x
-    write s "NICK" new
-    return bot
-changeNick [] line = do
+changeNick line = do
     st <- get
     bot@(Bot{params=p@(Parameter{nick=n})}) <- lift $ readMVar $ fst st
     lift $ testNick st bot n line
@@ -290,11 +284,11 @@ paramsToList (Parameter _ _ _ uc rk mcm st sl pl l stl an apm _ r rw tt) = [show
 paramsToList _ = []
 
 changeParam :: Bot -> String -> String -> String -> String -> StateT (MVar Bot, MVar ()) IO Bot
-changeParam bot@(Bot{params=p@(Parameter{nick=botnick, owner=owner', fuglydir=fdir, topic=t}),
+changeParam bot@(Bot{sock=s, params=p@(Parameter{nick=botnick, owner=owner', fuglydir=fdir, topic=t}),
                      fugly=f@(Fugly{dict=dict', ban=ban', FuglyLib.match=match'})}) chan nick' param value = do
     st <- get
     case (readParam param) of
-      Nick           -> changeNick (value : "" : []) []
+      Nick           -> (write s "NICK" $ cleanStringWhite isAscii value)     >> return bot
       Owner          -> replyMsg' value                 "Owner"               >>= (\x -> return bot{params=p{owner=x}})
       UserCommands   -> replyMsg' (readBool value)      "User commands"       >>= (\x -> return bot{params=p{usercmd=x}})
       RejoinKick     -> replyMsg' (readInt 1 4096 value) "Rejoin kick time"   >>= (\x -> return bot{params=p{rejoinkick=x}})
@@ -483,7 +477,10 @@ execCmd b chan nick' (x:xs) = do
                                              return bot else return bot
       | x == "!part" = if nick' == owner' then evalStateT (joinChannel s "PART" xs) st >>
                                              return bot else return bot
-      | x == "!nick" = if nick' == owner' then evalStateT (changeNick xs []) st else return bot
+      | x == "!nick" = if nick' == owner' then case (length xs) of
+          1 -> evalStateT ((\x' -> write s "NICK" $ cleanStringWhite isAscii x') (xs!!0)) st >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !nick <nick>") st >> return bot
+                       else return bot
       | x == "!readfile" = if nick' == owner' then case (length xs) of
           1 -> catch (insertFromFile (snd st) bot (xs!!0)) (\e -> do let err = show (e :: SomeException)
                                                                      evalStateT (hPutStrLnLock stderr ("Exception in insertFromFile: " ++ err)) st
