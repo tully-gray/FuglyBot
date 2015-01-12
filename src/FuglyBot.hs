@@ -454,17 +454,17 @@ execCmd b chan nick' (x:xs) = do
                                         autoname' allowpm' topic' randoms' rwords' ttime),
                       fugly=f@(Fugly dict' pgf' wne' aspell' ban' match')}) st
       | usercmd' == False && nick' /= owner' = return bot
-      | x == "!quit" =
-        if nick' == owner' then case (length xs) of
+      | x == "!quit" = if nick' == owner' then case (length xs) of
           0 -> do evalStateT (write s "QUIT" ":Bye") st >> return bot
           _ -> do evalStateT (write s "QUIT" (":" ++ unwords xs)) st >> return bot
-        else return bot
-      | x == "!save" = if nick' == owner' then catch (saveDict (snd st) f fdir topic' (paramsToList p))
-                                               (\e -> do let err = show (e :: SomeException)
-                                                         evalStateT (hPutStrLnLock stderr ("Exception in saveDict: " ++ err)) st
-                                                         return ())
-                                               >> evalStateT (replyMsg bot chan nick' "Saved dict file!") st
-                                               >> return bot else return bot
+                       else return bot
+      | x == "!save" = if nick' == owner' then
+                         catch (saveDict (snd st) f fdir topic' (paramsToList p))
+                         (\e -> do let err = show (e :: SomeException)
+                                   evalStateT (hPutStrLnLock stderr ("Exception in saveDict: " ++ err)) st
+                                   return ())
+                         >> evalStateT (replyMsg bot chan nick' "Saved dict file!") st >> return bot
+                       else return bot
       | x == "!load" = if nick' == owner' then do
            (nd, nb, nm, np) <- catch (loadDict fdir topic') (\e -> do let err = show (e :: SomeException)
                                                                       evalStateT (hPutStrLnLock stderr ("Exception in loadDict: " ++ err)) st
@@ -473,10 +473,8 @@ execCmd b chan nick' (x:xs) = do
            return bot{params=(readParamsFromList np){nick=botnick, owner=owner', fuglydir=fdir, topic=topic'},
                       fugly=(Fugly nd pgf' wne' aspell' nb nm)}
                        else return bot
-      | x == "!join" = if nick' == owner' then evalStateT (joinChannel s "JOIN" xs) st >>
-                                             return bot else return bot
-      | x == "!part" = if nick' == owner' then evalStateT (joinChannel s "PART" xs) st >>
-                                             return bot else return bot
+      | x == "!join" = if nick' == owner' then evalStateT (joinChannel s "JOIN" xs) st >> return bot else return bot
+      | x == "!part" = if nick' == owner' then evalStateT (joinChannel s "PART" xs) st >> return bot else return bot
       | x == "!nick" = if nick' == owner' then case (length xs) of
           1 -> evalStateT ((\x' -> write s "NICK" $ cleanStringWhite isAscii x') (xs!!0)) st >> return bot
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !nick <nick>") st >> return bot
@@ -485,11 +483,16 @@ execCmd b chan nick' (x:xs) = do
           1 -> catch (insertFromFile (snd st) bot (xs!!0)) (\e -> do let err = show (e :: SomeException)
                                                                      evalStateT (hPutStrLnLock stderr ("Exception in insertFromFile: " ++ err)) st
                                                                      return bot)
-          _ -> evalStateT (replyMsg bot chan nick' "Usage: !readfile <file>") st >>
-               return bot else return bot
-      | x == "!showparams" =
-          if nick' == owner' then case (length xs) of
-            0 -> evalStateT (replyMsg bot chan nick' ("nick: " ++ botnick ++ "  owner: " ++ owner' ++
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !readfile <file>") st >> return bot
+                           else return bot
+      | x == "!internalize" = if nick' == owner' then
+          if length xs > 1 then do evalStateT (replyMsg bot chan nick' ("Internalizing...")) st
+                                   internalize st bot (read (xs!!0)) $ unwords $ tail xs
+          else
+            evalStateT (replyMsg bot chan nick' "Usage: !internalize <tries> <msg>") st >> return bot
+                              else return bot
+      | x == "!showparams" = if nick' == owner' then case (length xs) of
+          0 -> evalStateT (replyMsg bot chan nick' ("nick: " ++ botnick ++ "  owner: " ++ owner' ++
                    "  usercommands: " ++ show usercmd' ++ "  rejoinkick: "
                    ++ show rkick ++ "  maxchanmsg: " ++ show maxcmsg
                    ++ "  sentencetries: " ++ show stries' ++ "  sentencelength: "
@@ -498,245 +501,223 @@ execCmd b chan nick' (x:xs) = do
                    ++ "  autoname: " ++ show autoname' ++ "  allowpm: " ++ show allowpm'
                    ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms'
                    ++ "  replacewords: " ++ show rwords' ++ "  threadtime: " ++ show ttime)) st >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !showparams") st >> return bot
-          else return bot
-      | x == "!setparam" =
-            if nick' == owner' then case (length xs) of
-              2 -> evalStateT (changeParam bot chan nick' (xs!!0) (xs!!1)) st
-              _ -> evalStateT (replyMsg bot chan nick' "Usage: !setparam <parameter> <value>") st >> return bot
-            else return bot
-      | x == "!params" =
-              if nick' == owner' then evalStateT (replyMsg bot chan nick' (init (concat $ map (++ " ")
-                                      $ map show $ init allParams))) st >> return bot
-              else return bot
-      | x == "!dict" =
-          case (length xs) of
-            2 -> (dictLookup f (xs!!0) (xs!!1)) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
-            1 -> (dictLookup f (xs!!0) []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !dict <word> [part-of-speech]") st >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !showparams") st >> return bot
+                             else return bot
+      | x == "!setparam" = if nick' == owner' then case (length xs) of
+          2 -> evalStateT (changeParam bot chan nick' (xs!!0) (xs!!1)) st
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !setparam <parameter> <value>") st >> return bot
+                           else return bot
+      | x == "!word" = case (length xs) of
+          1 -> evalStateT (replyMsg bot chan nick' (listWordFull dict' (xs!!0))) st >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !word <word>") st >> return bot
       | x == "!wordlist" =
           let num = if read (xs!!0) > (100 :: Int) then 100 :: Int else read (xs!!0) in
           case (length xs) of
-            1 -> evalStateT (replyMsg bot chan nick' (unwords $ listWordsCountSort2 dict' num)
-                 >> replyMsg bot chan nick' ("Total word count: " ++ (show $ Map.size dict'))) st
-                 >> return bot
+            1 -> evalStateT (replyMsg bot chan nick' (unwords $ listWordsCountSort2 dict' num) >>
+                   replyMsg bot chan nick' ("Total word count: " ++ (show $ Map.size dict'))) st >> return bot
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !wordlist <number>") st >> return bot
-      | x == "!word" = case (length xs) of
-            1 -> evalStateT (replyMsg bot chan nick' (listWordFull dict' (xs!!0))) st >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !word <word>") st >> return bot
-      | x == "!insertword" = if nick' == owner' then
-          case (length xs) of
-            2 -> do ww <- insertWordRaw (snd st) f (xs!!1) [] [] (xs!!0)
-                    if isJust $ Map.lookup (xs!!1) dict' then
-                      evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " already in dict.")) st >> return bot
-                      else
-                      evalStateT (replyMsg bot chan nick' ("Inserted word " ++ (xs!!1) ++ ".")) st >>
-                      return bot{fugly=f{dict=ww}}
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertword <pos> <word>") st >> return bot
-                         else return bot
-      | x == "!dropword" = if nick' == owner' then
-          case (length xs) of
-            1 -> if isJust $ Map.lookup (xs!!0) dict' then
-                   evalStateT (replyMsg bot chan nick' ("Dropped word " ++ (xs!!0) ++ ".")) st >>
-                   return bot{fugly=f{dict=dropWord dict' (xs!!0)}}
-                   else {-- Drop the word anyway because it might be a before or after word. --}
-                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.")) st >>
-                     return bot{fugly=f{dict=dropWord dict' (xs!!0)}}
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !dropword <word>") st >> return bot
-                         else return bot
-      | x == "!dropafter" = if nick' == owner' then
-          case (length xs) of
-            2 -> if (isJust $ Map.lookup (xs!!0) dict') && (isJust $ Map.lookup (xs!!1) dict') then
-                   evalStateT (replyMsg bot chan nick' ("Dropped word " ++ (xs!!1) ++ " after word " ++ (xs!!0) ++ ".")) st >>
-                   return bot{fugly=f{dict=dropAfter (dropBefore dict' (xs!!1) (xs!!0)) (xs!!0) (xs!!1)}}
-                   else {-- Drop the association anyway, but report errors. --}
-                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " or word " ++ (xs!!1) ++ " not in dict.")) st >>
-                     return bot{fugly=f{dict=dropAfter (dropBefore dict' (xs!!1) (xs!!0)) (xs!!0) (xs!!1)}}
-            1 -> if isJust $ Map.lookup (xs!!0) dict' then
-                   evalStateT (replyMsg bot chan nick' ("Dropped all words after word " ++ (xs!!0) ++ ".")) st >>
-                   return bot{fugly=f{dict=dropAllAfter dict' (xs!!0)}}
-                   else
-                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.")) st >>
-                     return bot{fugly=f{dict=dropAllAfter dict' (xs!!0)}}
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !dropafter <word> [after-word]") st >> return bot
-                         else return bot
-      | x == "!ageword" = if nick' == owner' then
-          case (length xs) of
-            {-- This has to be caught here? --}
-            2 -> do num <- catch (if (read (xs!!1) :: Int) > 50 then return 50 else return (read (xs!!1) :: Int))
-                              (\e -> do let err = show (e :: SomeException)
-                                        evalStateT (hPutStrLnLock stderr ("Exception in ageword command: read: " ++ err)) st
-                                        return 0)
-                    if isJust $ Map.lookup (xs!!0) dict' then
-                      evalStateT (replyMsg bot chan nick' ("Aged word " ++ (xs!!0) ++ ".")) st >>
-                      return bot{fugly=f{dict=ageWord dict' (xs!!0) num}}
-                      else
-                      evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.")) st >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !ageword <word> <number>") st
-                 >> return bot
-                         else return bot
-      | x == "!agewords" = if nick' == owner' then
-          case (length xs) of
-            {-- This has to be caught here? --}
-            1 -> do num <- catch (if (read (xs!!0) :: Int) > 50 then return 50 else return (read (xs!!0) :: Int))
-                              (\e -> do let err = show (e :: SomeException)
-                                        evalStateT (hPutStrLnLock stderr ("Exception in agewords command: read: " ++ err)) st
-                                        return 0)
-                    evalStateT (replyMsg bot chan nick' ("Aged all words...")) st
-                    return bot{fugly=f{dict=ageWords dict' num}}
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !agewords <number>") st
-                 >> return bot
-                         else return bot
-      | x == "!cleanwords" = if nick' == owner' then
-          case (length xs) of
-            0 -> do nd <- fixWords aspell' dict'
-                    evalStateT (replyMsg bot chan nick' ("Cleaned some words...")) st
-                    return bot{fugly=f{dict=nd}}
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !cleanwords") st
-                 >> return bot
-                         else return bot
-      | x == "!banword" = if nick' == owner' then
-          case (length xs) of
-            2 -> if (xs!!0) == "add" then
-                   if elem (xs!!1) ban' then
-                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " already banned.")) st >> return bot
-                     else
-                     evalStateT (replyMsg bot chan nick' ("Banned word " ++ (xs!!1) ++ ".")) st >>
-                     return bot{fugly=f{dict=dropWord dict' (xs!!1), ban=nub $ ban' ++ [(xs!!1)]}}
-                 else if (xs!!0) == "delete" then
-                   if not $ elem (xs!!1) ban' then
-                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " not in ban list.")) st >> return bot
-                     else
-                     evalStateT (replyMsg bot chan nick' ("Unbanned word " ++ (xs!!1) ++ ".")) st >>
-                     return bot{fugly=f{ban=nub $ delete (xs!!1) ban'}}
-                 else evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st >> return bot
-            1 -> if (xs!!0) == "list" then
-                   evalStateT (replyMsg bot chan nick' ("Banned word list: " ++ unwords ban')) st >> return bot
-                 else evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st >> return bot
-                         else return bot
-      | x == "!matchword" = if nick' == owner' then
-          case (length xs) of
-            2 -> if (xs!!0) == "add" then
-                   if elem (xs!!1) match' then
-                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " already matched.")) st >> return bot
-                     else
-                     evalStateT (replyMsg bot chan nick' ("Matching word " ++ (xs!!1) ++ ".")) st >>
-                     return bot{fugly=f{FuglyLib.match=nub $ match' ++ [(xs!!1)]}}
-                 else if (xs!!0) == "delete" then
-                   if not $ elem (xs!!1) match' then
-                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " not in match list.")) st >> return bot
-                     else
-                     evalStateT (replyMsg bot chan nick' ("No longer matching word " ++ (xs!!1) ++ ".")) st >>
-                     return bot{fugly=f{FuglyLib.match=nub $ delete (xs!!1) match'}}
-                 else evalStateT (replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>") st >> return bot
-            1 -> if (xs!!0) == "list" then
-                    evalStateT (replyMsg bot chan nick' ("Matched word list: " ++ unwords match')) st >> return bot
-                 else evalStateT (replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>") st >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>") st >> return bot
-                         else return bot
-      | x == "!namelist" =
-          let num = if read (xs!!0) > (100 :: Int) then 100 :: Int else read (xs!!0) in
+      | x == "!insertword" = if nick' == owner' then case (length xs) of
+          2 -> do ww <- insertWordRaw (snd st) f (xs!!1) [] [] (xs!!0)
+                  if isJust $ Map.lookup (xs!!1) dict' then
+                    evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " already in dict.")) st >> return bot
+                    else
+                    evalStateT (replyMsg bot chan nick' ("Inserted word " ++ (xs!!1) ++ ".")) st >> return bot{fugly=f{dict=ww}}
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertword <pos> <word>") st >> return bot
+                             else return bot
+      | x == "!name" = case (length xs) of
+          1 -> evalStateT (replyMsg bot chan nick' (listWordFull dict' (xs!!0))) st >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !name <name>") st >> return bot
+      | x == "!namelist" = let num = if read (xs!!0) > (100 :: Int) then 100 :: Int else read (xs!!0) in
           case (length xs) of
             1 -> evalStateT (replyMsg bot chan nick' (unwords $ listNamesCountSort2 dict' num)) st
                  >> evalStateT (replyMsg bot chan nick' ("Total name count: " ++ (show $ length $
                                              filter (\x' -> wordIs x' == "name") $ Map.elems dict'))) st
                  >> return bot
             _ -> evalStateT (replyMsg bot chan nick' "Usage: !namelist <number>") st >> return bot
-      | x == "!name" = case (length xs) of
-            1 -> evalStateT (replyMsg bot chan nick' (listWordFull dict' (xs!!0))) st >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !name <name>") st >> return bot
-      | x == "!insertname" = if nick' == owner' then
-          case (length xs) of
-            1 -> do ww <- insertNameRaw (snd st) f (xs!!0) [] [] True
-                    if isJust $ Map.lookup (xs!!0) dict' then
-                      evalStateT (replyMsg bot chan nick' ("Name " ++ (xs!!0) ++ " already in dict.")) st >> return bot
-                      else
-                      evalStateT (replyMsg bot chan nick' ("Inserted name " ++ (xs!!0) ++ ".")) st >>
-                      return bot{fugly=f{dict=ww}}
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertname <name>") st >> return bot
+      | x == "!insertname" = if nick' == owner' then case (length xs) of
+          1 -> do ww <- insertNameRaw (snd st) f (xs!!0) [] [] True
+                  if isJust $ Map.lookup (xs!!0) dict' then
+                    evalStateT (replyMsg bot chan nick' ("Name " ++ (xs!!0) ++ " already in dict.")) st >> return bot
+                    else
+                    evalStateT (replyMsg bot chan nick' ("Inserted name " ++ (xs!!0) ++ ".")) st >> return bot{fugly=f{dict=ww}}
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertname <name>") st >> return bot
+                             else return bot
+      | x == "!dropword" = if nick' == owner' then case (length xs) of
+          1 -> if isJust $ Map.lookup (xs!!0) dict' then
+                 evalStateT (replyMsg bot chan nick' ("Dropped word " ++ (xs!!0) ++ ".")) st >>
+                   return bot{fugly=f{dict=dropWord dict' (xs!!0)}}
+               else {-- Drop the word anyway because it might be a before or after word. --}
+                 evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.")) st >>
+                   return bot{fugly=f{dict=dropWord dict' (xs!!0)}}
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !dropword <word>") st >> return bot
                            else return bot
-      | x == "!internalize" = if nick' == owner' then
-                                if length xs > 1 then do evalStateT (replyMsg bot chan nick' ("Internalizing...")) st
-                                                         internalize st bot (read (xs!!0)) $ unwords $ tail xs
-                                else
-                                  evalStateT (replyMsg bot chan nick' "Usage: !internalize <tries> <msg>") st >> return bot
+      | x == "!dropafter" = if nick' == owner' then case (length xs) of
+          2 -> if (isJust $ Map.lookup (xs!!0) dict') && (isJust $ Map.lookup (xs!!1) dict') then
+                 evalStateT (replyMsg bot chan nick' ("Dropped word " ++ (xs!!1) ++ " after word " ++ (xs!!0) ++ ".")) st >>
+                   return bot{fugly=f{dict=dropAfter (dropBefore dict' (xs!!1) (xs!!0)) (xs!!0) (xs!!1)}}
+               else {-- Drop the association anyway, but report errors. --}
+                 evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " or word " ++ (xs!!1) ++ " not in dict.")) st >>
+                   return bot{fugly=f{dict=dropAfter (dropBefore dict' (xs!!1) (xs!!0)) (xs!!0) (xs!!1)}}
+          1 -> if isJust $ Map.lookup (xs!!0) dict' then
+                 evalStateT (replyMsg bot chan nick' ("Dropped all words after word " ++ (xs!!0) ++ ".")) st >>
+                   return bot{fugly=f{dict=dropAllAfter dict' (xs!!0)}}
+               else
+                 evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.")) st >>
+                   return bot{fugly=f{dict=dropAllAfter dict' (xs!!0)}}
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !dropafter <word> [after-word]") st >> return bot
+                            else return bot
+      | x == "!ageword" = if nick' == owner' then case (length xs) of
+          2 -> do num <- catch (if (read (xs!!1) :: Int) > 50 then return 50 else return (read (xs!!1) :: Int))
+                              {-- This has to be caught here? --}
+                              (\e -> do let err = show (e :: SomeException)
+                                        evalStateT (hPutStrLnLock stderr ("Exception in ageword command: read: " ++ err)) st
+                                        return 0)
+                  if isJust $ Map.lookup (xs!!0) dict' then
+                    evalStateT (replyMsg bot chan nick' ("Aged word " ++ (xs!!0) ++ ".")) st >>
+                      return bot{fugly=f{dict=ageWord dict' (xs!!0) num}}
+                    else
+                    evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.")) st >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !ageword <word> <number>") st >> return bot
+                          else return bot
+      | x == "!agewords" = if nick' == owner' then case (length xs) of
+          1 -> do num <- catch (if (read (xs!!0) :: Int) > 50 then return 50 else return (read (xs!!0) :: Int))
+                              {-- This has to be caught here? --}
+                              (\e -> do let err = show (e :: SomeException)
+                                        evalStateT (hPutStrLnLock stderr ("Exception in agewords command: read: " ++ err)) st
+                                        return 0)
+                  evalStateT (replyMsg bot chan nick' ("Aged all words...")) st
+                  return bot{fugly=f{dict=ageWords dict' num}}
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !agewords <number>") st >> return bot
                            else return bot
+      | x == "!cleanwords" = if nick' == owner' then case (length xs) of
+          0 -> do nd <- fixWords aspell' dict'
+                  evalStateT (replyMsg bot chan nick' ("Cleaned some words...")) st
+                  return bot{fugly=f{dict=nd}}
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !cleanwords") st >> return bot
+                             else return bot
+      | x == "!banword" = if nick' == owner' then case (length xs) of
+          2 -> if (xs!!0) == "add" then
+                 if elem (xs!!1) ban' then
+                   evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " already banned.")) st >> return bot
+                 else
+                   evalStateT (replyMsg bot chan nick' ("Banned word " ++ (xs!!1) ++ ".")) st >>
+                     return bot{fugly=f{dict=dropWord dict' (xs!!1), ban=nub $ ban' ++ [(xs!!1)]}}
+               else if (xs!!0) == "delete" then
+                 if not $ elem (xs!!1) ban' then
+                   evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " not in ban list.")) st >> return bot
+                 else
+                   evalStateT (replyMsg bot chan nick' ("Unbanned word " ++ (xs!!1) ++ ".")) st >>
+                     return bot{fugly=f{ban=nub $ delete (xs!!1) ban'}}
+                 else evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st >> return bot
+          1 -> if (xs!!0) == "list" then
+                 evalStateT (replyMsg bot chan nick' ("Banned word list: " ++ unwords ban')) st >> return bot
+               else evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !banword <list|add|delete> <word>") st >> return bot
+                          else return bot
+      | x == "!matchword" = if nick' == owner' then case (length xs) of
+          2 -> if (xs!!0) == "add" then
+                 if elem (xs!!1) match' then
+                   evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " already matched.")) st >> return bot
+                 else
+                   evalStateT (replyMsg bot chan nick' ("Matching word " ++ (xs!!1) ++ ".")) st >>
+                     return bot{fugly=f{FuglyLib.match=nub $ match' ++ [(xs!!1)]}}
+               else if (xs!!0) == "delete" then
+                 if not $ elem (xs!!1) match' then
+                   evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " not in match list.")) st >> return bot
+                 else
+                   evalStateT (replyMsg bot chan nick' ("No longer matching word " ++ (xs!!1) ++ ".")) st >>
+                     return bot{fugly=f{FuglyLib.match=nub $ delete (xs!!1) match'}}
+                 else evalStateT (replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>") st >> return bot
+          1 -> if (xs!!0) == "list" then
+                 evalStateT (replyMsg bot chan nick' ("Matched word list: " ++ unwords match')) st >> return bot
+               else evalStateT (replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>") st >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !matchword <list|add|delete> <word>") st >> return bot
+                            else return bot
       | x == "!talk" = if nick' == owner' then
           if length xs > 2 then do
             tId <- sentenceReply st s f (xs!!0) (xs!!1) rwords' randoms' stries' slen plen (drop 2 xs)
             if ttime > 0 then
-              forkIO (do threadDelay $ ttime * 1000000 ; evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st ; killThread tId) >> return bot
+              forkIO (do threadDelay $ ttime * 1000000
+                         evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st
+                         killThread tId) >> return bot
               else return bot
           else evalStateT (replyMsg bot chan nick' "Usage: !talk <channel> <nick> <msg>") st >> return bot
-                     else return bot
+                       else return bot
       | x == "!raw" = if nick' == owner' then
           if (length xs) > 0 then evalStateT (write s (xs!!0)(unwords $ tail xs)) st >> return bot
           else evalStateT (replyMsg bot chan nick' "Usage: !raw <msg>") st >> return bot
-               else return bot
-      | x == "!related" = case (length xs) of
-            3 -> (wnRelated wne' (xs!!0) (xs!!1) (xs!!2)) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
-            2 -> (wnRelated wne' (xs!!0) (xs!!1) []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
-            1 -> (wnRelated wne' (xs!!0) [] []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !related <word> [form] [part-of-speech]") st >> return bot
+                      else return bot
+      | x == "!dict" = case (length xs) of
+          2 -> (dictLookup f (xs!!0) (xs!!1)) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+          1 -> (dictLookup f (xs!!0) []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !dict <word> [part-of-speech]") st >> return bot
       | x == "!closure" = case (length xs) of
-            3 -> (wnClosure wne' (xs!!0) (xs!!1) (xs!!2)) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
-            2 -> (wnClosure wne' (xs!!0) (xs!!1) []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
-            1 -> (wnClosure wne' (xs!!0) [] []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !closure <word> [form] [part-of-speech]") st >> return bot
+          3 -> (wnClosure wne' (xs!!0) (xs!!1) (xs!!2)) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+          2 -> (wnClosure wne' (xs!!0) (xs!!1) []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+          1 -> (wnClosure wne' (xs!!0) [] []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !closure <word> [form] [part-of-speech]") st >> return bot
       | x == "!meet" = case (length xs) of
-            3 -> (wnMeet wne' (xs!!0) (xs!!1) (xs!!2)) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
-            2 -> (wnMeet wne' (xs!!0) (xs!!1) []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !meet <word> <word> [part-of-speech]") st >> return bot
-      | x == "!parse" = case (length xs) of
-            0 -> evalStateT (replyMsg bot chan nick' "Usage: !parse <msg>") st >> return bot
-            _ -> (mapM (\x' -> evalStateT (replyMsg bot chan nick' x') st) $ take 3 (gfParseC pgf' (unwords $ take 12 xs))) >> return bot
+          3 -> (wnMeet wne' (xs!!0) (xs!!1) (xs!!2)) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+          2 -> (wnMeet wne' (xs!!0) (xs!!1) []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !meet <word> <word> [part-of-speech]") st >> return bot
+      | x == "!parse" = if nick' == owner' then case (length xs) of
+          0 -> evalStateT (replyMsg bot chan nick' "Usage: !parse <msg>") st >> return bot
+          _ -> (mapM (\x' -> evalStateT (replyMsg bot chan nick' x') st) $ take 3 (gfParseC pgf' (unwords $ take 12 xs))) >> return bot
+                        else return bot
+      | x == "!related" = case (length xs) of
+          3 -> (wnRelated wne' (xs!!0) (xs!!1) (xs!!2)) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+          2 -> (wnRelated wne' (xs!!0) (xs!!1) []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+          1 -> (wnRelated wne' (xs!!0) [] []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !related <word> [form] [part-of-speech]") st >> return bot
       | x == "!forms"  = case (length xs) of
-            0 -> evalStateT (replyMsg bot chan nick' (concat $ map (++ " ") $ map show allForm)) st >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !forms") st >> return bot
+          0 -> evalStateT (replyMsg bot chan nick' (concat $ map (++ " ") $ map show allForm)) st >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !forms") st >> return bot
       | x == "!parts"  = case (length xs) of
-            0 -> evalStateT (replyMsg bot chan nick' (concat $ map (++ " ") $ map show allPOS)) st >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !parts") st >> return bot
-      | x == "!random" = case (length xs) of
-            1 -> evalStateT (replyMsg bot chan nick' (gfRandom pgf' (read (xs!!0)))) st >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !random <number>") st >> return bot
-      | x == "!gfcats" = case (length xs) of
-            0 -> return (unwords $ gfCategories pgf') >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !gfcats") st >> return bot
-      | x == "!gflin" = case (length xs) of
-            0 -> evalStateT (replyMsg bot chan nick' "Usage: !gflin <msg>") st >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' (gfLin pgf' $ unwords xs)) st >> return bot
-      | x == "!gfshowexpr" = case (length xs) of
-            2 -> evalStateT (replyMsg bot chan nick' (gfShowExpr pgf' (xs!!0) (read(xs!!1)))) st >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !gfshowexpr <type> <num>") st >> return bot
-      | x == "!asreplace" = case (length xs) of
-            0 -> evalStateT (replyMsg bot chan nick' "Usage: !asreplace <msg>") st >> return bot
-            _ -> do ww <- asReplaceWords f xs ; evalStateT (replyMsg bot chan nick' $ unwords ww) st >> return bot
-      | x == "!wnreplace" = case (length xs) of
-            0 -> evalStateT (replyMsg bot chan nick' "Usage: !wnreplace <msg>") st >> return bot
-            _ -> do ww <- wnReplaceWords f True randoms' xs ; evalStateT (replyMsg bot chan nick' $ unwords ww) st >> return bot
-      | x == "!isname" = case (length xs) of
-            1 -> do n <- asIsName aspell' (xs!!0)
-                    evalStateT (replyMsg bot chan nick' (show n)) st
-                    return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !isname <word>") st >> return bot
-      | x == "!isacronym" = case (length xs) of
-            1 -> do n <- asIsAcronym aspell' (xs!!0)
-                    evalStateT (replyMsg bot chan nick' (show n)) st
-                    return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !isacronym <word>") st >> return bot
-      | x == "!test" = if nick' == owner' then
-            evalStateT (replyMsg bot chan nick' (unwords $ map show $ take 750 $ iterate succ (0 :: Int))) st >> return bot
-            else return bot
+          0 -> evalStateT (replyMsg bot chan nick' (concat $ map (++ " ") $ map show allPOS)) st >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !parts") st >> return bot
+      -- | x == "!isname" = case (length xs) of
+      --     1 -> do n <- asIsName aspell' (xs!!0)
+      --             evalStateT (replyMsg bot chan nick' (show n)) st
+      --             return bot
+      --     _ -> evalStateT (replyMsg bot chan nick' "Usage: !isname <word>") st >> return bot
+      -- | x == "!isacronym" = case (length xs) of
+      --     1 -> do n <- asIsAcronym aspell' (xs!!0)
+      --             evalStateT (replyMsg bot chan nick' (show n)) st
+      --             return bot
+      --     _ -> evalStateT (replyMsg bot chan nick' "Usage: !isacronym <word>") st >> return bot
+      -- | x == "!asreplace" = case (length xs) of
+      --     0 -> evalStateT (replyMsg bot chan nick' "Usage: !asreplace <msg>") st >> return bot
+      --     _ -> do ww <- asReplaceWords f xs ; evalStateT (replyMsg bot chan nick' $ unwords ww) st >> return bot
+      -- | x == "!wnreplace" = case (length xs) of
+      --     0 -> evalStateT (replyMsg bot chan nick' "Usage: !wnreplace <msg>") st >> return bot
+      --     _ -> do ww <- wnReplaceWords f True randoms' xs ; evalStateT (replyMsg bot chan nick' $ unwords ww) st >> return bot
+      -- | x == "!random" = case (length xs) of
+      --     1 -> evalStateT (replyMsg bot chan nick' (gfRandom pgf' (read (xs!!0)))) st >> return bot
+      --     _ -> evalStateT (replyMsg bot chan nick' "Usage: !random <number>") st >> return bot
+      -- | x == "!gfcats" = case (length xs) of
+      --     0 -> return (unwords $ gfCategories pgf') >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+      --     _ -> evalStateT (replyMsg bot chan nick' "Usage: !gfcats") st >> return bot
+      -- | x == "!gflin" = case (length xs) of
+      --     0 -> evalStateT (replyMsg bot chan nick' "Usage: !gflin <msg>") st >> return bot
+      --     _ -> evalStateT (replyMsg bot chan nick' (gfLin pgf' $ unwords xs)) st >> return bot
+      -- | x == "!gfshowexpr" = case (length xs) of
+      --     2 -> evalStateT (replyMsg bot chan nick' (gfShowExpr pgf' (xs!!0) (read(xs!!1)))) st >> return bot
+      --     _ -> evalStateT (replyMsg bot chan nick' "Usage: !gfshowexpr <type> <num>") st >> return bot
+      -- | x == "!params" = if nick' == owner' then evalStateT (replyMsg bot chan nick' (init (concat $ map (++ " ")
+      --                                 $ map show $ init allParams))) st >> return bot
+      --                    else return bot
+      -- | x == "!test" = if nick' == owner' then
+      --     evalStateT (replyMsg bot chan nick' (unwords $ map show $ take 750 $ iterate succ (0 :: Int))) st >> return bot
+      --     else return bot
       | otherwise  = if nick' == owner' then evalStateT (replyMsg bot chan nick'
-                       ("Commands: !dict !word !wordlist !insertword !dropword !dropafter "
-                       ++ "!banword !matchword !namelist !name !insertname !isname !isacronym !closure "
-                       ++ "!meet !parse !gfcats !gflin !gfshowexpr !asreplace !wnreplace "
-                       ++ "!related !random !forms !parts !ageword(s) !cleanwords !internalize "
-                       ++ "!params !setparam !showparams !nick !join !part !talk !raw "
-                       ++ "!quit !readfile !load !save")) st >> return bot
-                     else evalStateT (replyMsg bot chan nick' ("Commands: !dict !word !wordlist !name "
-                       ++ "!closure !meet !parse !related !random !forms !parts")) st >> return bot
+          ("Commands: !word !wordlist !insertword !name !namelist !insertname "
+          ++ "!dropword !dropafter !ageword(s) !cleanwords !internalize "
+          ++ "!banword !matchword "
+          ++ "!dict !closure !meet !parse !related !forms !parts "
+          ++ "!setparam !showparams !nick !join !part !talk !raw !quit !readfile !load !save")) st >> return bot
+                     else evalStateT (replyMsg bot chan nick'
+          ("Commands: !word !wordlist !name !namelist "
+          ++ "!dict !closure !meet !related !forms !parts ")) st >> return bot
     execCmd' bot _ = return bot
 
 sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> Bool -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
