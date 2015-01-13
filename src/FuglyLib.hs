@@ -281,7 +281,7 @@ loadDict fuglydir topic = do
                     ff h ww nm
 
 qWords :: [String]
-qWords = ["am", "are", "can", "do", "does", "if", "is", "want", "what", "when", "where", "who", "why", "will"]
+qWords = ["am", "are", "can", "did", "do", "does", "if", "is", "want", "what", "when", "where", "who", "why", "will"]
 
 badEndWords :: [String]
 badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "for", "from", "go", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "was", "we", "what", "when", "which", "with", "who", "whose", "you", "your", "you're", "you've"]
@@ -290,15 +290,17 @@ sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
 
 insertWords :: (MVar ()) -> Fugly -> Bool -> [String] -> IO (Map.Map String Word)
-insertWords _ (Fugly{dict=d}) _ []        = return d
-insertWords st fugly autoname [x]         = insertWord st fugly autoname x [] [] []
-insertWords st fugly autoname msg@(x:y:_) =
+insertWords _ (Fugly{dict=d}) _ [] = return d
+insertWords st fugly autoname [x]  = insertWord st fugly autoname x [] [] []
+insertWords st fugly@(Fugly{dict=dict', ban=ban'}) autoname msg =
   case (len) of
-    2 -> do ff <- insertWord st fugly autoname x [] y []
-            insertWord st fugly{dict=ff} autoname y x [] []
-    _ -> insertWords' st fugly autoname 0 len msg
+    0 -> return dict'
+    2 -> do ff <- insertWord st fugly autoname mx [] my []
+            insertWord st fugly{dict=ff} autoname my mx [] []
+    _ -> insertWords' st fugly autoname 0 len mmsg
   where
-    len = length msg
+    mmsg@(mx:my:_) = (\\) msg ban'
+    len = length mmsg
     insertWords' _ (Fugly{dict=d}) _ _ _ [] = return d
     insertWords' st' f@(Fugly{dict=d}) a i l m
       | i == 0     = do ff <- insertWord st' f a (m!!i) [] (m!!(i+1)) []
@@ -318,30 +320,44 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word'
     ac  <- asIsAcronym aspell' word'
     acb <- asIsAcronym aspell' before'
     aca <- asIsAcronym aspell' after'
-    if elem word' ban' || elem before' ban' || elem after' ban' then return dict'
-      else if (length word' == 1 || length word' == 2) && (not $ elem (map toLower word') sWords) ||
-              (length before' == 1 || length before' == 2) && (not $ elem (map toLower before') sWords) ||
-              (length after' == 1 || length after' == 2) && (not $ elem (map toLower after') sWords) then return dict'
-        else if isJust w then f st nb na acb aca $ fromJust w
-          else if ac && autoname then insertAcroRaw' st fugly wa (map toUpper $ cleanString word') (bi nb acb) (ai na aca) []
-            else if n && autoname then insertNameRaw' st fugly wn (toUpperWord $ cleanString word') (bi nb acb) (ai na aca) False
-              else if isJust ww then insertWordRaw' st fugly ww (map toLower $ cleanString word') (bi nb acb) (ai na aca) pos'
-                else insertWordRaw' st fugly w (map toLower $ cleanString word') (bi nb acb) (ai na aca) pos'
+    if (length word' == 1 || length word' == 2) && (not $ elem (map toLower word') sWords) then return dict'
+      else if isJust w then f st nb na acb aca $ fromJust w
+        else if ac && autoname then
+                if elem (acroword word') ban' then return dict'
+                else insertAcroRaw' st fugly wa (acroword word') (bi nb acb) (ai na aca) []
+          else if n && autoname then
+                  if elem (upperword word') ban' then return dict'
+                  else insertNameRaw' st fugly wn (upperword word') (bi nb acb) (ai na aca) False
+            else if isJust ww then insertWordRaw' st fugly ww (lowerword word') (bi nb acb) (ai na aca) pos'
+              else insertWordRaw' st fugly w (lowerword word') (bi nb acb) (ai na aca) pos'
   where
-    w = Map.lookup word' dict'
-    wa = Map.lookup (map toUpper $ cleanString word') dict'
-    wn = Map.lookup (toUpperWord $ cleanString word') dict'
-    ww = Map.lookup (map toLower $ cleanString word') dict'
-    a = Map.lookup after' dict'
-    b = Map.lookup before' dict'
+    lowerword = map toLower . cleanString
+    upperword = toUpperWord . cleanString
+    acroword  = map toUpper . cleanString
+    w  = Map.lookup word'     dict'
+    wa = Map.lookup (acroword  word') dict'
+    wn = Map.lookup (upperword word') dict'
+    ww = Map.lookup (lowerword word') dict'
+    a  = Map.lookup after'    dict'
+    b  = Map.lookup before'   dict'
     ai an aa = if isJust a then after'
-               else if an && autoname then toUpperWord $ cleanString after'
-                    else if aa && autoname then map toUpper $ cleanString after'
-                         else map toLower $ cleanString after'
+               else if (length after' == 1 || length after' == 2) && (not $ elem (map toLower after') sWords) then []
+                    else if aa && autoname then
+                           if elem (acroword after') ban' then []
+                           else acroword after'
+                         else if an && autoname then
+                                if elem (upperword after') ban' then []
+                                else upperword after'
+                              else lowerword after'
     bi bn ba = if isJust b then before'
-               else if bn && autoname then toUpperWord $ cleanString before'
-                    else if ba && autoname then map toUpper $ cleanString before'
-                         else map toLower $ cleanString before'
+               else if (length before' == 1 || length before' == 2) && (not $ elem (map toLower before') sWords) then []
+                    else if ba && autoname then
+                           if elem (acroword before') ban' then []
+                           else acroword before'
+                         else if bn && autoname then
+                                if elem (upperword before') ban' then []
+                                else upperword before'
+                              else lowerword before'
     f st' bn an ba aa (Word{})    = insertWordRaw' st' fugly w word' (bi bn ba) (ai an aa) pos'
     f st' bn an ba aa (Name{})    = insertNameRaw' st' fugly w word' (bi bn ba) (ai an aa) False
     f st' bn an ba aa (Acronym{}) = insertAcroRaw' st' fugly w word' (bi bn ba) (ai an aa) []
@@ -750,6 +766,7 @@ wnGloss wne' word' pos' = do
       return $ unwords result
 
 wnRelated :: WordNetEnv -> String -> String -> String -> IO String
+wnRelated _    []    _    _    = return []
 wnRelated wne' word' []   _    = wnRelated wne' word' "Hypernym" []
 wnRelated wne' word' form []   = do
     wnPos <- wnPartString wne' (fixUnderscore word')
@@ -762,7 +779,7 @@ wnRelated wne' word' form pos' = do
     f (x:xs) a = f xs (x ++ " " ++ a)
 
 wnRelated' :: WordNetEnv -> String -> String -> EPOS -> IO [String]
-wnRelated' _ [] _ _             = return [[]] :: IO [String]
+wnRelated' _    []    _    _    = return [[]] :: IO [String]
 wnRelated' wne' word' form pos' = catch (do
     let wnForm = readForm form
     s <- runs wne' $ search (fixUnderscore word') (fromEPOS pos') AllSenses
@@ -777,7 +794,7 @@ wnRelated' wne' word' form pos' = catch (do
                             (\e -> return (e :: SomeException) >> return [])
 
 wnClosure :: WordNetEnv -> String -> String -> String -> IO String
-wnClosure _ [] _ _           = return []
+wnClosure _    []    _    _  = return []
 wnClosure wne' word' []   _  = wnClosure wne' word' "Hypernym" []
 wnClosure wne' word' form [] = do
     wnPos <- wnPartString wne' (fixUnderscore word')
