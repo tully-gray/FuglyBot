@@ -724,7 +724,7 @@ execCmd b chan nick' (x:xs) = do
 sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> Bool -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
 sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rwords' rand stries' slen plen m = forkIO (do
     num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
-    let num = if num' - 4 < 1 || stries < 4 then 1 else num' - 4
+    let num = if num' - 4 < 1 || stries' < 4 then 1 else num' - 4
     bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
     x <- f ((sentence (snd st) fugly' rwords' rand stries' slen plen m) ++ [gf []]) [] num 0
     let ww = unwords x
