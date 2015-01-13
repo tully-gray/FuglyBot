@@ -293,7 +293,7 @@ changeParam bot@(Bot{sock=s, params=p@(Parameter{nick=botnick, owner=owner', fug
       UserCommands   -> replyMsg' (readBool value)      "User commands"       >>= (\x -> return bot{params=p{usercmd=x}})
       RejoinKick     -> replyMsg' (readInt 1 4096 value) "Rejoin kick time"   >>= (\x -> return bot{params=p{rejoinkick=x}})
       MaxChanMsg     -> replyMsg' (readInt 9 450 value) "Max channel message" >>= (\x -> return bot{params=p{maxchanmsg=x}})
-      SentenceTries  -> replyMsg' (readInt 5 4096 value) "Sentence tries"     >>= (\x -> return bot{params=p{stries=x}})
+      SentenceTries  -> replyMsg' (readInt 1 4096 value) "Sentence tries"     >>= (\x -> return bot{params=p{stries=x}})
       SentenceLength -> replyMsg' (readInt 2 256 value) "Sentence length"     >>= (\x -> return bot{params=p{slength=x}})
       ParseLength    -> replyMsg' (readInt 0 256 value) "Parse length"        >>= (\x -> return bot{params=p{plength=x}})
       Learning       -> replyMsg' (readBool value)     "Learning"             >>= (\x -> return bot{params=p{learning=x}})
@@ -723,14 +723,11 @@ execCmd b chan nick' (x:xs) = do
 
 sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> Bool -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
 sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rwords' rand stries' slen plen m = forkIO (do
-    num' <- Random.getStdRandom (Random.randomR (1, 5 :: Int)) :: IO Int
-    let num = if num' - 2 < 1 then 1 else num' - 2
+    num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
+    let num = if num' - 4 < 1 || stries < 4 then 1 else num' - 4
     bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
-    r <- gfRandom2 pgf'
-    let rr = filter (\x -> x =~ "NP") $ words r
-    x1 <- f ((sentence (snd st) fugly' rwords' rand stries' slen plen m) ++ [return r]) [] num 0
-    x2 <- f ((sentence (snd st) fugly' rwords' rand stries' slen plen m)) [] num 0
-    let ww = unwords $ if rr == (\\) rr (words r) then x1 else x2
+    x <- f ((sentence (snd st) fugly' rwords' rand stries' slen plen m) ++ [gf []]) [] num 0
+    let ww = unwords x
     evalStateT (do if null ww then return ()
                      else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
                                              hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
@@ -739,6 +736,12 @@ sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rwords' rand stries' slen
                                else hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww) ++ "\r") >>
                                     hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww))) st)
   where
+    gf :: String -> IO String
+    gf [] = do
+      r <- gfRandom2 pgf'
+      let rr = filter (\x -> x =~ "NP") $ words r
+      gf (if rr == (\\) rr (words r) then r else [])
+    gf msg = return msg
     f :: [IO String] -> [String] -> Int -> Int -> IO [String]
     f []     a _ _ = return a
     f (x:xs) a n i = do
