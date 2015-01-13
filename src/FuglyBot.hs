@@ -533,14 +533,16 @@ execCmd b chan nick' (x:xs) = do
                     evalStateT (replyMsg bot chan nick' ("Inserted name " ++ (xs!!0) ++ ".")) st >> return bot{fugly=f{dict=ww}}
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertname <name>") st >> return bot
                              else return bot
-      | x == "!insertacronym" = if nick' == owner' then case (length xs) of
-          2 -> do ww <- insertAcroRaw (snd st) f (xs!!0) [] [] (xs!!1)
-                  if isJust $ Map.lookup (xs!!0) dict' then
-                    evalStateT (replyMsg bot chan nick' ("Acronym " ++ (xs!!0) ++ " already in dict.")) st >> return bot
-                    else
-                    evalStateT (replyMsg bot chan nick' ("Inserted acronym " ++ (xs!!0) ++ ".")) st >> return bot{fugly=f{dict=ww}}
-          _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertacronym <acronym>") st >> return bot
-                             else return bot
+      | x == "!insertacronym" = if nick' == owner' then
+            if length xs > 1 then do
+              ww <- insertAcroRaw (snd st) f (xs!!0) [] [] (unwords $ tail xs)
+              if isJust $ Map.lookup (xs!!0) dict' then
+                evalStateT (replyMsg bot chan nick' ("Acronym " ++ (xs!!0) ++ " already in dict.")) st >> return bot
+                else
+                evalStateT (replyMsg bot chan nick' ("Inserted acronym " ++ (xs!!0) ++ ".")) st >> return bot{fugly=f{dict=ww}}
+              else
+              evalStateT (replyMsg bot chan nick' "Usage: !insertacronym <acronym> <definition>") st >> return bot
+                                else return bot
       | x == "!dropword" = if nick' == owner' then case (length xs) of
           1 -> if isJust $ Map.lookup (xs!!0) dict' then
                  evalStateT (replyMsg bot chan nick' ("Dropped word " ++ (xs!!0) ++ ".")) st >>
