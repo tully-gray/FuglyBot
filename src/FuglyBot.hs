@@ -676,16 +676,16 @@ execCmd b chan nick' (x:xs) = do
       | x == "!parts"  = case (length xs) of
           0 -> evalStateT (replyMsg bot chan nick' (concat $ map (++ " ") $ map show allPOS)) st >> return bot
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !parts") st >> return bot
-      -- | x == "!isname" = case (length xs) of
-      --     1 -> do n <- asIsName aspell' (xs!!0)
-      --             evalStateT (replyMsg bot chan nick' (show n)) st
-      --             return bot
-      --     _ -> evalStateT (replyMsg bot chan nick' "Usage: !isname <word>") st >> return bot
-      -- | x == "!isacronym" = case (length xs) of
-      --     1 -> do n <- asIsAcronym aspell' (xs!!0)
-      --             evalStateT (replyMsg bot chan nick' (show n)) st
-      --             return bot
-      --     _ -> evalStateT (replyMsg bot chan nick' "Usage: !isacronym <word>") st >> return bot
+      | x == "!isname" = case (length xs) of
+          1 -> do n <- asIsName aspell' (xs!!0)
+                  evalStateT (replyMsg bot chan nick' (show n)) st
+                  return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !isname <word>") st >> return bot
+      | x == "!isacronym" = case (length xs) of
+          1 -> do n <- asIsAcronym aspell' (xs!!0)
+                  evalStateT (replyMsg bot chan nick' (show n)) st
+                  return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !isacronym <word>") st >> return bot
       -- | x == "!asreplace" = case (length xs) of
       --     0 -> evalStateT (replyMsg bot chan nick' "Usage: !asreplace <msg>") st >> return bot
       --     _ -> do ww <- asReplaceWords f xs ; evalStateT (replyMsg bot chan nick' $ unwords ww) st >> return bot
@@ -714,11 +714,11 @@ execCmd b chan nick' (x:xs) = do
           ("Commands: !word !wordlist !insertword !name !namelist !insertname !acronym !acronymlist !insertacronym "
           ++ "!dropword !dropafter !ageword(s) !cleanwords !internalize "
           ++ "!banword !matchword "
-          ++ "!dict !closure !meet !parse !related !forms !parts "
+          ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
           ++ "!setparam !showparams !nick !join !part !talk !raw !quit !readfile !load !save")) st >> return bot
                      else evalStateT (replyMsg bot chan nick'
           ("Commands: !word !wordlist !name !namelist "
-          ++ "!dict !closure !meet !related !forms !parts ")) st >> return bot
+          ++ "!dict !closure !meet !related !forms !parts !isname !isacronym")) st >> return bot
     execCmd' bot _ = return bot
 
 sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> Bool -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
