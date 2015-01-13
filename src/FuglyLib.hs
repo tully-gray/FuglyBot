@@ -817,6 +817,8 @@ wnMeet w c d e  = do
 
 asIsName :: Aspell.SpellChecker -> String -> IO Bool
 asIsName _       []    = return False
+asIsName _       "i"   = return True
+asIsName _       "I"   = return True
 asIsName aspell' word' = do
     let l = map toLower word'
     let u = toUpperWord l
@@ -959,7 +961,7 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', aspell=aspell', ban=ban'}) rwords
   let s1d x = do
       w <- x
       if null w then return []
-        else return ((replace "i" "I" (init w)) ++ ((cleanString $ fLast [] w) ++
+        else return ((init w) ++ ((cleanString $ fLast [] w) ++
                       if elem (map toLower $ head w) qWords then "?" else ".") : [])
   let s1e x = do
       w <- x
