@@ -851,13 +851,15 @@ asIsAcronym :: Aspell.SpellChecker -> String -> IO Bool
 asIsAcronym _       []    = return False
 asIsAcronym _      (_:[]) = return False
 asIsAcronym aspell' word' = do
+    let n = ["who"]
     let a = [toLower $ head word'] ++ (tail $ map toUpper word')
     let u = map toUpper word'
     na <- asSuggest aspell' a
-    return $ if u == word' && null na then True
-             else if (length $ words na) > 2 && word' == (words na)!!1 || elem word' sWords then False
-               else if (not $ null na) && u == (words na)!!0 then True
-                    else False
+    return $ if elem (map toLower word') n && (not $ word' == u) then False
+             else if u == word' && null na then True
+                  else if (length $ words na) > 2 && word' == (words na)!!1 || elem word' sWords then False
+                       else if (not $ null na) && u == (words na)!!0 then True
+                            else False
 
 dictLookup :: Fugly -> String -> String -> IO String
 dictLookup (Fugly _ _ wne' aspell' _ _) word' pos' = do
