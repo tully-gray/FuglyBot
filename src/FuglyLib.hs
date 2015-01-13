@@ -318,8 +318,7 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word'
     ac  <- asIsAcronym aspell' word'
     acb <- asIsAcronym aspell' before'
     aca <- asIsAcronym aspell' after'
-    if elem (map toLower word') ban' || elem (map toLower before') ban' ||
-       elem (map toLower after') ban' then return dict'
+    if elem word' ban' || elem before' ban' || elem after' ban' then return dict'
       else if (length word' == 1 || length word' == 2) && (not $ elem (map toLower word') sWords) ||
               (length before' == 1 || length before' == 2) && (not $ elem (map toLower before') sWords) ||
               (length after' == 1 || length after' == 2) && (not $ elem (map toLower after') sWords) then return dict'
@@ -1013,18 +1012,19 @@ chooseWord msg = do
 wnReplaceWords :: Fugly -> Bool -> Int -> [String] -> IO [String]
 wnReplaceWords _ _     _ []  = return []
 wnReplaceWords _ False _ msg = return msg
-wnReplaceWords fugly@(Fugly {wne=wne'}) True randoms msg = do
+wnReplaceWords fugly@(Fugly{wne=wne', ban=ban'}) True randoms msg = do
   cw <- chooseWord msg
   cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
   rr <- Random.getStdRandom (Random.randomR (0, 99))
-  w <- if not $ null cw then findRelated wne' (cw!!cr) else return []
-  let out = filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++ [w] ++ (tail $ dropWhile (/= (cw!!cr)) msg))
+  w <- findRelated wne' (cw!!cr)
+  let ww = if elem w ban' then cw!!cr else w
   if randoms == 0 then
     return msg
     else if randoms == 100 then
       mapM (\x -> findRelated wne' x) msg
       else if rr + 20 < randoms then
-        wnReplaceWords fugly True randoms out
+        wnReplaceWords fugly True randoms $ filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++
+                                                                 [ww] ++ (tail $ dropWhile (/= (cw!!cr)) msg))
         else
           return msg
 
