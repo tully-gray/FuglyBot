@@ -17,6 +17,7 @@ module FuglyLib
          ageWord,
          ageWords,
          fixWords,
+         numWords,
          listWords,
          listWordFull,
          listWordsCountSort,
@@ -557,6 +558,9 @@ incAfter' w after' n =
   where
     a  = wordGetAfter w
     w' = Map.lookup after' a
+
+numWords :: Word_ a => Map.Map k a -> String -> Int
+numWords m t = length $ filter (\x -> wordIs x == t) $ Map.elems m
 
 listNeigh :: Map.Map String Int -> [String]
 listNeigh m = [w | (w, _) <- Map.toList m]

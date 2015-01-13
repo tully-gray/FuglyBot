@@ -507,15 +507,16 @@ execCmd b chan nick' (x:xs) = do
           2 -> evalStateT (changeParam bot chan nick' (xs!!0) (xs!!1)) st
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !setparam <parameter> <value>") st >> return bot
                            else return bot
-      | x == "!word" = case (length xs) of
+      | x == "!word" || x == "!name" || x == "!acronym" = case (length xs) of
           1 -> evalStateT (replyMsg bot chan nick' (listWordFull dict' (xs!!0))) st >> return bot
-          _ -> evalStateT (replyMsg bot chan nick' "Usage: !word <word>") st >> return bot
-      | x == "!wordlist" =
+          _ -> evalStateT (replyMsg bot chan nick' ("Usage: " ++ x ++ " <" ++ (tail x) ++ ">")) st >> return bot
+      | x == "!wordlist" || x == "!namelist" || x == "!acronymlist" =
           let num = if read (xs!!0) > (100 :: Int) then 100 :: Int else read (xs!!0) in
           case (length xs) of
-            1 -> evalStateT (replyMsg bot chan nick' (unwords $ listWordsCountSort dict' num "word") >>
-                   replyMsg bot chan nick' ("Total word count: " ++ (show $ Map.size dict'))) st >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !wordlist <number>") st >> return bot
+            1 -> evalStateT (replyMsg bot chan nick' (unwords $ listWordsCountSort dict' num (x =~ "word|name|acronym")) >>
+                   replyMsg bot chan nick' ("Total " ++ (x =~ "word|name|acronym") ++ " count: " ++
+                                            (show $ numWords dict' (x =~ "word|name|acronym")))) st >> return bot
+            _ -> evalStateT (replyMsg bot chan nick' ("Usage: " ++ x ++ " <number>")) st >> return bot
       | x == "!insertword" = if nick' == owner' then case (length xs) of
           2 -> do ww <- insertWordRaw (snd st) f (xs!!1) [] [] (xs!!0)
                   if isJust $ Map.lookup (xs!!1) dict' then
@@ -524,16 +525,6 @@ execCmd b chan nick' (x:xs) = do
                     evalStateT (replyMsg bot chan nick' ("Inserted word " ++ (xs!!1) ++ ".")) st >> return bot{fugly=f{dict=ww}}
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertword <pos> <word>") st >> return bot
                              else return bot
-      | x == "!name" = case (length xs) of
-          1 -> evalStateT (replyMsg bot chan nick' (listWordFull dict' (xs!!0))) st >> return bot
-          _ -> evalStateT (replyMsg bot chan nick' "Usage: !name <name>") st >> return bot
-      | x == "!namelist" = let num = if read (xs!!0) > (100 :: Int) then 100 :: Int else read (xs!!0) in
-          case (length xs) of
-            1 -> evalStateT (replyMsg bot chan nick' (unwords $ listWordsCountSort dict' num "name")) st
-                 >> evalStateT (replyMsg bot chan nick' ("Total name count: " ++ (show $ length $
-                                             filter (\x' -> wordIs x' == "name") $ Map.elems dict'))) st
-                 >> return bot
-            _ -> evalStateT (replyMsg bot chan nick' "Usage: !namelist <number>") st >> return bot
       | x == "!insertname" = if nick' == owner' then case (length xs) of
           1 -> do ww <- insertNameRaw (snd st) f (xs!!0) [] [] True
                   if isJust $ Map.lookup (xs!!0) dict' then
@@ -541,6 +532,14 @@ execCmd b chan nick' (x:xs) = do
                     else
                     evalStateT (replyMsg bot chan nick' ("Inserted name " ++ (xs!!0) ++ ".")) st >> return bot{fugly=f{dict=ww}}
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertname <name>") st >> return bot
+                             else return bot
+      | x == "!insertacronym" = if nick' == owner' then case (length xs) of
+          2 -> do ww <- insertAcroRaw (snd st) f (xs!!0) [] [] (xs!!1)
+                  if isJust $ Map.lookup (xs!!0) dict' then
+                    evalStateT (replyMsg bot chan nick' ("Acronym " ++ (xs!!0) ++ " already in dict.")) st >> return bot
+                    else
+                    evalStateT (replyMsg bot chan nick' ("Inserted acronym " ++ (xs!!0) ++ ".")) st >> return bot{fugly=f{dict=ww}}
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !insertacronym <acronym>") st >> return bot
                              else return bot
       | x == "!dropword" = if nick' == owner' then case (length xs) of
           1 -> if isJust $ Map.lookup (xs!!0) dict' then
@@ -710,7 +709,7 @@ execCmd b chan nick' (x:xs) = do
       --     evalStateT (replyMsg bot chan nick' (unwords $ map show $ take 750 $ iterate succ (0 :: Int))) st >> return bot
       --     else return bot
       | otherwise  = if nick' == owner' then evalStateT (replyMsg bot chan nick'
-          ("Commands: !word !wordlist !insertword !name !namelist !insertname "
+          ("Commands: !word !wordlist !insertword !name !namelist !insertname !acronym !acronymlist !insertacronym "
           ++ "!dropword !dropafter !ageword(s) !cleanwords !internalize "
           ++ "!banword !matchword "
           ++ "!dict !closure !meet !parse !related !forms !parts "
