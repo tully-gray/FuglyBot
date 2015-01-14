@@ -676,7 +676,7 @@ fixUnderscore = strip '"' . replace ' ' '_'
 
 toUpperWord :: String -> String
 toUpperWord [] = []
-toUpperWord w = (toUpper $ fHeadUnsafe "toUpperWord" ' '  w) : tail w
+toUpperWord w = (toUpper $ fHead ' '  w) : tail w
 
 toUpperLast :: String -> String
 toUpperLast [] = []
@@ -689,7 +689,7 @@ toUpperSentence (x:xs) = toUpperWord x : xs
 
 endSentence :: [String] -> [String]
 endSentence []  = []
-endSentence msg = (init msg) ++ ((fLastUnsafe "endSentence" [] msg) ++ if elem (fHeadUnsafe "endSentence" [] msg) qWords then "?" else ".") : []
+endSentence msg = (init msg) ++ ((fLast [] msg) ++ if elem (fHead [] msg) qWords then "?" else ".") : []
 
 fHead :: a -> [a] -> a
 fHead b [] = b
