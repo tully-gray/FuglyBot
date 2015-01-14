@@ -979,7 +979,7 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', aspell=aspell', ban=ban'}) rwords
   let s1d x = do
       w <- x
       if null w then return []
-        else return ((init w) ++ ((cleanString $ fLast [] w) ++
+        else return ((init w) ++ ((fLast [] w) ++
                       if elem (map toLower $ head w) qWords then "?" else ".") : [])
   let s1e x = do
       w <- x
@@ -1069,7 +1069,7 @@ asReplace (Fugly dict' _ wne' aspell' _ _) word' = do
 
 findNextWord :: Fugly -> Int -> Int -> Bool -> String -> IO [String]
 findNextWord _ _ _ _ [] = return []
-findNextWord (Fugly {dict=dict'}) i randoms prev word' = do
+findNextWord (Fugly {dict=dict', wne=wne'}) i randoms prev word' = do
   let ln = if isJust w then length neigh else 0
   let lm = if isJust w then length neighmax else 0
   let ll = if isJust w then length neighleast else 0
@@ -1099,11 +1099,17 @@ findNextWord (Fugly {dict=dict'}) i randoms prev word' = do
         _ -> []
            else []
   let f5 = if isJust w && length neigh > 0 then neighmax!!mr else []
-  if randoms > 89 then return $ words f1 else
-    if rr < randoms - 25 then return $ words f2 else
-      if rr < randoms + 35 then return $ words f3 else
-        if rr < randoms + 65 then return $ words f4 else
-          return $ words f5
+  let out = if randoms > 89 then words f1 else
+              if rr < randoms - 25 then words f2 else
+                if rr < randoms + 35 then words f3 else
+                  if rr < randoms + 65 then words f4 else
+                    words f5
+  if not $ null out then do
+    pp <- wnPartPOS wne' word'
+    po <- wnPartPOS wne' $ head out
+    if pp == POS Noun && (po == POS Noun || po == POS Adj || head out == "the" || head out == "a") && i > 1 then
+       return ([", " ++ (head out)] ++ (tail out)) else return out
+    else return []
     where
       w          = Map.lookup word' dict'
       wordGet'   = if prev then wordGetBefore else wordGetAfter
