@@ -321,7 +321,7 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word'
     acb <- asIsAcronym aspell' before'
     aca <- asIsAcronym aspell' after'
     if (length word' == 1 || length word' == 2) && (not $ elem (map toLower word') sWords) then return dict'
-      else if isJust w then f st nb na acb aca $ fromJust w
+      else if isJust w then do evalStateT (hPutStrLnLock stderr ("> debug: insertWord: " ++ word')) st >> (f st nb na acb aca $ fromJust w)
         else if ac && autoname then
                 if elem (acroword word') ban' then return dict'
                 else insertAcroRaw' st fugly wa (acroword word') (bi nb acb) (ai na aca) []
@@ -358,9 +358,9 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word'
                                 if elem (upperword before') ban' then []
                                 else upperword before'
                               else lowerword before'
-    f st' bn an ba aa (Word{})    = insertWordRaw' st' fugly w word' (bi bn ba) (ai an aa) pos'
-    f st' bn an ba aa (Name{})    = insertNameRaw' st' fugly w word' (bi bn ba) (ai an aa) False
-    f st' bn an ba aa (Acronym{}) = insertAcroRaw' st' fugly w word' (bi bn ba) (ai an aa) []
+    f st' bn an ba aa (Word{})    = insertWordRaw' st' fugly w  word'             (bi bn ba) (ai an aa) pos'
+    f st' bn an ba aa (Name{})    = insertNameRaw' st' fugly wn (upperword word') (bi bn ba) (ai an aa) False
+    f st' bn an ba aa (Acronym{}) = insertAcroRaw' st' fugly wa (acroword word')  (bi bn ba) (ai an aa) []
 
 insertWordRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWordRaw st f@(Fugly{dict=d}) w b a p = insertWordRaw' st f (Map.lookup w d) w b a p
