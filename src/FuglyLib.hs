@@ -952,7 +952,7 @@ gfAll pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 15 $ w
 
 sentence :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ _ _ _ _ [] = [return []] :: [IO String]
-sentence st fugly@(Fugly{dict=dict', pgf=pgf', aspell=aspell', ban=ban'}) rwords randoms stries slen plen msg = do
+sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', ban=ban'}) rwords randoms stries slen plen msg = do
   let s1f x = if null x then return []
               else if gfParseBool pgf' plen x && length (words x) > 2 then return x
                    else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
@@ -979,13 +979,12 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', aspell=aspell', ban=ban'}) rwords
   let s1d x = do
       w <- x
       if null w then return []
-        else return ((init w) ++ ((fLast [] w) ++
-                      if elem (map toLower $ head w) qWords then "?" else ".") : [])
+        else return (init w ++ (last w ++ if elem (map toLower $ head w) qWords then "?" else ".") : [])
   let s1e x = do
       w <- x
       if null w then return []
-        else return ([s1c w] ++ fTail [] w)
-  let s1g = map (\x -> do y <- x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
+        else return ([s1c w] ++ tail w)
+  let s1g = map (\x -> do y <- s1j x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
   map (\x -> do y <- x ; s1f y) s1g
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
@@ -998,6 +997,27 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', aspell=aspell', ban=ban'}) rwords
     s1c :: [String] -> String
     s1c [] = []
     s1c w = [toUpper $ head $ head w] ++ (fTail [] $ head w)
+    s1j :: IO [String] -> IO [String]
+    s1j w = do
+      w' <- w
+      let x  = fHead [] w'
+      let xs = fTail [] w'
+      let y  = fHead [] xs
+      px <- wnPartPOS wne' x
+      py <- wnPartPOS wne' y
+      if length xs < 1 then w
+        else if (x == "and" || x == "or" || x == "the" || x == "a" || x == "with" || x == "from") then do
+          xs' <- s1j $ return xs
+          return (x : xs')
+          else if px == POS Noun && (py == POS Noun || py == POS Adj) then do
+            xs' <- s1j $ return xs
+            return ((x ++ ",") : xs')
+            else if (y == "the" || y == "a") then do
+              xs' <- s1j $ return xs
+              return ((x ++ ",") : xs')
+              else do
+                xs' <- s1j $ return xs
+                return (x : xs')
     s1m :: String -> IO Bool
     s1m [] = return False
     s1m w = do
@@ -1057,7 +1077,7 @@ asReplace _ [] = return []
 asReplace (Fugly dict' _ wne' aspell' _ _) word' = do
   n  <- asIsName aspell' word'
   ac <- asIsAcronym aspell' word'
-  if (elem ' ' word') || (elem '\'' word') || (head word' == (toUpper $ head word')) || n || ac then return word'
+  if (elem ' ' word') || (elem '\'' word') || word' == (toUpperWord word') || n || ac then return word'
     else do
     a <- asSuggest aspell' word'
     p <- wnPartPOS wne' word'
@@ -1065,7 +1085,7 @@ asReplace (Fugly dict' _ wne' aspell' _ _) word' = do
     let rw = words a
     rr <- Random.getStdRandom (Random.randomR (0, (length rw) - 1))
     if null rw || p /= UnknownEPos || isJust w then return word' else
-      if head rw == word' then return word' else return (rw!!rr)
+      if head rw == word' then return word' else return $ map toLower (rw!!rr)
 
 findNextWord :: Fugly -> Int -> Int -> Bool -> String -> IO [String]
 findNextWord _ _ _ _ [] = return []
