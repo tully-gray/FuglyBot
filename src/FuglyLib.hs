@@ -44,6 +44,7 @@ module FuglyLib
          gfRandom2,
          gfAll,
          sentence,
+         insertCommas,
          chooseWord,
          findRelated,
          joinWords,
@@ -952,8 +953,8 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', ban=ban
       w <- x
       if null w then return []
         else return ([s1c w] ++ tail w)
-  let s1g = map (\x -> do y <- s1j 0 x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
-  {-- let s1g = map (\x -> do y <- x ; z <- s1j 0 $ return y ; evalStateT (hPutStrLnLock stderr ("> debug: pre-comma: " ++ unwords y ++ "\n> debug: post-comma: " ++ unwords z)) st ; return $ dePlenk $ unwords z) (map (s1e . s1d . s1a) (msg ++ sWords)) --}
+  let s1g = map (\x -> do y <- insertCommas wne' 0 x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
+  {-- let s1g = map (\x -> do y <- x ; z <- insertCommas wne' 0 $ return y ; evalStateT (hPutStrLnLock stderr ("> debug: pre-comma: " ++ unwords y ++ "\n> debug: post-comma: " ++ unwords z)) st ; return $ dePlenk $ unwords z) (map (s1e . s1d . s1a) (msg ++ sWords)) --}
   map (\x -> do y <- x ; s1f y) s1g
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
@@ -966,31 +967,6 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', ban=ban
     s1c :: [String] -> String
     s1c [] = []
     s1c w = [toUpper $ head $ head w] ++ (fTail [] $ head w)
-    s1j :: Int -> IO [String] -> IO [String]
-    s1j i w = do
-      w' <- w
-      let x  = fHead [] w'
-      let xs = fTail [] w'
-      let y  = fHead [] xs
-      let bad = ["a", "an", "and", "as", "from", "had", "has", "I", "is", "or", "that", "the", "this", "very", "was", "with"]
-      px <- wnPartPOS wne' x
-      py <- wnPartPOS wne' y
-      if length xs < 1 then w
-        else if (elem x bad) || i < 3 then do
-          xs' <- s1j (i + 1) $ return xs
-          return (x : xs')
-          else if px == POS Noun && (py == POS Noun || py == POS Adj) then do
-            xs' <- s1j 0 $ return xs
-            return ((x ++ ", or") : xs')
-            else if (y == "a" || y == "the" || y == "then") then do
-              xs' <- s1j 0 $ return xs
-              return ((x ++ ",") : xs')
-              else if px == POS Adj && py == POS Adj then do
-                xs' <- s1j 0 $ return xs
-                return ((x ++ ",") : xs')
-                else do
-                  xs' <- s1j (i + 1) $ return xs
-                  return (x : xs')
     s1m :: String -> IO Bool
     s1m [] = return False
     s1m w = do
@@ -1003,6 +979,32 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', ban=ban
       n <- asIsName aspell' w
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "name" else n
+
+insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
+insertCommas wne' i w = do
+  w' <- w
+  let x  = fHead [] w'
+  let xs = fTail [] w'
+  let y  = fHead [] xs
+  let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "I", "is", "or", "that", "the", "this", "very", "was", "with"]
+  px <- wnPartPOS wne' x
+  py <- wnPartPOS wne' y
+  if length xs < 1 then w
+    else if (elem x bad) || i < 3 then do
+    xs' <- insertCommas wne' (i + 1) $ return xs
+    return (x : xs')
+         else if px == POS Noun && (py == POS Noun || py == POS Adj) then do
+           xs' <- insertCommas wne' 0 $ return xs
+           return ((x ++ ", or") : xs')
+              else if (y == "a" || y == "the" || y == "then") then do
+                xs' <- insertCommas wne' 0 $ return xs
+                return ((x ++ ",") : xs')
+                   else if px == POS Adj && py == POS Adj then do
+                     xs' <- insertCommas wne' 0 $ return xs
+                     return ((x ++ ",") : xs')
+                        else do
+                          xs' <- insertCommas wne' (i + 1) $ return xs
+                          return (x : xs')
 
 chooseWord :: [String] -> IO [String]
 chooseWord [] = return []

@@ -705,6 +705,10 @@ execCmd b chan nick' (x:xs) = do
                   evalStateT (replyMsg bot chan nick' (show n)) st
                   return bot
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !isacronym <word>") st >> return bot
+      | x == "!commas" = if (length xs) > 0 then do
+          m <- insertCommas wne' 0 $ return xs
+          evalStateT (replyMsg bot chan nick' $ unwords m) st >> return bot
+                         else evalStateT (replyMsg bot chan nick' "Usage: !commas <msg>") st >> return bot
       -- | x == "!asreplace" = case (length xs) of
       --     0 -> evalStateT (replyMsg bot chan nick' "Usage: !asreplace <msg>") st >> return bot
       --     _ -> do ww <- asReplaceWords f xs ; evalStateT (replyMsg bot chan nick' $ unwords ww) st >> return bot
