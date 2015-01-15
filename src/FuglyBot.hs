@@ -572,9 +572,9 @@ execCmd b chan nick' (x:xs) = do
                  if isJust w then
                    if elem (xs!!2) $ wordGetBanAfter $ fromJust w then
                      replyMsgT st bot chan nick' ("Word " ++ (xs!!2) ++ " after word " ++ (xs!!1) ++ " already banned.") >> return bot
-                     else let nd = dropAfter (dropBefore dict' (xs!!2) (xs!!1)) (xs!!1) (xs!!2) in
+                     else let nd = Map.insert (xs!!1) (addBanAfter (fromJust w) (xs!!2)) dict' in
                        replyMsgT st bot chan nick' ("Banned word " ++ (xs!!2) ++ " after word " ++ (xs!!1) ++ ".") >>
-                         return bot{fugly=f{dict=Map.insert (xs!!1) (addBanAfter (fromJust w) (xs!!2)) nd}}
+                         return bot{fugly=f{dict=dropAfter (dropBefore nd (xs!!2) (xs!!1)) (xs!!1) (xs!!2)}}
                    else replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " not in dict.") >> return bot
                else if (xs!!0) == "delete" then let w = Map.lookup (xs!!1) dict' in
                  if isJust w then
@@ -705,10 +705,10 @@ execCmd b chan nick' (x:xs) = do
                   replyMsgT st bot chan nick' (show n)
                   return bot
           _ -> replyMsgT st bot chan nick' "Usage: !isacronym <word>" >> return bot
-      | x == "!commas" = if (length xs) > 0 then do
-          m <- insertCommas wne' 0 $ return xs
-          replyMsgT st bot chan nick' (unwords m) >> return bot
-                         else replyMsgT st bot chan nick' "Usage: !commas <msg>" >> return bot
+      -- | x == "!commas" = if (length xs) > 0 then do
+      --     m <- insertCommas wne' 0 $ return xs
+      --     replyMsgT st bot chan nick' (unwords m) >> return bot
+      --                    else replyMsgT st bot chan nick' "Usage: !commas <msg>" >> return bot
       -- | x == "!asreplace" = case (length xs) of
       --     0 -> replyMsgT st bot chan nick' "Usage: !asreplace <msg>" >> return bot
       --     _ -> do ww <- asReplaceWords f xs ; replyMsgT st bot chan nick' $ unwords ww >> return bot
