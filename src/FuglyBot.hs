@@ -567,6 +567,31 @@ execCmd b chan nick' (x:xs) = do
                    return bot{fugly=f{dict=dropAllAfter dict' (xs!!0)}}
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !dropafter <word> [after-word]") st >> return bot
                             else return bot
+      | x == "!banafter" = if nick' == owner' then case (length xs) of
+          3 -> if (xs!!0) == "add" then let w = Map.lookup (xs!!1) dict' in
+                 if isJust w then
+                   if elem (xs!!2) $ wordGetBanAfter $ fromJust w then
+                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!2) ++ " after word " ++ (xs!!1) ++ " already banned.")) st >> return bot
+                     else let nd = dropAfter (dropBefore dict' (xs!!2) (xs!!1)) (xs!!1) (xs!!2) in
+                       evalStateT (replyMsg bot chan nick' ("Banned word " ++ (xs!!2) ++ " after word " ++ (xs!!1) ++ ".")) st >>
+                         return bot{fugly=f{dict=Map.insert (xs!!1) (addBanAfter (fromJust w) (xs!!2)) nd}}
+                   else evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " not in dict.")) st >> return bot
+               else if (xs!!0) == "delete" then let w = Map.lookup (xs!!1) dict' in
+                 if isJust w then
+                   if not $ elem (xs!!2) $ wordGetBanAfter $ fromJust w then
+                     evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!2) ++ " not in ban list.")) st >> return bot
+                     else
+                       evalStateT (replyMsg bot chan nick' ("Unbanned word " ++ (xs!!2) ++ " after word " ++ (xs!!1) ++ ".")) st >>
+                         return bot{fugly=f{dict=Map.insert (xs!!1) (deleteBanAfter (fromJust w) (xs!!2)) dict'}}
+                   else evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " not in dict.")) st >> return bot
+               else evalStateT (replyMsg bot chan nick' "Usage: !banafter <list|add|delete> <word> <after-word>") st >> return bot
+          2 -> if (xs!!0) == "list" then let w = Map.lookup (xs!!1) dict' in
+                 if isJust w then
+                   evalStateT (replyMsg bot chan nick' ("Banned after word list: " ++ (unwords $ wordGetBanAfter $ fromJust w))) st >> return bot
+                   else evalStateT (replyMsg bot chan nick' ("Word " ++ (xs!!1) ++ " not in dict.")) st >> return bot
+               else evalStateT (replyMsg bot chan nick' "Usage: !banafter <list|add|delete> <word> <after-word>") st >> return bot
+          _ -> evalStateT (replyMsg bot chan nick' "Usage: !banafter <list|add|delete> <word> <after-word>") st >> return bot
+                           else return bot
       | x == "!ageword" = if nick' == owner' then case (length xs) of
           2 -> do num <- catch (if (read (xs!!1) :: Int) > 50 then return 50 else return (read (xs!!1) :: Int))
                               {-- This has to be caught here? --}
@@ -706,7 +731,7 @@ execCmd b chan nick' (x:xs) = do
       --     else return bot
       | otherwise  = if nick' == owner' then evalStateT (replyMsg bot chan nick'
           ("Commands: !word !wordlist !insertword !name !namelist !insertname !acronym !acronymlist !insertacronym "
-          ++ "!dropword !dropafter !ageword(s) !cleanwords !internalize "
+          ++ "!dropword !dropafter !banafter !ageword(s) !internalize "
           ++ "!banword !matchword "
           ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
           ++ "!setparam !showparams !nick !join !part !talk !raw !quit !readfile !load !save")) st >> return bot
