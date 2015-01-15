@@ -214,7 +214,7 @@ saveDict st (Fugly dict' _ _ _ ban' match') fuglydir topic params = do
                              ("count: " ++ (show c) ++ "\n"),
                              ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
                              ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
-                             ("ban after: " ++ (unwords ba) ++ "\n"),
+                             ("ban-after: " ++ (unwords ba) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("pos: " ++ (show p) ++ "\n"),
                              ("end: \n")]
@@ -224,7 +224,7 @@ saveDict st (Fugly dict' _ _ _ ban' match') fuglydir topic params = do
                              ("count: " ++ (show c) ++ "\n"),
                              ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
                              ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
-                             ("ban after: " ++ (unwords ba) ++ "\n"),
+                             ("ban-after: " ++ (unwords ba) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("end: \n")]
     format' (Acronym w c b a ba r d)
@@ -233,7 +233,7 @@ saveDict st (Fugly dict' _ _ _ ban' match') fuglydir topic params = do
                              ("count: " ++ (show c) ++ "\n"),
                              ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
                              ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
-                             ("ban after: " ++ (unwords ba) ++ "\n"),
+                             ("ban-after: " ++ (unwords ba) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("definition: " ++ d ++ "\n"),
                              ("end: \n")]
@@ -279,7 +279,7 @@ loadDict fuglydir topic = do
                            "count:"      -> word'{count=read (unwords $ ll) :: Int}
                            "before:"     -> word'{before=getNeigh ll}
                            "after:"      -> word'{after=getNeigh ll}
-                           "ban after:"  -> word'{banafter=ll}
+                           "ban-after:"  -> word'{banafter=ll}
                            "related:"    -> word'{related=joinWords '"' ll}
                            "pos:"        -> word'{FuglyLib.pos=readEPOS $ unwords ll}
                            "definition:" -> word'{definition=unwords ll}
