@@ -590,12 +590,6 @@ execCmd b chan nick' (x:xs) = do
                   return bot{fugly=f{dict=ageWords dict' num}}
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !agewords <number>") st >> return bot
                            else return bot
-      | x == "!cleanwords" = if nick' == owner' then case (length xs) of
-          0 -> do nd <- fixWords aspell' dict'
-                  evalStateT (replyMsg bot chan nick' ("Cleaned some words...")) st
-                  return bot{fugly=f{dict=nd}}
-          _ -> evalStateT (replyMsg bot chan nick' "Usage: !cleanwords") st >> return bot
-                             else return bot
       | x == "!banword" = if nick' == owner' then case (length xs) of
           2 -> if (xs!!0) == "add" then
                  if elem (xs!!1) ban' then

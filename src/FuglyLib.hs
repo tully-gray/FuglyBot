@@ -16,7 +16,6 @@ module FuglyLib
          dropBefore,
          ageWord,
          ageWords,
-         fixWords,
          numWords,
          listWords,
          listWordFull,
@@ -508,44 +507,6 @@ ageWords m num = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m) num
     where
       f m' []     _ = m'
       f m' (x:xs) n = f (ageWord m' x n) xs n
-
-cleanWords :: Map.Map String Word -> Map.Map String Word
-cleanWords m = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m)
-    where
-      f m' []     = m'
-      f m' (x:xs) = if null $ cleanString x then f (dropWord m' x) xs
-                    else f m' xs
-
-fixWords :: Aspell.SpellChecker -> Map.Map String Word -> IO (Map.Map String Word)
-fixWords aspell' m = do
-    x <- mapM f $ Map.toList $ Map.filter (\x -> wordGetCount x > 0) $ cleanWords m
-    return $ Map.fromList x
-    where
-      f (s, (Word w c b a r p)) = do
-        n <- asIsName aspell' w
-        cna <- cn a
-        cnb <- cn b
-        if n then return (toUpperWord $ cleanString s, (Name (toUpperWord $ cleanString w)
-                                                        c (Map.fromList cnb) (Map.fromList cna) r))
-          else
-            return (map toLower $ cleanString s, (Word (map toLower $ cleanString w)
-                                                  c (Map.fromList cnb) (Map.fromList cna) r p))
-      f (s, (Name w c b a r)) = do
-        cna <- cn a
-        cnb <- cn b
-        return (toUpperWord $ cleanString s, (Name (toUpperWord $ cleanString w)
-                                              c (Map.fromList cnb) (Map.fromList cna) r))
-      f (s, (Acronym w c b a r d)) = do
-        cna <- cn a
-        cnb <- cn b
-        return (map toUpper $ cleanString s, (Acronym (map toUpper $ cleanString w)
-                                              c (Map.fromList cnb) (Map.fromList cna) r d))
-      cn m' = mapM cm $ Map.toList $ Map.filter (\x -> x > 0) m'
-      cm (w, c) = do
-        n <- asIsName aspell' w
-        let cw = cleanString w
-        if n then return ((toUpperWord cw), c)
-          else return ((map toLower cw), c)
 
 incCount' :: Word -> Int -> Int
 incCount' w n = let c = wordGetCount w in if c + n < 1 then 1 else c + n
