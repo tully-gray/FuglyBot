@@ -986,20 +986,21 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', ban=ban
 insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
 insertCommas wne' i w = do
   w' <- w
+  r <- Random.getStdRandom (Random.randomR (0, 5)) :: IO Int
   let x  = fHead [] w'
   let xs = fTail [] w'
   let y  = fHead [] xs
-  let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "I", "in", "is", "on", "or", "that", "the", "this", "very", "was", "with"]
+  let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
   px <- wnPartPOS wne' x
   py <- wnPartPOS wne' y
   if length xs < 1 then w
     else if (elem x bad) || i < 3 then do
     xs' <- insertCommas wne' (i + 1) $ return xs
     return (x : xs')
-         else if px == POS Noun && (py == POS Noun || py == POS Adj) then do
+         else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 4 then do
            xs' <- insertCommas wne' 0 $ return xs
-           return ((x ++ ", or") : xs')
-              else if (y == "a" || y == "the" || y == "then") then do
+           return ((x ++ if r < 2 then ", or" else ", and") : xs')
+              else if (y == "a" || y == "the" || y == "then") && r < 3 then do
                 xs' <- insertCommas wne' 0 $ return xs
                 return ((x ++ ",") : xs')
                    else if px == POS Adj && py == POS Adj then do
