@@ -299,7 +299,7 @@ qWords :: [String]
 qWords = ["am", "are", "can", "did", "do", "does", "if", "is", "want", "what", "when", "where", "who", "why", "will"]
 
 badEndWords :: [String]
-badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "for", "from", "go", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "was", "we", "what", "when", "which", "with", "who", "whose", "you", "your", "you're", "you've"]
+badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "for", "from", "gave", "go", "got", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "was", "we", "what", "when", "which", "with", "who", "whose", "you", "your", "you're", "you've"]
 
 sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
@@ -493,7 +493,7 @@ dropAllAfter m word' = Map.adjust del' word' m
 dropBefore :: Map.Map String Word -> String -> String -> Map.Map String Word
 dropBefore m word' before' = Map.adjust del' word' m
     where
-      del' w = w{after=Map.delete before' (wordGetBefore w)}
+      del' w = w{before=Map.delete before' (wordGetBefore w)}
 
 ageWord :: Map.Map String Word -> String -> Int -> Map.Map String Word
 ageWord m word' num = age m word' num 0

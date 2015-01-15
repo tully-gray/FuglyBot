@@ -554,8 +554,9 @@ execCmd b chan nick' (x:xs) = do
                            else return bot
       | x == "!dropafter" = if nick' == owner' then case (length xs) of
           2 -> if (isJust $ Map.lookup (xs!!0) dict') && (isJust $ Map.lookup (xs!!1) dict') then
+                 let nd = dropBefore dict' (xs!!1) (xs!!0) in
                  replyMsgT st bot chan nick' ("Dropped word " ++ (xs!!1) ++ " after word " ++ (xs!!0) ++ ".") >>
-                   return bot{fugly=f{dict=dropAfter (dropBefore dict' (xs!!1) (xs!!0)) (xs!!0) (xs!!1)}}
+                   return bot{fugly=f{dict=dropAfter nd (xs!!0) (xs!!1)}}
                else {-- Drop the association anyway, but report errors. --}
                  replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " or word " ++ (xs!!1) ++ " not in dict.") >>
                    return bot{fugly=f{dict=dropAfter (dropBefore dict' (xs!!1) (xs!!0)) (xs!!0) (xs!!1)}}
@@ -572,9 +573,10 @@ execCmd b chan nick' (x:xs) = do
                  if isJust w then
                    if elem (xs!!2) $ wordGetBanAfter $ fromJust w then
                      replyMsgT st bot chan nick' ("Word " ++ (xs!!2) ++ " after word " ++ (xs!!1) ++ " already banned.") >> return bot
-                     else let nd = Map.insert (xs!!1) (addBanAfter (fromJust w) (xs!!2)) dict' in
+                     else let nd1 = Map.insert (xs!!1) (addBanAfter (fromJust w) (xs!!2)) dict'
+                              nd2 = dropBefore nd1 (xs!!2) (xs!!1) in
                        replyMsgT st bot chan nick' ("Banned word " ++ (xs!!2) ++ " after word " ++ (xs!!1) ++ ".") >>
-                         return bot{fugly=f{dict=dropAfter (dropBefore nd (xs!!2) (xs!!1)) (xs!!1) (xs!!2)}}
+                         return bot{fugly=f{dict=dropAfter nd2 (xs!!1) (xs!!2)}}
                    else replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " not in dict.") >> return bot
                else if (xs!!0) == "delete" then let w = Map.lookup (xs!!1) dict' in
                  if isJust w then
