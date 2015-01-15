@@ -414,7 +414,7 @@ reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
                    ':' -> tail msg
                    ',' -> tail msg
                    _   -> msg
-    fmsg <- lift $ asReplaceWords f $ map cleanString mmsg
+    fmsg <- lift $ asReplaceWords (snd st) f $ map cleanString mmsg
     let parse = if slearn then gfParseBool pgf' 7 $ unwords fmsg else True
     let matchon = map toLower (" " ++ intercalate " | " (botnick : match') ++ " ")
     mm <- lift $ chooseWord fmsg
@@ -668,8 +668,8 @@ execCmd b chan nick' (x:xs) = do
           else evalStateT (replyMsg bot chan nick' "Usage: !raw <msg>") st >> return bot
                       else return bot
       | x == "!dict" = case (length xs) of
-          2 -> (dictLookup f (xs!!0) (xs!!1)) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
-          1 -> (dictLookup f (xs!!0) []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+          2 -> (dictLookup (snd st) f (xs!!0) (xs!!1)) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
+          1 -> (dictLookup (snd st) f (xs!!0) []) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !dict <word> [part-of-speech]") st >> return bot
       | x == "!closure" = case (length xs) of
           3 -> (wnClosure wne' (xs!!0) (xs!!1) (xs!!2)) >>= (\x' -> evalStateT (replyMsg bot chan nick' x') st) >> return bot
@@ -696,12 +696,12 @@ execCmd b chan nick' (x:xs) = do
           0 -> evalStateT (replyMsg bot chan nick' (concat $ map (++ " ") $ map show allPOS)) st >> return bot
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !parts") st >> return bot
       | x == "!isname" = case (length xs) of
-          1 -> do n <- asIsName aspell' (xs!!0)
+          1 -> do n <- asIsName (snd st) aspell' (xs!!0)
                   evalStateT (replyMsg bot chan nick' (show n)) st
                   return bot
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !isname <word>") st >> return bot
       | x == "!isacronym" = case (length xs) of
-          1 -> do n <- asIsAcronym aspell' (xs!!0)
+          1 -> do n <- asIsAcronym (snd st) aspell' (xs!!0)
                   evalStateT (replyMsg bot chan nick' (show n)) st
                   return bot
           _ -> evalStateT (replyMsg bot chan nick' "Usage: !isacronym <word>") st >> return bot
@@ -796,7 +796,7 @@ insertFromFile :: (MVar ()) -> Bot -> FilePath -> IO Bot
 insertFromFile _ b [] = return b
 insertFromFile st bot@(Bot{params=p@(Parameter{autoname=a}), fugly=f}) file = do
     ff <- readFile file
-    fmsg <- asReplaceWords f $ map cleanString $ words ff
+    fmsg <- asReplaceWords st f $ map cleanString $ words ff
     n <- insertWords st f a fmsg
     return bot{fugly=f{dict=n}}
 insertFromFile _ b _ = return b

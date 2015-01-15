@@ -329,14 +329,14 @@ insertWords st fugly@(Fugly{dict=dict', ban=ban'}) autoname msg =
 insertWord :: (MVar ()) -> Fugly -> Bool -> String -> String -> String -> String -> IO (Map.Map String Word)
 insertWord _ (Fugly{dict=d}) _ [] _ _ _ = return d
 insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word' before' after' pos' = do
-    n   <- asIsName aspell' word'
-    nb  <- asIsName aspell' before'
-    na  <- asIsName aspell' after'
-    ac  <- asIsAcronym aspell' word'
-    acb <- asIsAcronym aspell' before'
-    aca <- asIsAcronym aspell' after'
+    n   <- asIsName st aspell' word'
+    nb  <- asIsName st aspell' before'
+    na  <- asIsName st aspell' after'
+    ac  <- asIsAcronym st aspell' word'
+    acb <- asIsAcronym st aspell' before'
+    aca <- asIsAcronym st aspell' after'
     if (length word' == 1 || length word' == 2) && (not $ elem (map toLower word') sWords) then return dict'
-      else if isJust w then do evalStateT (hPutStrLnLock stderr ("> debug: insertWord: " ++ word')) st >> (f st nb na acb aca $ fromJust w)
+      else if isJust w then {--do evalStateT (hPutStrLnLock stderr ("> debug: insertWord: " ++ word')) st >>--} (f st nb na acb aca $ fromJust w)
         else if ac && autoname then
                 if elem (acroword word') ban' then return dict'
                 else insertAcroRaw' st fugly wa (acroword word') (bi nb acb) (ai na aca) []
@@ -390,7 +390,7 @@ insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' pos' =
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
   rel <- wnRelated' wne' word' "Hypernym" pp
-  as <- asSuggest aspell' word'
+  as <- evalStateT (asSuggest aspell' word') st
   let asw = words as
   let nn x y  = if isJust $ Map.lookup x dict' then x
                 else if y == UnknownEPos && Aspell.check aspell'
@@ -800,52 +800,55 @@ wnMeet w c d e  = do
                     getWords $ getSynset $ fromJust result
         else return []
 
-asIsName :: Aspell.SpellChecker -> String -> IO Bool
-asIsName _       []    = return False
-asIsName _       "i"   = return True
-asIsName _       "I"   = return True
-asIsName aspell' word' = do
+asIsName :: (MVar ()) -> Aspell.SpellChecker -> String -> IO Bool
+asIsName _ _ []    = return False
+asIsName _ _ "i"   = return True
+asIsName _ _ "I"   = return True
+asIsName st aspell' word' = do
     let l = map toLower word'
     let u = toUpperWord l
     let b = toUpperLast l
-    nl <- asSuggest aspell' l
-    nb <- asSuggest aspell' b
+    nl <- evalStateT (asSuggest aspell' l) st
+    nb <- evalStateT (asSuggest aspell' b) st
     return $ if length word' < 3 then False
              else if (length $ words nb) < 3 then False
                   else if word' == (words nb)!!1 then False
                        else if (word' == (words nb)!!0 || u == (words nb)!!0) && (not $ null nl) then True
                             else False
 
-asIsAcronym :: Aspell.SpellChecker -> String -> IO Bool
-asIsAcronym _       []    = return False
-asIsAcronym _      (_:[]) = return False
-asIsAcronym aspell' word' = do
+asIsAcronym :: (MVar ()) -> Aspell.SpellChecker -> String -> IO Bool
+asIsAcronym _  _       []    = return False
+asIsAcronym _  _      (_:[]) = return False
+asIsAcronym st aspell' word' = do
     let n = ["who"]
     let a = [toLower $ head word'] ++ (tail $ map toUpper word')
     let u = map toUpper word'
-    na <- asSuggest aspell' a
+    na <- evalStateT (asSuggest aspell' a) st
     return $ if elem (map toLower word') n && (not $ word' == u) then False
              else if u == word' && null na then True
                   else if (length $ words na) > 2 && word' == (words na)!!1 || elem word' sWords then False
                        else if (not $ null na) && u == (words na)!!0 then True
                             else False
 
-dictLookup :: Fugly -> String -> String -> IO String
-dictLookup (Fugly _ _ wne' aspell' _ _) word' pos' = do
+dictLookup :: (MVar ()) -> Fugly -> String -> String -> IO String
+dictLookup st (Fugly _ _ wne' aspell' _ _) word' pos' = do
     gloss <- wnGloss wne' word' pos'
     if gloss == "Nothing!" then
-       do a <- asSuggest aspell' word'
+       do a <- evalStateT (asSuggest aspell' word') st
           return (gloss ++ " Perhaps you meant: " ++
                   (unwords (filter (\x -> x /= word') (words a))))
       else return gloss
 
-asSuggest :: Aspell.SpellChecker -> String -> IO String
+asSuggest :: Aspell.SpellChecker -> String -> StateT (MVar ()) IO String
 asSuggest _       []    = return []
-asSuggest aspell' word' = do w <- Aspell.suggest aspell' (ByteString.pack word')
-                             let ww = map ByteString.unpack w
-                             if null ww then return []
-                               else if word' == head ww then return []
-                                    else return $ unwords ww
+asSuggest aspell' word' = do
+  l <- get :: StateT (MVar ()) IO (MVar ())
+  lock <- lift $ takeMVar l
+  w <- lift $ Aspell.suggest aspell' (ByteString.pack word')
+  let ww = map ByteString.unpack w
+  lift $ if null ww then do putMVar l lock ; return []
+           else if word' == head ww then do putMVar l lock ; return []
+             else do putMVar l lock ; return $ unwords ww
 
 gfLin :: PGF -> String -> String
 gfLin _ [] = []
@@ -924,7 +927,7 @@ sentence _ _ _ _ _ _ _ [] = [return []] :: [IO String]
 sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', ban=ban'}) rwords randoms stries slen plen msg = do
   let s1f x = if null x then return []
               else if gfParseBool pgf' plen x && length (words x) > 2 then return x
-                   else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
+                   else {--evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >>--} return []
   let s1h n a x = if a then map toUpper x else if n then x else map toLower x
   let s1i x = do
       a <- s1m x
@@ -954,7 +957,7 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', ban=ban
       if null w then return []
         else return ([s1c w] ++ tail w)
   let s1g = map (\x -> do y <- insertCommas wne' 0 x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
-  {-- let s1g = map (\x -> do y <- x ; z <- insertCommas wne' 0 $ return y ; evalStateT (hPutStrLnLock stderr ("> debug: pre-comma: " ++ unwords y ++ "\n> debug: post-comma: " ++ unwords z)) st ; return $ dePlenk $ unwords z) (map (s1e . s1d . s1a) (msg ++ sWords)) --}
+  -- let s1g = map (\x -> do y <- x ; z <- insertCommas wne' 0 $ return y ; evalStateT (hPutStrLnLock stderr ("> debug: pre-comma: " ++ unwords y ++ "\n> debug: post-comma: " ++ unwords z)) st ; return $ dePlenk $ unwords z) (map (s1e . s1d . s1a) (msg ++ sWords))
   map (\x -> do y <- x ; s1f y) s1g
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
@@ -970,13 +973,13 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', ban=ban
     s1m :: String -> IO Bool
     s1m [] = return False
     s1m w = do
-      a <- asIsAcronym aspell' w
+      a <- asIsAcronym st aspell' w
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "acronym" else a
     s1n :: String -> IO Bool
     s1n [] = return False
     s1n w = do
-      n <- asIsName aspell' w
+      n <- asIsName st aspell' w
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "name" else n
 
@@ -986,7 +989,7 @@ insertCommas wne' i w = do
   let x  = fHead [] w'
   let xs = fTail [] w'
   let y  = fHead [] xs
-  let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "I", "is", "or", "that", "the", "this", "very", "was", "with"]
+  let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "I", "in", "is", "on", "or", "that", "the", "this", "very", "was", "with"]
   px <- wnPartPOS wne' x
   py <- wnPartPOS wne' y
   if length xs < 1 then w
@@ -1042,19 +1045,19 @@ wnReplaceWords fugly@(Fugly{wne=wne', ban=ban'}) True randoms msg = do
         else
           return msg
 
-asReplaceWords :: Fugly -> [String] -> IO [String]
-asReplaceWords _ [] = return [[]]
-asReplaceWords fugly msg = do
-  mapM (\x -> asReplace fugly x) msg
+asReplaceWords :: (MVar ()) -> Fugly -> [String] -> IO [String]
+asReplaceWords _ _ [] = return [[]]
+asReplaceWords st fugly msg = do
+  mapM (\x -> asReplace st fugly x) msg
 
-asReplace :: Fugly -> String -> IO String
-asReplace _ [] = return []
-asReplace (Fugly dict' _ wne' aspell' _ _) word' = do
-  n  <- asIsName aspell' word'
-  ac <- asIsAcronym aspell' word'
+asReplace :: (MVar ()) -> Fugly -> String -> IO String
+asReplace _ _ [] = return []
+asReplace st (Fugly dict' _ wne' aspell' _ _) word' = do
+  n  <- asIsName st aspell' word'
+  ac <- asIsAcronym st aspell' word'
   if (elem ' ' word') || (elem '\'' word') || word' == (toUpperWord word') || n || ac then return word'
     else do
-    a <- asSuggest aspell' word'
+    a <- evalStateT (asSuggest aspell' word') st
     p <- wnPartPOS wne' word'
     let w = Map.lookup word' dict'
     let rw = words a
