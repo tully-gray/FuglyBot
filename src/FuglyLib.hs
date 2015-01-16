@@ -52,11 +52,11 @@ module FuglyLib
          endSentence,
          dePlenk,
          fHead,
-         fHeadUnsafe,
          fLast,
-         fLastUnsafe,
          fTail,
-         fTailUnsafe,
+         -- fHeadUnsafe,
+         -- fLastUnsafe,
+         -- fTailUnsafe,
          Word (..),
          Fugly (..)
        )
@@ -75,7 +75,7 @@ import Data.Maybe
 import Data.Tree (flatten)
 import qualified System.Random as Random
 import System.IO
-import System.IO.Unsafe {-- For easy debugging. --}
+-- import System.IO.Unsafe {-- For easy debugging. --}
 
 import qualified Language.Aspell as Aspell
 import qualified Language.Aspell.Options as Aspell.Options
@@ -336,7 +336,7 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word'
     acb <- asIsAcronym st aspell' before'
     aca <- asIsAcronym st aspell' after'
     if (length word' == 1 || length word' == 2) && (not $ elem (map toLower word') sWords) then return dict'
-      else if isJust w then {--do evalStateT (hPutStrLnLock stderr ("> debug: insertWord: " ++ word')) st >>--} (f st nb na acb aca $ fromJust w)
+      else if isJust w then (f st nb na acb aca $ fromJust w)
         else if ac && autoname then
                 if elem (acroword word') ban' then return dict'
                 else insertAcroRaw' st fugly wa (acroword word') (bi nb acb) (ai na aca) []
@@ -672,17 +672,17 @@ fTail :: [a] -> [a] -> [a]
 fTail b [] = b
 fTail _ c  = tail c
 
-fHeadUnsafe :: String -> a -> [a] -> a
-fHeadUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fHead: error in " ++ a) ; return b)
-fHeadUnsafe _ _ c  = head c
+-- fHeadUnsafe :: String -> a -> [a] -> a
+-- fHeadUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fHead: error in " ++ a) ; return b)
+-- fHeadUnsafe _ _ c  = head c
 
-fLastUnsafe :: String -> a -> [a] -> a
-fLastUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fLast: error in " ++ a) ; return b)
-fLastUnsafe _ _ c  = last c
+-- fLastUnsafe :: String -> a -> [a] -> a
+-- fLastUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fLast: error in " ++ a) ; return b)
+-- fLastUnsafe _ _ c  = last c
 
-fTailUnsafe :: String -> [a] -> [a] -> [a]
-fTailUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fTail: error in " ++ a) ; return b)
-fTailUnsafe _ _ c  = tail c
+-- fTailUnsafe :: String -> [a] -> [a] -> [a]
+-- fTailUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fTail: error in " ++ a) ; return b)
+-- fTailUnsafe _ _ c  = tail c
 
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
@@ -957,7 +957,6 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', ban=ban
       if null w then return []
         else return ([s1c w] ++ tail w)
   let s1g = map (\x -> do y <- insertCommas wne' 0 x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
-  -- let s1g = map (\x -> do y <- x ; z <- insertCommas wne' 0 $ return y ; evalStateT (hPutStrLnLock stderr ("> debug: pre-comma: " ++ unwords y ++ "\n> debug: post-comma: " ++ unwords z)) st ; return $ dePlenk $ unwords z) (map (s1e . s1d . s1a) (msg ++ sWords))
   map (\x -> do y <- x ; s1f y) s1g
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
