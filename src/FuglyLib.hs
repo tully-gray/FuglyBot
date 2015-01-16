@@ -805,12 +805,13 @@ asIsName _ _ []    = return False
 asIsName _ _ "i"   = return True
 asIsName _ _ "I"   = return True
 asIsName st aspell' word' = do
+    let n = ["Can"]
     let l = map toLower word'
     let u = toUpperWord l
     let b = toUpperLast l
     nl <- evalStateT (asSuggest aspell' l) st
     nb <- evalStateT (asSuggest aspell' b) st
-    return $ if length word' < 3 then False
+    return $ if length word' < 3 || elem word' n then False
              else if (length $ words nb) < 3 then False
                   else if word' == (words nb)!!1 then False
                        else if (word' == (words nb)!!0 || u == (words nb)!!0) && (not $ null nl) then True
