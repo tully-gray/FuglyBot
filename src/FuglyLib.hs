@@ -314,7 +314,7 @@ insertWords st fugly@(Fugly{dict=dict', ban=ban'}) autoname msg =
             insertWord st fugly{dict=ff} autoname my mx [] []
     _ -> insertWords' st fugly autoname 0 len mmsg
   where
-    mmsg@(mx:my:_) = (\\) msg ban'
+    mmsg@(mx:my:_) = filter (\x -> not $ elem x ban') msg
     len = length mmsg
     insertWords' _ (Fugly{dict=d}) _ _ _ [] = return d
     insertWords' st' f@(Fugly{dict=d}) a i l m
