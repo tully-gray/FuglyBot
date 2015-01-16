@@ -925,10 +925,10 @@ gfAll pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 15 $ w
 
 sentence :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ _ _ _ _ [] = [return []] :: [IO String]
-sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', ban=ban'}) rwords randoms stries slen plen msg = do
+sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}) rwords randoms stries slen plen msg = do
   let s1f x = if null x then return []
               else if gfParseBool pgf' plen x && length (words x) > 2 then return x
-                   else {--evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >>--} return []
+                   else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
   let s1h n a x = if a then map toUpper x else if n then x else map toLower x
   let s1i x = do
       a <- s1m x
@@ -946,9 +946,8 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', ban=ban
       ww <- s1b fugly slen 0 $ mapM s1i msg
       res <- preSentence fugly $ map (\m -> map toLower m) msg
       let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n a x] ++ w
-      rep <- wnReplaceWords fugly rwords randoms $ filter (\a' -> length a' > 0 && not (elem a' ban'))
-             $ filter (\b -> if length b < 3 && (not $ elem b sWords) then False else True) $ take stries d
-      return $ filter (\p -> {-- gfParseBool pgf' plen p && --}(not $ null p)) rep
+      -- return $ filter (\p -> {-- gfParseBool pgf' plen p && --}(not $ null p)) rep
+      wnReplaceWords fugly rwords randoms $ filter (not . null) $ take stries d
   let s1d x = do
       w <- x
       if null w then return []
@@ -994,9 +993,9 @@ insertCommas wne' i w = do
   px <- wnPartPOS wne' x
   py <- wnPartPOS wne' y
   if length xs < 1 then w
-    else if (elem x bad) || i < 3 then do
-    xs' <- insertCommas wne' (i + 1) $ return xs
-    return (x : xs')
+    else if (elem x bad) || i < 2 then do
+      xs' <- insertCommas wne' (i + 1) $ return xs
+      return (x : xs')
          else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 then do
            xs' <- insertCommas wne' 0 $ return xs
            return ((x ++ if r < 2 then ", or" else ", and") : xs')
@@ -1035,7 +1034,7 @@ wnReplaceWords fugly@(Fugly{wne=wne', ban=ban'}) True randoms msg = do
   cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
   rr <- Random.getStdRandom (Random.randomR (0, 99))
   w <- findRelated wne' (cw!!cr)
-  let ww = if elem w ban' then cw!!cr else w
+  let ww = if elem w ban' || elem (map toLower w) sWords then cw!!cr else w
   if randoms == 0 then
     return msg
     else if randoms == 100 then
