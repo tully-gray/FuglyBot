@@ -414,7 +414,7 @@ reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
                    ':' -> tail msg
                    ',' -> tail msg
                    _   -> msg
-    fmsg <- lift $ asReplaceWords (snd st) f $ map cleanString mmsg
+    let fmsg = map cleanString mmsg
     let parse = if slearn then gfParseBool pgf' 7 $ unwords fmsg else True
     let matchon = map toLower (" " ++ intercalate " | " (botnick : match') ++ " ")
     mm <- lift $ chooseWord fmsg
@@ -431,8 +431,8 @@ reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
       lift $ forkIO (do threadDelay $ ttime * 1000000 ; evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st ; killThread tId) >> return ()
       else return ()
     if ((nick' == owner' && null chan) || parse) && learning' then do
-      nd <- lift $ insertWords (snd st) f autoname' mmsg
-      hPutStrLnLock stdout ("> parse: " ++ unwords mmsg)
+      nd <- lift $ insertWords (snd st) f autoname' fmsg
+      hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd}} else
       return bot
 reply bot _ _ _ = return bot
