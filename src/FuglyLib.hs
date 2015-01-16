@@ -1002,10 +1002,10 @@ insertCommas wne' i w = do
            return ((x ++ if r < 2 then ", or" else ", and") : xs')
               else if (y == "a" || y == "the" || y == "then") && r < 3 then do
                 xs' <- insertCommas wne' 0 $ return xs
-                return ((x ++ ",") : xs')
-                   else if px == POS Adj && py == POS Adj then do
+                return ((x ++ if r < 1 then ";" else ",") : xs')
+                   else if px == POS Adj && py == POS Adj && r < 2 then do
                      xs' <- insertCommas wne' 0 $ return xs
-                     return ((x ++ ",") : xs')
+                     return ((x ++ " and") : xs')
                         else do
                           xs' <- insertCommas wne' (i + 1) $ return xs
                           return (x : xs')
