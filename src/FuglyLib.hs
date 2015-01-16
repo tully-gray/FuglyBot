@@ -335,7 +335,7 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word'
     ac  <- asIsAcronym st aspell' word'
     acb <- asIsAcronym st aspell' before'
     aca <- asIsAcronym st aspell' after'
-    if (length word' == 1 || length word' == 2) && (not $ elem (map toLower word') sWords) then return dict'
+    if (length word' < 3) && (not $ elem (map toLower word') sWords) then return dict'
       else if isJust w then (f st nb na acb aca $ fromJust w)
         else if ac && autoname then
                 if elem (acroword word') ban' then return dict'
@@ -356,7 +356,7 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word'
     a  = Map.lookup after'    dict'
     b  = Map.lookup before'   dict'
     ai an aa = if isJust a then after'
-               else if (length after' == 1 || length after' == 2) && (not $ elem (map toLower after') sWords) then []
+               else if (length after' < 3) && (not $ elem (map toLower after') sWords) then []
                     else if aa && autoname then
                            if elem (acroword after') ban' then []
                            else if isJust wa then if elem (acroword after') (wordGetBanAfter $ fromJust wa) then []
@@ -367,7 +367,7 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word'
                                 else upperword after'
                               else lowerword after'
     bi bn ba = if isJust b then before'
-               else if (length before' == 1 || length before' == 2) && (not $ elem (map toLower before') sWords) then []
+               else if (length before' < 3) && (not $ elem (map toLower before') sWords) then []
                     else if ba && autoname then
                            if elem (acroword before') ban' then []
                            else acroword before'
