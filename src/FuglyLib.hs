@@ -299,7 +299,7 @@ qWords :: [String]
 qWords = ["am", "are", "can", "did", "do", "does", "if", "is", "want", "what", "when", "where", "who", "why", "will"]
 
 badEndWords :: [String]
-badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "for", "from", "gave", "go", "got", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "was", "we", "what", "when", "which", "with", "who", "whose", "you", "your", "you're", "you've"]
+badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "what", "when", "which", "with", "who", "whose", "you", "your", "you're", "you've"]
 
 sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
@@ -989,14 +989,14 @@ insertCommas wne' i w = do
   let x  = fHead [] w'
   let xs = fTail [] w'
   let y  = fHead [] xs
-  let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
+  let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
   px <- wnPartPOS wne' x
   py <- wnPartPOS wne' y
   if length xs < 1 then w
     else if (elem x bad) || i < 3 then do
     xs' <- insertCommas wne' (i + 1) $ return xs
     return (x : xs')
-         else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 4 then do
+         else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 then do
            xs' <- insertCommas wne' 0 $ return xs
            return ((x ++ if r < 2 then ", or" else ", and") : xs')
               else if (y == "a" || y == "the" || y == "then") && r < 3 then do
@@ -1016,8 +1016,8 @@ chooseWord msg = do
   c2 cc []
   where
     c1 m = do
-      r <- Random.getStdRandom (Random.randomR (0, 1)) :: IO Int
-      if r == 0 then return m
+      r <- Random.getStdRandom (Random.randomR (0, 4)) :: IO Int
+      if r < 3 then return m
         else return $ reverse m
     c2 [] m  = return m
     c2 [x] m = return (m ++ [x])
