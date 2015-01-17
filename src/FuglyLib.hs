@@ -986,12 +986,13 @@ insertCommas wne' i w = do
   let x  = fHead [] w'
   let xs = fTail [] w'
   let y  = fHead [] xs
+  let l  = length xs
   let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
   let match' = ["a", "but", "however", "the", "then", "though"]
   px <- wnPartPOS wne' x
   py <- wnPartPOS wne' y
-  if length xs < 1 then w
-    else if elem x bad || elem '\'' x || i < 1 then do
+  if l < 1 then w
+    else if elem x bad || elem '\'' x || i < 1 || l < 4 then do
       xs' <- insertCommas wne' (i + 1) $ return xs
       return (x : xs')
          else if (elem y match') && r < 4 then do
