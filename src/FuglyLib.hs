@@ -936,7 +936,7 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}) rwords
   let s1i x = do
       a <- s1m x
       n <- s1n x
-      return $ if a then map toUpper x else if n then x else map toLower x
+      return $ s1h n a x
   let s1a x = do
       a <- s1m x
       n <- s1n x
@@ -993,7 +993,7 @@ insertCommas wne' i w = do
   let xs = fTail [] w'
   let y  = fHead [] xs
   let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
-  let match = ["a", "however", "the", "then", "though"]
+  let match' = ["a", "however", "the", "then", "though"]
   px <- wnPartPOS wne' x
   py <- wnPartPOS wne' y
   if length xs < 1 then w
@@ -1003,7 +1003,7 @@ insertCommas wne' i w = do
          else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 then do
            xs' <- insertCommas wne' 0 $ return xs
            return ((x ++ if r < 2 then ", or" else ", and") : xs')
-              else if (elem y match) && r < 3 then do
+              else if (elem y match') && r < 4 then do
                 xs' <- insertCommas wne' 0 $ return xs
                 return ((x ++ if r < 2 then ";" else ",") : xs')
                    else if px == POS Adj && py == POS Adj && r < 2 then do
