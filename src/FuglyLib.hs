@@ -109,8 +109,7 @@ data Word = Word {
               count    :: Int,
               before   :: Map.Map String Int,
               after    :: Map.Map String Int,
-              banafter :: [String],
-              related  :: [String]
+              banafter :: [String]
               } |
             Acronym {
               acronym    :: String,
@@ -118,7 +117,6 @@ data Word = Word {
               before     :: Map.Map String Int,
               after      :: Map.Map String Int,
               banafter   :: [String],
-              related    :: [String],
               definition :: String
               }
 
@@ -161,8 +159,8 @@ instance Word_ Word where
   wordGetPos Word{FuglyLib.pos=p}     = p
   wordGetPos _                        = UnknownEPos
   wordGetwc (Word w c _ _ _ _ _)      = (c, w)
-  wordGetwc (Name n c _ _ _ _)        = (c, n)
-  wordGetwc (Acronym a c _ _ _ _ _)   = (c, a)
+  wordGetwc (Name n c _ _ _)          = (c, n)
+  wordGetwc (Acronym a c _ _ _ _)     = (c, a)
 
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO (Fugly, [String])
 initFugly fuglydir wndir gfdir topic = do
@@ -219,29 +217,27 @@ saveDict st (Fugly dict' _ _ _ ban' match') fuglydir topic params = do
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("pos: " ++ (show p) ++ "\n"),
                              ("end: \n")]
-    format' (Name w c b a ba r)
+    format' (Name w c b a ba)
       | null w    = []
       | otherwise = unwords [("name: " ++ w ++ "\n"),
                              ("count: " ++ (show c) ++ "\n"),
                              ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
                              ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
                              ("ban-after: " ++ (unwords ba) ++ "\n"),
-                             ("related: " ++ (unwords r) ++ "\n"),
                              ("end: \n")]
-    format' (Acronym w c b a ba r d)
+    format' (Acronym w c b a ba d)
       | null w    = []
       | otherwise = unwords [("acronym: " ++ w ++ "\n"),
                              ("count: " ++ (show c) ++ "\n"),
                              ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
                              ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
                              ("ban-after: " ++ (unwords ba) ++ "\n"),
-                             ("related: " ++ (unwords r) ++ "\n"),
                              ("definition: " ++ d ++ "\n"),
                              ("end: \n")]
 
 loadDict :: FilePath -> String -> IO (Map.Map String Word, [String], [String], [String])
 loadDict fuglydir topic = do
-    let w = (Word [] 0 Map.empty Map.empty [] [] UnknownEPos)
+    let w = Word [] 0 Map.empty Map.empty [] [] UnknownEPos
     h <- openFile (fuglydir ++ "/" ++ topic ++ "-dict.txt") ReadMode
     eof <- hIsEOF h
     if eof then
@@ -275,8 +271,8 @@ loadDict fuglydir topic = do
       let ll = if l4 == True then tail wl else ["BAD BAD BAD"]
       let ww = if l4 == True then case (head wl) of
                            "word:"       -> Word    (unwords ll) 0 Map.empty Map.empty [] [] UnknownEPos
-                           "name:"       -> Name    (unwords ll) 0 Map.empty Map.empty [] []
-                           "acronym:"    -> Acronym (unwords ll) 0 Map.empty Map.empty [] [] []
+                           "name:"       -> Name    (unwords ll) 0 Map.empty Map.empty []
+                           "acronym:"    -> Acronym (unwords ll) 0 Map.empty Map.empty [] []
                            "count:"      -> word'{count=read (unwords $ ll) :: Int}
                            "before:"     -> word'{before=getNeigh ll}
                            "after:"      -> word'{after=getNeigh ll}
@@ -425,11 +421,10 @@ insertNameRaw' _  (Fugly{dict=d}) _ [] _ _ _ = return d
 insertNameRaw' st (Fugly dict' _ wne' aspell' _ _) w name' before' after' s = do
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
-  rel <- wnRelated' wne' name' "Hypernym" (POS Noun)
   let n = if s then name' else toUpperWord $ map toLower name'
   let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new name: " ++ w')) st
   if isJust w then let w' = fromJust w in return $ Map.insert name' w'{count=c, before=nb before' pb, after=na after' pa} dict'
-    else msg n >> return (Map.insert n (Name n 1 (e (nn before' pb)) (e (nn after' pa)) [] rel) dict')
+    else msg n >> return (Map.insert n (Name n 1 (e (nn before' pb)) (e (nn after' pa)) []) dict')
   where
     e [] = Map.empty
     e x = Map.singleton x 1
@@ -452,10 +447,9 @@ insertAcroRaw' _  (Fugly{dict=d}) _ [] _ _ _ = return d
 insertAcroRaw' st (Fugly dict' _ wne' aspell' _ _) w acro' before' after' def = do
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
-  rel <- wnRelated' wne' acro' "Hypernym" (POS Noun)
   let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new acronym: " ++ w')) st
   if isJust w then let w' = fromJust w in return $ Map.insert acro' w'{count=c, before=nb before' pb, after=na after' pa} dict'
-    else msg acro' >> return (Map.insert acro' (Acronym acro' 1 (e (nn before' pb)) (e (nn after' pa)) [] rel def) dict')
+    else msg acro' >> return (Map.insert acro' (Acronym acro' 1 (e (nn before' pb)) (e (nn after' pa)) [] def) dict')
   where
     e [] = Map.empty
     e x = Map.singleton x 1
@@ -577,12 +571,12 @@ listWordFull m word' =
     f (Word w c b a ba r p) = ["word:", w, "count:", show c, " before:",
                  unwords $ listNeigh2 b, " after:", unwords $ listNeigh2 a,
                  " ban after:", unwords ba, " pos:", (show p), " related:", unwords r]
-    f (Name w c b a ba r) = ["name:", w, "count:", show c, " before:",
+    f (Name w c b a ba) = ["name:", w, "count:", show c, " before:",
                  unwords $ listNeigh2 b, " after:", unwords $ listNeigh2 a,
-                 " ban after:", unwords ba, " related:", unwords r]
-    f (Acronym w c b a ba r d) = ["acronym:", w, "count:", show c, " before:",
+                 " ban after:", unwords ba]
+    f (Acronym w c b a ba d) = ["acronym:", w, "count:", show c, " before:",
                  unwords $ listNeigh2 b, " after:", unwords $ listNeigh2 a,
-                 " ban after:", unwords ba, " definition:", d, " related:", unwords r]
+                 " ban after:", unwords ba, " definition:", d]
 
 cleanStringWhite :: (Char -> Bool) -> String -> String
 cleanStringWhite _ [] = []
