@@ -299,7 +299,7 @@ qWords :: [String]
 qWords = ["am", "are", "can", "did", "do", "does", "if", "is", "want", "what", "when", "where", "who", "why", "will"]
 
 badEndWords :: [String]
-badEndWords = ["a", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "what", "when", "which", "with", "who", "whose", "you", "your", "you're", "you've"]
+badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "he's", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "what", "when", "which", "with", "who", "whose", "you", "your", "you're", "you've"]
 
 sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
@@ -645,7 +645,7 @@ fixUnderscore = strip '"' . replace ' ' '_'
 
 toUpperWord :: String -> String
 toUpperWord [] = []
-toUpperWord w = (toUpper $ fHead ' '  w) : tail w
+toUpperWord w = (toUpper $ head w) : tail w
 
 toUpperLast :: String -> String
 toUpperLast [] = []
@@ -658,17 +658,20 @@ toUpperSentence (x:xs) = toUpperWord x : xs
 
 endSentence :: [String] -> [String]
 endSentence []  = []
-endSentence msg = (init msg) ++ ((fLast [] msg) ++ if elem (fHead [] msg) qWords then "?" else ".") : []
+endSentence msg = (init msg) ++ ((last msg) ++ if elem (head msg) qWords then "?" else ".") : []
 
 fHead :: a -> [a] -> a
+{-# INLINE fHead #-}
 fHead b [] = b
 fHead _ c  = head c
 
 fLast :: a -> [a] -> a
+{-# INLINE fLast #-}
 fLast b [] = b
 fLast _ c  = last c
 
 fTail :: [a] -> [a] -> [a]
+{-# INLINE fTail #-}
 fTail b [] = b
 fTail _ c  = tail c
 
@@ -821,7 +824,7 @@ asIsAcronym :: (MVar ()) -> Aspell.SpellChecker -> String -> IO Bool
 asIsAcronym _  _       []    = return False
 asIsAcronym _  _      (_:[]) = return False
 asIsAcronym st aspell' word' = do
-    let n = ["who"]
+    let n = ["on", "who"]
     let a = [toLower $ head word'] ++ (tail $ map toUpper word')
     let u = map toUpper word'
     na <- evalStateT (asSuggest aspell' a) st
@@ -985,23 +988,24 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}) rwords
 insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
 insertCommas wne' i w = do
   w' <- w
-  r <- Random.getStdRandom (Random.randomR (0, 5)) :: IO Int
+  r <- Random.getStdRandom (Random.randomR (0, 7)) :: IO Int
   let x  = fHead [] w'
   let xs = fTail [] w'
   let y  = fHead [] xs
   let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
+  let match = ["a", "however", "the", "then", "though"]
   px <- wnPartPOS wne' x
   py <- wnPartPOS wne' y
   if length xs < 1 then w
-    else if (elem x bad) || i < 2 then do
+    else if elem x bad || elem '\'' x || i < 2 then do
       xs' <- insertCommas wne' (i + 1) $ return xs
       return (x : xs')
          else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 then do
            xs' <- insertCommas wne' 0 $ return xs
            return ((x ++ if r < 2 then ", or" else ", and") : xs')
-              else if (y == "a" || y == "the" || y == "then") && r < 3 then do
+              else if (elem y match) && r < 3 then do
                 xs' <- insertCommas wne' 0 $ return xs
-                return ((x ++ if r < 1 then ";" else ",") : xs')
+                return ((x ++ if r < 2 then ";" else ",") : xs')
                    else if px == POS Adj && py == POS Adj && r < 2 then do
                      xs' <- insertCommas wne' 0 $ return xs
                      return ((x ++ " and") : xs')
