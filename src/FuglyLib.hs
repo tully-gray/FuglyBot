@@ -993,19 +993,19 @@ insertCommas wne' i w = do
   let xs = fTail [] w'
   let y  = fHead [] xs
   let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
-  let match' = ["a", "however", "the", "then", "though"]
+  let match' = ["a", "but", "however", "the", "then", "though"]
   px <- wnPartPOS wne' x
   py <- wnPartPOS wne' y
   if length xs < 1 then w
-    else if elem x bad || elem '\'' x || i < 2 then do
+    else if elem x bad || elem '\'' x || i < 1 then do
       xs' <- insertCommas wne' (i + 1) $ return xs
       return (x : xs')
-         else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 then do
+         else if (elem y match') && r < 4 then do
            xs' <- insertCommas wne' 0 $ return xs
-           return ((x ++ if r < 2 then ", or" else ", and") : xs')
-              else if (elem y match') && r < 4 then do
+           return ((x ++ if r < 2 then ";" else ",") : xs')
+              else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 then do
                 xs' <- insertCommas wne' 0 $ return xs
-                return ((x ++ if r < 2 then ";" else ",") : xs')
+                return ((x ++ if r < 2 then ", or" else ", and") : xs')
                    else if px == POS Adj && py == POS Adj && r < 2 then do
                      xs' <- insertCommas wne' 0 $ return xs
                      return ((x ++ " and") : xs')
