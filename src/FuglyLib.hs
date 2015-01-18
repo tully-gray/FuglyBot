@@ -295,7 +295,7 @@ qWords :: [String]
 qWords = ["am", "are", "can", "did", "do", "does", "if", "is", "want", "was", "what", "when", "where", "who", "why", "will"]
 
 badEndWords :: [String]
-badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "her", "he's", "his", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "no", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "what", "when", "which", "with", "who", "whose", "yes", "you", "your", "you're", "you've"]
+badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "her", "he's", "his", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "no", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "what", "when", "where", "which", "with", "who", "whose", "yes", "you", "your", "you're", "you've"]
 
 sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
@@ -923,9 +923,9 @@ gfAll pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 15 $ w
 sentence :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int -> [String] -> [IO String]
 sentence _ _ _ _ _ _ _ [] = [return []] :: [IO String]
 sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}) rwords randoms stries slen plen msg = do
-  let s1f x = if null x then return []
-              else if gfParseBool pgf' plen x && length (words x) > 2 then return x
-                   else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
+  let s1f p x = if null x then return []
+                else if gfParseBool pgf' plen x && length (words x) > 2 && p /= POS Adj then return x
+                     else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
   let s1h n a x = if a then map toUpper x else if n then x else map toLower x
   let s1i x = do
       a <- s1m x
@@ -954,7 +954,7 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}) rwords
       if null w then return []
         else return ([s1c w] ++ tail w)
   let s1g = map (\x -> do y <- insertCommas wne' 0 x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
-  map (\x -> do y <- x ; s1f y) s1g
+  map (\x -> do y <- x ; p <- wnPartPOS wne' $ cleanString $ fLast [] $ words y ; s1f p y) s1g
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f n i msg' = do
