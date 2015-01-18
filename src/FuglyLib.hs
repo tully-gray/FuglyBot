@@ -101,6 +101,7 @@ data Word = Word {
               before   :: Map.Map String Int,
               after    :: Map.Map String Int,
               banafter :: [String],
+              topic    :: [String],
               related  :: [String],
               pos      :: EPOS
               } |
@@ -109,7 +110,8 @@ data Word = Word {
               count    :: Int,
               before   :: Map.Map String Int,
               after    :: Map.Map String Int,
-              banafter :: [String]
+              banafter :: [String],
+              topic    :: [String]
               } |
             Acronym {
               acronym    :: String,
@@ -117,6 +119,7 @@ data Word = Word {
               before     :: Map.Map String Int,
               after      :: Map.Map String Int,
               banafter   :: [String],
+              topic      :: [String],
               definition :: String
               }
 
@@ -125,8 +128,9 @@ class Word_ a where
   wordGetWord     :: a -> String
   wordGetCount    :: a -> Int
   wordGetAfter    :: a -> Map.Map String Int
-  wordGetBanAfter :: a -> [String]
   wordGetBefore   :: a -> Map.Map String Int
+  wordGetBanAfter :: a -> [String]
+  wordGetTopic    :: a -> [String]
   wordGetRelated  :: a -> [String]
   wordGetPos      :: a -> EPOS
   wordGetwc       :: a -> (Int, String)
@@ -146,25 +150,32 @@ instance Word_ Word where
   wordGetAfter Name{after=a}          = a
   wordGetAfter Acronym{after=a}       = a
   wordGetAfter _                      = Map.empty
-  wordGetBanAfter Word{banafter=a}    = a
-  wordGetBanAfter Name{banafter=a}    = a
-  wordGetBanAfter Acronym{banafter=a} = a
-  wordGetBanAfter _                   = []
   wordGetBefore Word{before=b}        = b
   wordGetBefore Name{before=b}        = b
   wordGetBefore Acronym{before=b}     = b
   wordGetBefore _                     = Map.empty
+  wordGetBanAfter Word{banafter=a}    = a
+  wordGetBanAfter Name{banafter=a}    = a
+  wordGetBanAfter Acronym{banafter=a} = a
+  wordGetBanAfter _                   = []
+  wordGetTopic Word{topic=t}          = t
+  wordGetTopic Name{topic=t}          = t
+  wordGetTopic Acronym{topic=t}       = t
+  wordGetTopic _                      = []
   wordGetRelated Word{related=r}      = r
   wordGetRelated _                    = []
   wordGetPos Word{FuglyLib.pos=p}     = p
   wordGetPos _                        = UnknownEPos
-  wordGetwc (Word w c _ _ _ _ _)      = (c, w)
-  wordGetwc (Name n c _ _ _)          = (c, n)
-  wordGetwc (Acronym a c _ _ _ _)     = (c, a)
+  wordGetwc (Word w c _ _ _ _ _ _)    = (c, w)
+  wordGetwc (Name n c _ _ _ _)        = (c, n)
+  wordGetwc (Acronym a c _ _ _ _ _)   = (c, a)
+
+emptyWord :: Word
+emptyWord = Word [] 0 Map.empty Map.empty [] [] [] UnknownEPos
 
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO (Fugly, [String])
-initFugly fuglydir wndir gfdir topic = do
-    (dict', ban', match', params') <- catch (loadDict fuglydir topic)
+initFugly fuglydir wndir gfdir dfile = do
+    (dict', ban', match', params') <- catch (loadDict fuglydir dfile)
                                      (\e -> do let err = show (e :: SomeException)
                                                hPutStrLn stderr ("Exception in initFugly: " ++ err)
                                                return (Map.empty, [], [], []))
@@ -179,19 +190,19 @@ initFugly fuglydir wndir gfdir topic = do
     return ((Fugly dict' pgf' wne' aspell' ban' match'), params')
 
 stopFugly :: (MVar ()) -> FilePath -> Fugly -> String -> [String] -> IO ()
-stopFugly st fuglydir fugly@(Fugly {wne=wne'}) topic params = do
-    catch (saveDict st fugly fuglydir topic params)
+stopFugly st fuglydir fugly@(Fugly {wne=wne'}) dfile params = do
+    catch (saveDict st fugly fuglydir dfile params)
       (\e -> do let err = show (e :: SomeException)
                 evalStateT (hPutStrLnLock stderr ("Exception in stopFugly: " ++ err)) st
                 return ())
     closeWordNet wne'
 
 saveDict :: (MVar ()) -> Fugly -> FilePath -> String -> [String] -> IO ()
-saveDict st (Fugly dict' _ _ _ ban' match') fuglydir topic params = do
+saveDict st (Fugly dict' _ _ _ ban' match') fuglydir dfile params = do
     let d = Map.toList dict'
     if null d then evalStateT (hPutStrLnLock stderr "> Empty dict!") st
       else do
-        h <- openFile (fuglydir ++ "/" ++ topic ++ "-dict.txt") WriteMode
+        h <- openFile (fuglydir ++ "/" ++ dfile ++ "-dict.txt") WriteMode
         hSetBuffering h LineBuffering
         evalStateT (hPutStrLnLock stdout "Saving dict file...") st
         saveDict' h d
@@ -207,45 +218,47 @@ saveDict st (Fugly dict' _ _ _ ban' match') fuglydir topic params = do
       let l = format' $ snd x
       if null l then return () else evalStateT (hPutStrLock h l) st
       saveDict' h xs
-    format' (Word w c b a ba r p)
+    format' (Word w c b a ba t r p)
       | null w    = []
       | otherwise = unwords [("word: " ++ w ++ "\n"),
                              ("count: " ++ (show c) ++ "\n"),
-                             ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
-                             ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
+                             ("before: " ++ (unwords $ listNeighShow b) ++ "\n"),
+                             ("after: " ++ (unwords $ listNeighShow a) ++ "\n"),
                              ("ban-after: " ++ (unwords ba) ++ "\n"),
+                             ("topic: " ++ (unwords t) ++ "\n"),
                              ("related: " ++ (unwords r) ++ "\n"),
                              ("pos: " ++ (show p) ++ "\n"),
                              ("end: \n")]
-    format' (Name w c b a ba)
+    format' (Name w c b a ba t)
       | null w    = []
       | otherwise = unwords [("name: " ++ w ++ "\n"),
                              ("count: " ++ (show c) ++ "\n"),
-                             ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
-                             ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
+                             ("before: " ++ (unwords $ listNeighShow b) ++ "\n"),
+                             ("after: " ++ (unwords $ listNeighShow a) ++ "\n"),
                              ("ban-after: " ++ (unwords ba) ++ "\n"),
+                             ("topic: " ++ (unwords t) ++ "\n"),
                              ("end: \n")]
-    format' (Acronym w c b a ba d)
+    format' (Acronym w c b a ba t d)
       | null w    = []
       | otherwise = unwords [("acronym: " ++ w ++ "\n"),
                              ("count: " ++ (show c) ++ "\n"),
-                             ("before: " ++ (unwords $ listNeigh2 b) ++ "\n"),
-                             ("after: " ++ (unwords $ listNeigh2 a) ++ "\n"),
+                             ("before: " ++ (unwords $ listNeighShow b) ++ "\n"),
+                             ("after: " ++ (unwords $ listNeighShow a) ++ "\n"),
                              ("ban-after: " ++ (unwords ba) ++ "\n"),
+                             ("topic: " ++ (unwords t) ++ "\n"),
                              ("definition: " ++ d ++ "\n"),
                              ("end: \n")]
 
 loadDict :: FilePath -> String -> IO (Map.Map String Word, [String], [String], [String])
-loadDict fuglydir topic = do
-    let w = Word [] 0 Map.empty Map.empty [] [] UnknownEPos
-    h <- openFile (fuglydir ++ "/" ++ topic ++ "-dict.txt") ReadMode
+loadDict fuglydir dfile = do
+    h <- openFile (fuglydir ++ "/" ++ dfile ++ "-dict.txt") ReadMode
     eof <- hIsEOF h
     if eof then
       return (Map.empty, [], [], [])
       else do
       hSetBuffering h LineBuffering
       hPutStrLn stdout "Loading dict file..."
-      dict'   <- ff h w [([], w)]
+      dict'   <- ff h emptyWord [([], emptyWord)]
       ban'    <- hGetLine h
       match'  <- hGetLine h
       params' <- hGetLine h
@@ -270,13 +283,14 @@ loadDict fuglydir topic = do
       let l4 = if l1 > 3 && l2 > 0 && l3 == True then True else False
       let ll = if l4 == True then tail wl else ["BAD BAD BAD"]
       let ww = if l4 == True then case (head wl) of
-                           "word:"       -> Word    (unwords ll) 0 Map.empty Map.empty [] [] UnknownEPos
-                           "name:"       -> Name    (unwords ll) 0 Map.empty Map.empty []
-                           "acronym:"    -> Acronym (unwords ll) 0 Map.empty Map.empty [] []
+                           "word:"       -> Word    (unwords ll) 0 Map.empty Map.empty [] [] [] UnknownEPos
+                           "name:"       -> Name    (unwords ll) 0 Map.empty Map.empty [] []
+                           "acronym:"    -> Acronym (unwords ll) 0 Map.empty Map.empty [] [] []
                            "count:"      -> word'{count=read (unwords $ ll) :: Int}
                            "before:"     -> word'{before=getNeigh ll}
                            "after:"      -> word'{after=getNeigh ll}
                            "ban-after:"  -> word'{banafter=ll}
+                           "topic:"      -> word'{topic=ll}
                            "related:"    -> word'{related=joinWords '"' ll}
                            "pos:"        -> word'{FuglyLib.pos=readEPOS $ unwords ll}
                            "definition:" -> word'{definition=unwords ll}
@@ -300,31 +314,31 @@ badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", 
 sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
 
-insertWords :: (MVar ()) -> Fugly -> Bool -> [String] -> IO (Map.Map String Word)
-insertWords _ (Fugly{dict=d}) _ [] = return d
-insertWords st fugly autoname [x]  = insertWord st fugly autoname x [] [] []
-insertWords st fugly@(Fugly{dict=dict', ban=ban'}) autoname msg =
+insertWords :: (MVar ()) -> Fugly -> Bool -> String -> [String] -> IO (Map.Map String Word)
+insertWords _ (Fugly{dict=d}) _ _ [] = return d
+insertWords st fugly autoname topic' [x]  = insertWord st fugly autoname topic' x [] [] []
+insertWords st fugly@(Fugly{dict=dict', ban=ban'}) autoname topic' msg =
   case (len) of
     0 -> return dict'
-    2 -> do ff <- insertWord st fugly autoname mx [] my []
-            insertWord st fugly{dict=ff} autoname my mx [] []
-    _ -> insertWords' st fugly autoname 0 len mmsg
+    2 -> do ff <- insertWord st fugly autoname topic' mx [] my []
+            insertWord st fugly{dict=ff} autoname topic' my mx [] []
+    _ -> insertWords' st fugly autoname topic' 0 len mmsg
   where
     mmsg@(mx:my:_) = filter (\x -> not $ elem x ban') msg
     len = length mmsg
-    insertWords' _ (Fugly{dict=d}) _ _ _ [] = return d
-    insertWords' st' f@(Fugly{dict=d}) a i l m
-      | i == 0     = do ff <- insertWord st' f a (m!!i) [] (m!!(i+1)) []
-                        insertWords' st' f{dict=ff} a (i+1) l m
+    insertWords' _ (Fugly{dict=d}) _ _ _ _ [] = return d
+    insertWords' st' f@(Fugly{dict=d}) a t i l m
+      | i == 0     = do ff <- insertWord st' f a t (m!!i) [] (m!!(i+1)) []
+                        insertWords' st' f{dict=ff} a t (i+1) l m
       | i > l - 1  = return d
-      | i == l - 1 = do ff <- insertWord st' f a (m!!i) (m!!(i-1)) [] []
-                        insertWords' st' f{dict=ff} a (i+1) l m
-      | otherwise  = do ff <- insertWord st' f a (m!!i) (m!!(i-1)) (m!!(i+1)) []
-                        insertWords' st' f{dict=ff} a (i+1) l m
+      | i == l - 1 = do ff <- insertWord st' f a t (m!!i) (m!!(i-1)) [] []
+                        insertWords' st' f{dict=ff} a t (i+1) l m
+      | otherwise  = do ff <- insertWord st' f a t (m!!i) (m!!(i-1)) (m!!(i+1)) []
+                        insertWords' st' f{dict=ff} a t (i+1) l m
 
-insertWord :: (MVar ()) -> Fugly -> Bool -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWord _ (Fugly{dict=d}) _ [] _ _ _ = return d
-insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word' before' after' pos' = do
+insertWord :: (MVar ()) -> Fugly -> Bool -> String -> String -> String -> String -> String -> IO (Map.Map String Word)
+insertWord _ (Fugly{dict=d}) _ _ [] _ _ _ = return d
+insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname topic' word' before' after' pos' = do
     n   <- asIsName st aspell' word'
     nb  <- asIsName st aspell' before'
     na  <- asIsName st aspell' after'
@@ -335,12 +349,12 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word'
       else if isJust w then (f st nb na acb aca $ fromJust w)
         else if ac && autoname then
                 if elem (acroword word') ban' then return dict'
-                else insertAcroRaw' st fugly wa (acroword word') (bi nb acb) (ai na aca) []
+                else insertAcroRaw' st fugly wa (acroword word') (bi nb acb) (ai na aca) topic' []
           else if n && autoname then
                   if elem (upperword word') ban' then return dict'
-                  else insertNameRaw' st fugly wn (upperword word') (bi nb acb) (ai na aca) False
-            else if isJust ww then insertWordRaw' st fugly ww (lowerword word') (bi nb acb) (ai na aca) pos'
-              else insertWordRaw' st fugly w (lowerword word') (bi nb acb) (ai na aca) pos'
+                  else insertNameRaw' st fugly wn (upperword word') (bi nb acb) (ai na aca) topic' False
+            else if isJust ww then insertWordRaw' st fugly ww (lowerword word') (bi nb acb) (ai na aca) topic' pos'
+              else insertWordRaw' st fugly w (lowerword word') (bi nb acb) (ai na aca) topic' pos'
   where
     lowerword = map toLower . cleanString
     upperword = toUpperWord . cleanString
@@ -371,17 +385,17 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname word'
                                 if elem (upperword before') ban' then []
                                 else upperword before'
                               else lowerword before'
-    f st' bn an ba aa (Word{})    = insertWordRaw' st' fugly w  word'             (bi bn ba) (ai an aa) pos'
-    f st' bn an ba aa (Name{})    = insertNameRaw' st' fugly wn (upperword word') (bi bn ba) (ai an aa) False
-    f st' bn an ba aa (Acronym{}) = insertAcroRaw' st' fugly wa (acroword word')  (bi bn ba) (ai an aa) []
+    f st' bn an ba aa (Word{})    = insertWordRaw' st' fugly w  word'             (bi bn ba) (ai an aa) topic' pos'
+    f st' bn an ba aa (Name{})    = insertNameRaw' st' fugly wn (upperword word') (bi bn ba) (ai an aa) topic' False
+    f st' bn an ba aa (Acronym{}) = insertAcroRaw' st' fugly wa (acroword word')  (bi bn ba) (ai an aa) topic' []
 
-insertWordRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWordRaw st f@(Fugly{dict=d}) w b a p = insertWordRaw' st f (Map.lookup w d) w b a p
+insertWordRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> String -> IO (Map.Map String Word)
+insertWordRaw st f@(Fugly{dict=d}) w b a t p = insertWordRaw' st f (Map.lookup w d) w b a t p
 
 insertWordRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
-                 -> String -> String -> IO (Map.Map String Word)
-insertWordRaw' _ (Fugly{dict=d}) _ [] _ _ _ = return d
-insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' pos' = do
+                 -> String -> String -> String -> IO (Map.Map String Word)
+insertWordRaw' _ (Fugly{dict=d}) _ [] _ _ _ _ = return d
+insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' topic' pos' = do
   pp <- (if null pos' then wnPartPOS wne' word' else return $ readEPOS pos')
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
@@ -391,9 +405,10 @@ insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' pos' =
   let nn x y  = if isJust $ Map.lookup x dict' then x
                 else if y == UnknownEPos && Aspell.check aspell'
                         (ByteString.pack x) == False then [] else x
-  let insert' x = Map.insert x (Word x 1 (e (nn before' pb)) (e (nn after' pa)) [] rel pp) dict'
+  let insert' x = Map.insert x (Word x 1 (e (nn before' pb)) (e (nn after' pa)) [] [topic'] rel pp) dict'
   let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new word: " ++ w')) st
-  if isJust w then let w' = fromJust w in return $ Map.insert word' w'{count=c, before=nb before' pb, after=na after' pa} dict'
+  if isJust w then let w' = fromJust w in return $ Map.insert word' w'{count=c, before=nb before' pb,
+                                            after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
     else if pp /= UnknownEPos || Aspell.check aspell' (ByteString.pack word') then msg word' >> return (insert' word')
       else if (length asw) > 0 then let hasw = head asw in
         if (length hasw < 3 && (not $ elem (map toLower hasw) sWords)) || (isJust $ Map.lookup hasw dict')
@@ -412,19 +427,20 @@ insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' pos' =
                         (ByteString.pack x) then incBefore' (fromJust w) x 1
                      else wordGetBefore (fromJust w)
 
-insertNameRaw :: (MVar ()) -> Fugly -> String -> String -> String -> Bool -> IO (Map.Map String Word)
-insertNameRaw st f@(Fugly{dict=d}) w b a s = insertNameRaw' st f (Map.lookup w d) w b a s
+insertNameRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> Bool -> IO (Map.Map String Word)
+insertNameRaw st f@(Fugly{dict=d}) w b a t s = insertNameRaw' st f (Map.lookup w d) w b a t s
 
 insertNameRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
-                  -> String -> Bool -> IO (Map.Map String Word)
-insertNameRaw' _  (Fugly{dict=d}) _ [] _ _ _ = return d
-insertNameRaw' st (Fugly dict' _ wne' aspell' _ _) w name' before' after' s = do
+                  -> String -> String -> Bool -> IO (Map.Map String Word)
+insertNameRaw' _  (Fugly{dict=d}) _ [] _ _ _ _ = return d
+insertNameRaw' st (Fugly dict' _ wne' aspell' _ _) w name' before' after' topic' s = do
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
   let n = if s then name' else toUpperWord $ map toLower name'
   let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new name: " ++ w')) st
-  if isJust w then let w' = fromJust w in return $ Map.insert name' w'{count=c, before=nb before' pb, after=na after' pa} dict'
-    else msg n >> return (Map.insert n (Name n 1 (e (nn before' pb)) (e (nn after' pa)) []) dict')
+  if isJust w then let w' = fromJust w in return $ Map.insert name' w'{count=c, before=nb before' pb,
+                                            after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
+    else msg n >> return (Map.insert n (Name n 1 (e (nn before' pb)) (e (nn after' pa)) [] [topic']) dict')
   where
     e [] = Map.empty
     e x = Map.singleton x 1
@@ -438,18 +454,19 @@ insertNameRaw' st (Fugly dict' _ wne' aspell' _ _) w name' before' after' s = do
     nn x y  = if isJust $ Map.lookup x dict' then x
                 else if y == UnknownEPos && Aspell.check aspell' (ByteString.pack x) == False then [] else x
 
-insertAcroRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertAcroRaw st f@(Fugly{dict=d}) w b a def = insertAcroRaw' st f (Map.lookup w d) w b a def
+insertAcroRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> String -> IO (Map.Map String Word)
+insertAcroRaw st f@(Fugly{dict=d}) w b a t def = insertAcroRaw' st f (Map.lookup w d) w b a t def
 
 insertAcroRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
-                  -> String -> String -> IO (Map.Map String Word)
-insertAcroRaw' _  (Fugly{dict=d}) _ [] _ _ _ = return d
-insertAcroRaw' st (Fugly dict' _ wne' aspell' _ _) w acro' before' after' def = do
+                  -> String -> String -> String -> IO (Map.Map String Word)
+insertAcroRaw' _  (Fugly{dict=d}) _ [] _ _ _ _ = return d
+insertAcroRaw' st (Fugly dict' _ wne' aspell' _ _) w acro' before' after' topic' def = do
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
   let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new acronym: " ++ w')) st
-  if isJust w then let w' = fromJust w in return $ Map.insert acro' w'{count=c, before=nb before' pb, after=na after' pa} dict'
-    else msg acro' >> return (Map.insert acro' (Acronym acro' 1 (e (nn before' pb)) (e (nn after' pa)) [] def) dict')
+  if isJust w then let w' = fromJust w in return $ Map.insert acro' w'{count=c, before=nb before' pb,
+                                            after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
+    else msg acro' >> return (Map.insert acro' (Acronym acro' 1 (e (nn before' pb)) (e (nn after' pa)) [] [topic'] def) dict')
   where
     e [] = Map.empty
     e x = Map.singleton x 1
@@ -543,14 +560,17 @@ numWords m t = length $ filter (\x -> wordIs x == t) $ Map.elems m
 listNeigh :: Map.Map String Int -> [String]
 listNeigh m = [w | (w, _) <- Map.toList m]
 
-listNeigh2 :: Map.Map String Int -> [String]
-listNeigh2 m = concat [[w, show c] | (w, c) <- Map.toList m]
-
 listNeighMax :: Map.Map String Int -> [String]
 listNeighMax m = [w | (w, c) <- Map.toList m, c == maximum [c' | (_, c') <- Map.toList m]]
 
 listNeighLeast :: Map.Map String Int -> [String]
 listNeighLeast m = [w | (w, c) <- Map.toList m, c == minimum [c' | (_, c') <- Map.toList m]]
+
+listNeighTopic :: Map.Map String Word -> String -> [String] -> [String]
+listNeighTopic d t n = map wordGetWord $ filter (\x -> elem t $ wordGetTopic x) $ map (\w -> fromMaybe emptyWord $ Map.lookup w d) n
+
+listNeighShow :: Map.Map String Int -> [String]
+listNeighShow m = concat [[w, show c] | (w, c) <- Map.toList m]
 
 listWords :: Map.Map String Word -> [String]
 listWords m = map wordGetWord $ Map.elems m
@@ -568,15 +588,15 @@ listWordFull m word' =
     "Nothing!"
   where
     ww = Map.lookup word' m
-    f (Word w c b a ba r p) = ["word:", w, "count:", show c, " before:",
-                 unwords $ listNeigh2 b, " after:", unwords $ listNeigh2 a,
-                 " ban after:", unwords ba, " pos:", (show p), " related:", unwords r]
-    f (Name w c b a ba) = ["name:", w, "count:", show c, " before:",
-                 unwords $ listNeigh2 b, " after:", unwords $ listNeigh2 a,
-                 " ban after:", unwords ba]
-    f (Acronym w c b a ba d) = ["acronym:", w, "count:", show c, " before:",
-                 unwords $ listNeigh2 b, " after:", unwords $ listNeigh2 a,
-                 " ban after:", unwords ba, " definition:", d]
+    f (Word w c b a ba t r p) = ["word:", w, "count:", show c, " before:",
+                 unwords $ listNeighShow b, " after:", unwords $ listNeighShow a,
+                 " ban after:", unwords ba, " pos:", (show p), " topic:", unwords t, " related:", unwords r]
+    f (Name w c b a ba t) = ["name:", w, "count:", show c, " before:",
+                 unwords $ listNeighShow b, " after:", unwords $ listNeighShow a,
+                 " ban after:", unwords ba, " topic:", unwords t]
+    f (Acronym w c b a ba t d) = ["acronym:", w, "count:", show c, " before:",
+                 unwords $ listNeighShow b, " after:", unwords $ listNeighShow a,
+                 " ban after:", unwords ba, " topic:", unwords t, " definition:", d]
 
 cleanStringWhite :: (Char -> Bool) -> String -> String
 cleanStringWhite _ [] = []
@@ -920,9 +940,9 @@ gfAll :: PGF -> Int -> String
 gfAll pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 15 $ words $
                  linearize pgf' (head $ languages pgf') ((generateAllDepth pgf' (startCat pgf') (Just 3))!!num)
 
-sentence :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int -> [String] -> [IO String]
-sentence _ _ _ _ _ _ _ [] = [return []] :: [IO String]
-sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}) rwords randoms stries slen plen msg = do
+sentence :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int -> String -> [String] -> [IO String]
+sentence _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
+sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}) rwords randoms stries slen plen topic' msg = do
   let s1f p x = if null x then return []
                 else if gfParseBool pgf' plen x && length (words x) > 2 && p /= POS Adj then return x
                      else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
@@ -934,12 +954,12 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}) rwords
   let s1a x = do
       a <- s1m x
       n <- s1n x
-      z <- findNextWord fugly 0 randoms True x
+      z <- findNextWord fugly 0 randoms True topic' x
       let zz = if null z then [] else head z
-      y <- findNextWord fugly 1 randoms True zz
+      y <- findNextWord fugly 1 randoms True topic' zz
       let yy = if null y then [] else head y
       let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
-      w <- s1b fugly slen c $ findNextWord fugly 1 randoms False x
+      w <- s1b fugly slen c $ findNextWord fugly 1 randoms False topic' x
       ww <- s1b fugly slen 0 $ mapM s1i msg
       res <- preSentence fugly $ map (\m -> map toLower m) msg
       let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n a x] ++ w
@@ -961,7 +981,7 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}) rwords
       ww <- msg'
       if null ww then return []
         else if i >= n then return $ nub ww else do
-               www <- findNextWord f i randoms False $ fLast [] ww
+               www <- findNextWord f i randoms False topic' $ fLast [] ww
                s1b f n (i + 1) (return $ ww ++ www)
     s1c :: [String] -> String
     s1c [] = []
@@ -1064,9 +1084,9 @@ asReplace st (Fugly dict' _ wne' aspell' _ _) word' = do
     if null rw || p /= UnknownEPos || isJust w then return word' else
       if head rw == word' then return word' else return $ map toLower (rw!!rr)
 
-findNextWord :: Fugly -> Int -> Int -> Bool -> String -> IO [String]
-findNextWord _ _ _ _ [] = return []
-findNextWord (Fugly {dict=dict'}) i randoms prev word' = do
+findNextWord :: Fugly -> Int -> Int -> Bool -> String -> String -> IO [String]
+findNextWord _ _ _ _ _ [] = return []
+findNextWord (Fugly {dict=dict'}) i randoms prev topic' word' = do
   let ln = if isJust w then length neigh else 0
   let lm = if isJust w then length neighmax else 0
   let ll = if isJust w then length neighleast else 0
@@ -1103,11 +1123,17 @@ findNextWord (Fugly {dict=dict'}) i randoms prev word' = do
                     words f5
   return out
     where
-      w          = Map.lookup word' dict'
-      wordGet'   = if prev then wordGetBefore else wordGetAfter
-      neigh      = listNeigh $ wordGet' (fromJust w)
-      neighmax   = listNeighMax $ wordGet' (fromJust w)
-      neighleast = listNeighLeast $ wordGet' (fromJust w)
+      w        = Map.lookup word' dict'
+      wordGet' = if prev then wordGetBefore else wordGetAfter
+      neigh_all        = listNeigh $ wordGet' (fromJust w)
+      neigh_topic      = listNeighTopic dict' topic' neigh_all
+      neighmax_all     = listNeighMax $ wordGet' (fromJust w)
+      neighmax_topic   = listNeighTopic dict' topic' neighmax_all
+      neighleast_all   = listNeighLeast $ wordGet' (fromJust w)
+      neighleast_topic = listNeighTopic dict' topic' neighleast_all
+      neigh      = if null neigh_topic then neigh_all else neigh_topic
+      neighmax   = if null neighmax_topic then neighmax_all else neighmax_topic
+      neighleast = if null neighleast_topic then neighleast_all else neighleast_topic
 
 findRelated :: WordNetEnv -> String -> IO String
 findRelated wne' word' = do

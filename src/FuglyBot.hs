@@ -25,13 +25,14 @@ data Bot = Bot {
     fugly :: Fugly
     }
 
-data Parameter = Nick | Owner | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
+data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
                | SentenceTries | SentenceLength | ParseLength | Learning | StrictLearn
                | Autoname | AllowPM | Topic | Randoms | ReplaceWords | UnknownParam
                | Parameter {
                  nick        :: String,
                  owner       :: String,
                  fuglydir    :: FilePath,
+                 dictfile    :: String,
                  usercmd     :: Bool,
                  rejoinkick  :: Int,
                  maxchanmsg  :: Int,
@@ -53,48 +54,51 @@ allParams :: [Parameter]
 allParams = [Nick ..]
 
 instance Enum Parameter where
-    toEnum 1 = Nick
-    toEnum 2 = Owner
-    toEnum 3 = UserCommands
-    toEnum 4 = RejoinKick
-    toEnum 5 = MaxChanMsg
-    toEnum 6 = SentenceTries
-    toEnum 7 = SentenceLength
-    toEnum 8 = ParseLength
-    toEnum 9 = Learning
-    toEnum 10 = StrictLearn
-    toEnum 11 = Autoname
-    toEnum 12 = AllowPM
-    toEnum 13 = Topic
-    toEnum 14 = Randoms
-    toEnum 15 = ReplaceWords
-    toEnum 16 = ThreadTime
-    toEnum 17 = UnknownParam
+    toEnum 1  = Nick
+    toEnum 2  = Owner
+    toEnum 3  = DictFile
+    toEnum 4  = UserCommands
+    toEnum 5  = RejoinKick
+    toEnum 6  = MaxChanMsg
+    toEnum 7  = SentenceTries
+    toEnum 8  = SentenceLength
+    toEnum 9  = ParseLength
+    toEnum 10 = Learning
+    toEnum 11 = StrictLearn
+    toEnum 12 = Autoname
+    toEnum 13 = AllowPM
+    toEnum 14 = Topic
+    toEnum 15 = Randoms
+    toEnum 16 = ReplaceWords
+    toEnum 17 = ThreadTime
+    toEnum 18 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
-    fromEnum UserCommands   = 3
-    fromEnum RejoinKick     = 4
-    fromEnum MaxChanMsg     = 5
-    fromEnum SentenceTries  = 6
-    fromEnum SentenceLength = 7
-    fromEnum ParseLength    = 8
-    fromEnum Learning       = 9
-    fromEnum StrictLearn    = 10
-    fromEnum Autoname       = 11
-    fromEnum AllowPM        = 12
-    fromEnum Topic          = 13
-    fromEnum Randoms        = 14
-    fromEnum ReplaceWords   = 15
-    fromEnum ThreadTime     = 16
-    fromEnum UnknownParam   = 17
-    fromEnum _              = 17
+    fromEnum DictFile       = 3
+    fromEnum UserCommands   = 4
+    fromEnum RejoinKick     = 5
+    fromEnum MaxChanMsg     = 6
+    fromEnum SentenceTries  = 7
+    fromEnum SentenceLength = 8
+    fromEnum ParseLength    = 9
+    fromEnum Learning       = 10
+    fromEnum StrictLearn    = 11
+    fromEnum Autoname       = 12
+    fromEnum AllowPM        = 13
+    fromEnum Topic          = 14
+    fromEnum Randoms        = 15
+    fromEnum ReplaceWords   = 16
+    fromEnum ThreadTime     = 17
+    fromEnum UnknownParam   = 18
+    fromEnum _              = 18
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
 readParam :: String -> Parameter
 readParam a | (map toLower a) == "nick"            = Nick
 readParam a | (map toLower a) == "owner"           = Owner
+readParam a | (map toLower a) == "dictfile"        = DictFile
 readParam a | (map toLower a) == "usercmd"         = UserCommands
 readParam a | (map toLower a) == "usercmds"        = UserCommands
 readParam a | (map toLower a) == "usercommands"    = UserCommands
@@ -142,13 +146,14 @@ start = do
     let owner'   = args !! 3
     let topic'   = args !! 5
     let fdir     = args !! 6 :: FilePath
-    let wndir    = args !! 7 :: FilePath
-    let gfdir    = args !! 8 :: FilePath
-    let socks5   = args !! 10
+    let dfile    = args !! 7
+    let wndir    = args !! 8 :: FilePath
+    let gfdir    = args !! 9 :: FilePath
+    let passwd   = args !! 10
+    let socks5   = args !! 11
     let s5hostn  = takeWhile (\x -> x /= ':') socks5
     let s5port   = tail $ dropWhile (\x -> x /= ':') socks5
     let channels = words $ args !! 4
-    let passwd   = args !! 9
     s5serv <- getAddrInfo (Just hints) (Just s5hostn) (Just s5port)
     s <- socket AF_INET Stream defaultProtocol
     _ <- setSocketOption s KeepAlive 0
@@ -158,8 +163,8 @@ start = do
     hSetBuffering sh NoBuffering
     (f, p) <- initFugly fdir wndir gfdir topic'
     let b = if null p then
-              Bot sh (Parameter nick' owner' fdir False 10 400 20 7 0 True False True False topic' 50 False 30) f
-              else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, topic=topic'}) f
+              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False True False topic' 50 False 30) f
+              else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, dictfile=dfile, Main.topic=topic'}) f
     bot <- newMVar b
     lock <- newMVar ()
     evalStateT (write sh "NICK" nick') (bot, lock)
@@ -172,9 +177,9 @@ start = do
 
 stop :: (MVar Bot, MVar ()) -> IO ()
 stop (bot, lock) = do
-    Bot{sock=s, params=p@(Parameter{fuglydir=fd, topic=t}), fugly=f} <- readMVar bot
+    Bot{sock=s, params=p@(Parameter{fuglydir=fd, dictfile=df}), fugly=f} <- readMVar bot
     hClose s
-    stopFugly lock fd f t (paramsToList p)
+    stopFugly lock fd f df (paramsToList p)
 
 run :: StateT (MVar Bot, MVar ()) IO b
 run = do
@@ -221,6 +226,8 @@ cmdLine = do
     let fuglydirPos  = (maximum' $ elemIndices "-fuglydir" args) + 1
     let fuglydir'    = if l > fuglydirPos then args !! fuglydirPos
                                             else "fugly"
+    let dfilePos     = (maximum' $ elemIndices "-dictfile" args) + 1
+    let dfile        = if l > dfilePos then args !! dfilePos else "default"
     let wndirPos     = (maximum' $ elemIndices "-wndir" args) + 1
     let wndir        = if l > wndirPos then args !! wndirPos
                                             else "/usr/share/wordnet/dict/"
@@ -231,7 +238,7 @@ cmdLine = do
     let passwd       = if l > passwdPos then args !! passwdPos else ""
     let socks5Pos    = (maximum' $ elemIndices "-socks" args) + 1
     let socks5       = if l > socks5Pos then args !! socks5Pos else ""
-    return (server : port : nick' : owner' : channel : topic' : fuglydir' : wndir : gfdir : passwd : socks5 : [])
+    return (server : port : nick' : owner' : channel : topic' : fuglydir' : dfile : wndir : gfdir : passwd : socks5 : [])
   where
     maximum' [] = 1000
     maximum' a  = maximum a
@@ -269,27 +276,28 @@ joinChannel h a (x:xs) = do
         else return ()
 
 readParamsFromList :: [String] -> Parameter
-readParamsFromList a = Parameter{nick="", owner="", fuglydir="", usercmd=read (a!!0),
+readParamsFromList a = Parameter{nick="", owner="", fuglydir="", dictfile="", usercmd=read (a!!0),
                                  rejoinkick=read (a!!1), maxchanmsg=read (a!!2), stries=read (a!!3),
                                  slength=read (a!!4), plength=read (a!!5), learning=read (a!!6),
                                  strictlearn=read (a!!7), autoname=read (a!!8), allowpm=read (a!!9),
-                                 topic="", randoms=read (a!!10), rwords=read (a!!11),
+                                 Main.topic="", randoms=read (a!!10), rwords=read (a!!11),
                                  threadtime=read (a!!12)}
 
 paramsToList :: Parameter -> [String]
-paramsToList (Parameter _ _ _ uc rk mcm st sl pl l stl an apm _ r rw tt) = [show uc, show rk, show mcm, show st,
-                                                                            show sl, show pl, show l, show stl,
-                                                                            show an, show apm, show r, show rw,
-                                                                            show tt]
+paramsToList (Parameter _ _ _ _ uc rk mcm st sl pl l stl an apm _ r rw tt) = [show uc, show rk, show mcm, show st,
+                                                                              show sl, show pl, show l, show stl,
+                                                                              show an, show apm, show r, show rw,
+                                                                              show tt]
 paramsToList _ = []
 
 changeParam :: Bot -> String -> String -> String -> String -> StateT (MVar Bot, MVar ()) IO Bot
-changeParam bot@(Bot{sock=s, params=p@(Parameter{nick=botnick, owner=owner', fuglydir=fdir, topic=t}),
+changeParam bot@(Bot{sock=s, params=p@(Parameter{nick=botnick, owner=owner', fuglydir=fdir, dictfile=dfile, Main.topic=topic'}),
                      fugly=f@(Fugly{dict=dict', ban=ban', FuglyLib.match=match'})}) chan nick' param value = do
     st <- get
     case (readParam param) of
       Nick           -> (write s "NICK" $ cleanStringWhite isAscii value)     >> return bot
       Owner          -> replyMsg' value                 "Owner"               >>= (\x -> return bot{params=p{owner=x}})
+      Topic          -> replyMsg' value                 "Topic"               >>= (\x -> return bot{params=p{Main.topic=x}})
       UserCommands   -> replyMsg' (readBool value)      "User commands"       >>= (\x -> return bot{params=p{usercmd=x}})
       RejoinKick     -> replyMsg' (readInt 1 4096 value) "Rejoin kick time"   >>= (\x -> return bot{params=p{rejoinkick=x}})
       MaxChanMsg     -> replyMsg' (readInt 9 450 value) "Max channel message" >>= (\x -> return bot{params=p{maxchanmsg=x}})
@@ -300,14 +308,14 @@ changeParam bot@(Bot{sock=s, params=p@(Parameter{nick=botnick, owner=owner', fug
       StrictLearn    -> replyMsg' (readBool value)     "Strict learn"         >>= (\x -> return bot{params=p{strictlearn=x}})
       Autoname       -> replyMsg' (readBool value)     "Autoname"             >>= (\x -> return bot{params=p{autoname=x}})
       AllowPM        -> replyMsg' (readBool value)     "Allow PM"             >>= (\x -> return bot{params=p{allowpm=x}})
-      Topic          -> do (d, b, m, pl) <- lift $ catchJust (\e -> if isDoesNotExistErrorType (ioeGetErrorType e) then
+      DictFile       -> do (d, b, m, pl) <- lift $ catchJust (\e -> if isDoesNotExistErrorType (ioeGetErrorType e) then
                                                                        return (Map.empty, [], [], (paramsToList p))
                                                                        else
                                                                          return (dict', ban', match', (paramsToList p)))
                                                (loadDict fdir value) (\_ -> return (Map.empty, [], [], (paramsToList p)))
-                           _ <- lift $ saveDict (snd st) f fdir t (paramsToList p)
-                           let pp = (readParamsFromList pl){nick=botnick, owner=owner', fuglydir=fdir}
-                           replyMsg' value "Topic" >>= (\x -> return bot{params=pp{topic=x}, fugly=f{dict=d, ban=b, FuglyLib.match=m}})
+                           _ <- lift $ saveDict (snd st) f fdir dfile (paramsToList p)
+                           let pp = (readParamsFromList pl){nick=botnick, owner=owner', fuglydir=fdir, Main.topic=topic'}
+                           replyMsg' value "Dict file" >>= (\x -> return bot{params=pp{dictfile=x}, fugly=f{dict=d, ban=b, FuglyLib.match=m}})
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
       ReplaceWords   -> replyMsg' (readBool value)      "Replace words"       >>= (\x -> return bot{params=p{rwords=x}})
       ThreadTime     -> replyMsg' (readInt 0 360 value) "Thread time"         >>= (\x -> return bot{params=p{threadtime=x}})
@@ -404,9 +412,9 @@ processLine line = do
 
 reply :: Bot -> String -> String -> [String] -> StateT (MVar Bot, MVar ()) IO Bot
 reply bot _ _ [] = return bot
-reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
+reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ _ stries'
                                  slen plen learning' slearn autoname' allowpm'
-                                 _ randoms' rwords' ttime),
+                                 topic' randoms' rwords' ttime),
            fugly=f@(Fugly{pgf=pgf', FuglyLib.match=match'})}) chan nick' msg = do
     st <- get :: StateT (MVar Bot, MVar ()) IO (MVar Bot, MVar ())
     let mmsg = if null $ head msg then msg
@@ -420,18 +428,18 @@ reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ stries'
     mm <- lift $ chooseWord fmsg
     tId <- lift $ (if null chan then
                      if allowpm' then
-                       sentenceReply st s f nick' [] rwords' randoms' stries' slen plen mm
+                       sentenceReply st s f nick' [] rwords' randoms' stries' slen plen topic' mm
                      else forkIO $ return ()
                    else if null nick' then
                           if map toLower (unwords msg) =~ matchon then
-                            sentenceReply st s f chan chan rwords' randoms' stries' slen plen mm
+                            sentenceReply st s f chan chan rwords' randoms' stries' slen plen topic' mm
                           else forkIO $ return ()
-                        else sentenceReply st s f chan nick' rwords' randoms' stries' slen plen mm)
+                        else sentenceReply st s f chan nick' rwords' randoms' stries' slen plen topic' mm)
     if ttime > 0 then
       lift $ forkIO (do threadDelay $ ttime * 1000000 ; evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st ; killThread tId) >> return ()
       else return ()
     if ((nick' == owner' && null chan) || parse) && learning' then do
-      nd <- lift $ insertWords (snd st) f autoname' fmsg
+      nd <- lift $ insertWords (snd st) f autoname' topic' fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd}} else
       return bot
@@ -449,7 +457,7 @@ execCmd b chan nick' (x:xs) = do
   where
     execCmd' :: Bot -> (MVar Bot, MVar ()) -> IO Bot
     execCmd' bot@(Bot{sock=s, params=p@(Parameter botnick owner' fdir
-                                        usercmd' rkick maxcmsg
+                                        dfile usercmd' rkick maxcmsg
                                         stries' slen plen learn slearn
                                         autoname' allowpm' topic' randoms' rwords' ttime),
                       fugly=f@(Fugly dict' pgf' wne' aspell' ban' match')}) st
@@ -459,18 +467,18 @@ execCmd b chan nick' (x:xs) = do
           _ -> do evalStateT (write s "QUIT" (":" ++ unwords xs)) st >> return bot
                        else return bot
       | x == "!save" = if nick' == owner' then
-                         catch (saveDict (snd st) f fdir topic' (paramsToList p))
+                         catch (saveDict (snd st) f fdir dfile (paramsToList p))
                          (\e -> do let err = show (e :: SomeException)
                                    evalStateT (hPutStrLnLock stderr ("Exception in saveDict: " ++ err)) st
                                    return ())
                          >> replyMsgT st bot chan nick' "Saved dict file!" >> return bot
                        else return bot
       | x == "!load" = if nick' == owner' then do
-           (nd, nb, nm, np) <- catch (loadDict fdir topic') (\e -> do let err = show (e :: SomeException)
-                                                                      evalStateT (hPutStrLnLock stderr ("Exception in loadDict: " ++ err)) st
-                                                                      return (dict', ban', match', paramsToList p))
+           (nd, nb, nm, np) <- catch (loadDict fdir dfile) (\e -> do let err = show (e :: SomeException)
+                                                                     evalStateT (hPutStrLnLock stderr ("Exception in loadDict: " ++ err)) st
+                                                                     return (dict', ban', match', paramsToList p))
            replyMsgT st bot chan nick' "Loaded dict file!"
-           return bot{params=(readParamsFromList np){nick=botnick, owner=owner', fuglydir=fdir, topic=topic'},
+           return bot{params=(readParamsFromList np){nick=botnick, owner=owner', fuglydir=fdir, dictfile=dfile, Main.topic=topic'},
                       fugly=(Fugly nd pgf' wne' aspell' nb nm)}
                        else return bot
       | x == "!join" = if nick' == owner' then evalStateT (joinChannel s "JOIN" xs) st >> return bot else return bot
@@ -496,7 +504,7 @@ execCmd b chan nick' (x:xs) = do
                    "  usercommands: " ++ show usercmd' ++ "  rejoinkick: "
                    ++ show rkick ++ "  maxchanmsg: " ++ show maxcmsg
                    ++ "  sentencetries: " ++ show stries' ++ "  sentencelength: "
-                   ++ show slen ++ "  parselength: " ++ show plen
+                   ++ show slen ++ "  parselength: " ++ show plen ++ "  dictfile: " ++ dfile
                    ++ "  learning: " ++ show learn ++ "  strictlearn: " ++ show slearn
                    ++ "  autoname: " ++ show autoname' ++ "  allowpm: " ++ show allowpm'
                    ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms'
@@ -518,7 +526,7 @@ execCmd b chan nick' (x:xs) = do
                                             (show $ numWords dict' (x =~ "word|name|acronym"))) >> return bot
             _ -> replyMsgT st bot chan nick' ("Usage: " ++ x ++ " <number>") >> return bot
       | x == "!insertword" = if nick' == owner' then case (length xs) of
-          2 -> do ww <- insertWordRaw (snd st) f (xs!!1) [] [] (xs!!0)
+          2 -> do ww <- insertWordRaw (snd st) f (xs!!1) [] [] topic' (xs!!0)
                   if isJust $ Map.lookup (xs!!1) dict' then
                     replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " already in dict.") >> return bot
                     else
@@ -526,7 +534,7 @@ execCmd b chan nick' (x:xs) = do
           _ -> replyMsgT st bot chan nick' "Usage: !insertword <pos> <word>" >> return bot
                              else return bot
       | x == "!insertname" = if nick' == owner' then case (length xs) of
-          1 -> do ww <- insertNameRaw (snd st) f (xs!!0) [] [] True
+          1 -> do ww <- insertNameRaw (snd st) f (xs!!0) [] [] topic' True
                   if isJust $ Map.lookup (xs!!0) dict' then
                     replyMsgT st bot chan nick' ("Name " ++ (xs!!0) ++ " already in dict.") >> return bot
                     else
@@ -535,7 +543,7 @@ execCmd b chan nick' (x:xs) = do
                              else return bot
       | x == "!insertacronym" = if nick' == owner' then
             if length xs > 1 then do
-              ww <- insertAcroRaw (snd st) f (xs!!0) [] [] (unwords $ tail xs)
+              ww <- insertAcroRaw (snd st) f (xs!!0) [] [] topic' (unwords $ tail xs)
               if isJust $ Map.lookup (xs!!0) dict' then
                 replyMsgT st bot chan nick' ("Acronym " ++ (xs!!0) ++ " already in dict.") >> return bot
                 else
@@ -657,7 +665,7 @@ execCmd b chan nick' (x:xs) = do
                             else return bot
       | x == "!talk" = if nick' == owner' then
           if length xs > 2 then do
-            tId <- sentenceReply st s f (xs!!0) (xs!!1) rwords' randoms' stries' slen plen (drop 2 xs)
+            tId <- sentenceReply st s f (xs!!0) (xs!!1) rwords' randoms' stries' slen plen topic' (drop 2 xs)
             if ttime > 0 then
               forkIO (do threadDelay $ ttime * 1000000
                          evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st
@@ -746,12 +754,12 @@ execCmd b chan nick' (x:xs) = do
           ++ "!dict !closure !meet !related !forms !parts !isname !isacronym") >> return bot
     execCmd' bot _ = return bot
 
-sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> Bool -> Int -> Int -> Int -> Int -> [String] -> IO ThreadId
-sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rwords' rand stries' slen plen m = forkIO (do
+sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> Bool -> Int -> Int -> Int -> Int -> String -> [String] -> IO ThreadId
+sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rwords' rand stries' slen plen topic' m = forkIO (do
     num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
     let num = if num' - 4 < 1 || stries' < 4 then 1 else num' - 4
     bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
-    x <- f ((sentence (snd st) fugly' rwords' rand stries' slen plen m) ++ [gf []]) [] num 0
+    x <- f ((sentence (snd st) fugly' rwords' rand stries' slen plen topic' m) ++ [gf []]) [] num 0
     let ww = unwords x
     evalStateT (do if null ww then return ()
                      else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
@@ -799,10 +807,10 @@ replyMsgT st bot chan nick' msg = evalStateT (replyMsg bot chan nick' msg) st
 
 insertFromFile :: (MVar ()) -> Bot -> FilePath -> IO Bot
 insertFromFile _ b [] = return b
-insertFromFile st bot@(Bot{params=p@(Parameter{autoname=a}), fugly=f}) file = do
+insertFromFile st bot@(Bot{params=p@(Parameter{autoname=a, Main.topic=t}), fugly=f}) file = do
     ff <- readFile file
     fmsg <- asReplaceWords st f $ map cleanString $ words ff
-    n <- insertWords st f a fmsg
+    n <- insertWords st f a t fmsg
     return bot{fugly=f{dict=n}}
 insertFromFile _ b _ = return b
 
@@ -813,11 +821,11 @@ internalize st b n msg = internalize' st b n 0 msg
   where
     internalize' :: (MVar Bot, MVar ()) -> Bot -> Int -> Int -> String -> IO Bot
     internalize' _ bot _ _ [] = return bot
-    internalize' st' bot@(Bot{params=p@(Parameter{autoname=aname, stries=tries, slength=slen,
+    internalize' st' bot@(Bot{params=p@(Parameter{autoname=aname, Main.topic=topic', stries=tries, slength=slen,
                                                   plength=plen, rwords=rw, randoms=rands}), fugly=f}) num i imsg = do
       mm <- chooseWord $ words imsg
-      sen <- getSentence $ sentence (snd st') f rw rands tries slen plen mm
-      nd <- insertWords (snd st') f aname $ words sen
+      sen <- getSentence $ sentence (snd st') f rw rands tries slen plen topic' mm
+      nd <- insertWords (snd st') f aname topic' $ words sen
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot
         else if r == 0 then evalStateT (hPutStrLnLock stdout ("> internalize: " ++ msg)) st >> internalize' st bot{fugly=f{dict=nd}} num (i + 1) msg
