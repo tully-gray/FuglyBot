@@ -17,6 +17,7 @@ module FuglyLib
          dropAfter,
          dropAllAfter,
          dropBefore,
+         dropTopic,
          ageWord,
          ageWords,
          numWords,
@@ -506,6 +507,11 @@ dropBefore :: Map.Map String Word -> String -> String -> Map.Map String Word
 dropBefore m word' before' = Map.adjust del' word' m
     where
       del' w = w{before=Map.delete before' (wordGetBefore w)}
+
+dropTopic :: Map.Map String Word -> String -> Map.Map String Word
+dropTopic m t = Map.map del' m
+    where
+      del' w = w{topic=delete t $ wordGetTopic w}
 
 ageWord :: Map.Map String Word -> String -> Int -> Map.Map String Word
 ageWord m word' num = age m word' num 0
