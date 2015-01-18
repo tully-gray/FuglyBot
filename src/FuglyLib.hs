@@ -23,6 +23,7 @@ module FuglyLib
          listWords,
          listWordFull,
          listWordsCountSort,
+         listTopics,
          wordIs,
          cleanStringWhite,
          cleanStringBlack,
@@ -597,6 +598,9 @@ listWordFull m word' =
     f (Acronym w c b a ba t d) = ["acronym:", w, "count:", show c, " before:",
                  unwords $ listNeighShow b, " after:", unwords $ listNeighShow a,
                  " ban after:", unwords ba, " topic:", unwords t, " definition:", d]
+
+listTopics :: Map.Map String Word -> [String]
+listTopics m = sort $ nub $ concat $ map wordGetTopic $ Map.elems m
 
 cleanStringWhite :: (Char -> Bool) -> String -> String
 cleanStringWhite _ [] = []

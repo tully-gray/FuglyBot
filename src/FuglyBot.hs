@@ -525,6 +525,9 @@ execCmd b chan nick' (x:xs) = do
                    replyMsgT st bot chan nick' ("Total " ++ (x =~ "word|name|acronym") ++ " count: " ++
                                             (show $ numWords dict' (x =~ "word|name|acronym"))) >> return bot
             _ -> replyMsgT st bot chan nick' ("Usage: " ++ x ++ " <number>") >> return bot
+      | x == "!listtopics" = case (length xs) of
+          0 -> replyMsgT st bot chan nick' ("topics: " ++ (unwords $ listTopics dict')) >> return bot
+          _ -> replyMsgT st bot chan nick' ("Usage: !listtopics") >> return bot
       | x == "!insertword" = if nick' == owner' then case (length xs) of
           2 -> do ww <- insertWordRaw (snd st) f (xs!!1) [] [] topic' (xs!!0)
                   if isJust $ Map.lookup (xs!!1) dict' then
@@ -746,11 +749,11 @@ execCmd b chan nick' (x:xs) = do
       | otherwise  = if nick' == owner' then replyMsgT st bot chan nick'
           ("Commands: !word !wordlist !insertword !name !namelist !insertname !acronym !acronymlist !insertacronym "
           ++ "!dropword !dropafter !banafter !ageword(s) !internalize "
-          ++ "!banword !matchword "
+          ++ "!banword !matchword !listtopics "
           ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
           ++ "!setparam !showparams !nick !join !part !talk !raw !quit !readfile !load !save") >> return bot
                      else replyMsgT st bot chan nick'
-          ("Commands: !word !wordlist !name !namelist "
+          ("Commands: !word !wordlist !name !namelist !acronym !acronymlist !listtopics "
           ++ "!dict !closure !meet !related !forms !parts !isname !isacronym") >> return bot
     execCmd' bot _ = return bot
 
