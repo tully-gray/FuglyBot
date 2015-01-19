@@ -525,12 +525,12 @@ execCmd b chan nick' (x:xs) = do
                                             (show $ numWords dict' (x =~ "word|name|acronym"))) >> return bot
             _ -> replyMsgT st bot chan nick' ("Usage: " ++ x ++ " <number>") >> return bot
       | x == "!insertword" = if nick' == owner' then case (length xs) of
-          2 -> do ww <- insertWordRaw (snd st) f (xs!!0) [] [] topic' (xs!!1) True
+          2 -> do ww <- insertWordRaw (snd st) f True (xs!!0) [] [] topic' (xs!!1)
                   if isJust $ Map.lookup (xs!!0) dict' then
                     replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " already in dict.") >> return bot
                     else
                     replyMsgT st bot chan nick' ("Inserted word " ++ (xs!!0) ++ ".") >> return bot{fugly=f{dict=ww}}
-          1 -> do ww <- insertWordRaw (snd st) f (xs!!0) [] [] topic' [] True
+          1 -> do ww <- insertWordRaw (snd st) f True (xs!!0) [] [] topic' []
                   if isJust $ Map.lookup (xs!!0) dict' then
                     replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " already in dict.") >> return bot
                     else
@@ -538,7 +538,7 @@ execCmd b chan nick' (x:xs) = do
           _ -> replyMsgT st bot chan nick' "Usage: !insertword <word> [pos]" >> return bot
                              else return bot
       | x == "!insertname" = if nick' == owner' then case (length xs) of
-          1 -> do ww <- insertNameRaw (snd st) f (xs!!0) [] [] topic' True
+          1 -> do ww <- insertNameRaw (snd st) f True (xs!!0) [] [] topic'
                   if isJust $ Map.lookup (xs!!0) dict' then
                     replyMsgT st bot chan nick' ("Name " ++ (xs!!0) ++ " already in dict.") >> return bot
                     else
