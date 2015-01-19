@@ -175,6 +175,8 @@ instance Word_ Word where
 emptyWord :: Word
 emptyWord = Word [] 0 Map.empty Map.empty [] [] [] UnknownEPos
 
+type Dict = Map.Map String Word
+
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO (Fugly, [String])
 initFugly fuglydir wndir gfdir dfile = do
     (dict', ban', match', params') <- catch (loadDict fuglydir dfile)
@@ -251,7 +253,7 @@ saveDict st (Fugly dict' _ _ _ ban' match') fuglydir dfile params = do
                              ("definition: " ++ d ++ "\n"),
                              ("end: \n")]
 
-loadDict :: FilePath -> String -> IO (Map.Map String Word, [String], [String], [String])
+loadDict :: FilePath -> String -> IO (Dict, [String], [String], [String])
 loadDict fuglydir dfile = do
     h <- openFile (fuglydir ++ "/" ++ dfile ++ "-dict.txt") ReadMode
     eof <- hIsEOF h
@@ -316,7 +318,7 @@ badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", 
 sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "do", "fo", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we", "yo"]
 
-insertWords :: (MVar ()) -> Fugly -> Bool -> String -> [String] -> IO (Map.Map String Word)
+insertWords :: (MVar ()) -> Fugly -> Bool -> String -> [String] -> IO Dict
 insertWords _ (Fugly{dict=d}) _ _ [] = return d
 insertWords st fugly autoname topic' [x]  = insertWord st fugly autoname topic' x [] [] []
 insertWords st fugly@(Fugly{dict=dict', ban=ban'}) autoname topic' msg =
@@ -338,7 +340,7 @@ insertWords st fugly@(Fugly{dict=dict', ban=ban'}) autoname topic' msg =
       | otherwise  = do ff <- insertWord st' f a t (m!!i) (m!!(i-1)) (m!!(i+1)) []
                         insertWords' st' f{dict=ff} a t (i+1) l m
 
-insertWord :: (MVar ()) -> Fugly -> Bool -> String -> String -> String -> String -> String -> IO (Map.Map String Word)
+insertWord :: (MVar ()) -> Fugly -> Bool -> String -> String -> String -> String -> String -> IO Dict
 insertWord _ (Fugly{dict=d}) _ _ [] _ _ _ = return d
 insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname topic' word' before' after' pos' = do
     n   <- asIsName st aspell' word'
@@ -391,11 +393,11 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname topic
     f st' bn an ba aa (Name{})    = insertNameRaw' st' fugly wn (upperword word') (bi bn ba) (ai an aa) topic' False
     f st' bn an ba aa (Acronym{}) = insertAcroRaw' st' fugly wa (acroword word')  (bi bn ba) (ai an aa) topic' []
 
-insertWordRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> String -> Bool -> IO (Map.Map String Word)
+insertWordRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> String -> Bool -> IO Dict
 insertWordRaw st f@(Fugly{dict=d}) w b a t p s = insertWordRaw' st f (Map.lookup w d) w b a t p s
 
 insertWordRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
-                 -> String -> String -> String -> Bool -> IO (Map.Map String Word)
+                 -> String -> String -> String -> Bool -> IO Dict
 insertWordRaw' _ (Fugly{dict=d}) _ [] _ _ _ _ _ = return d
 insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' topic' pos' s = do
   pp <- (if null pos' then wnPartPOS wne' word' else return $ readEPOS pos')
@@ -430,11 +432,11 @@ insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' topic'
                         (ByteString.pack x) then incBefore' (fromJust w) x 1
                      else wordGetBefore (fromJust w)
 
-insertNameRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> Bool -> IO (Map.Map String Word)
+insertNameRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> Bool -> IO Dict
 insertNameRaw st f@(Fugly{dict=d}) w b a t s = insertNameRaw' st f (Map.lookup w d) w b a t s
 
 insertNameRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
-                  -> String -> String -> Bool -> IO (Map.Map String Word)
+                  -> String -> String -> Bool -> IO Dict
 insertNameRaw' _  (Fugly{dict=d}) _ [] _ _ _ _ = return d
 insertNameRaw' st (Fugly dict' _ wne' aspell' _ _) w name' before' after' topic' s = do
   pa <- wnPartPOS wne' after'
@@ -457,11 +459,11 @@ insertNameRaw' st (Fugly dict' _ wne' aspell' _ _) w name' before' after' topic'
     nn x y  = if isJust $ Map.lookup x dict' then x
                 else if y == UnknownEPos && Aspell.check aspell' (ByteString.pack x) == False then [] else x
 
-insertAcroRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> String -> IO (Map.Map String Word)
+insertAcroRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> String -> IO Dict
 insertAcroRaw st f@(Fugly{dict=d}) w b a t def = insertAcroRaw' st f (Map.lookup w d) w b a t def
 
 insertAcroRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
-                  -> String -> String -> String -> IO (Map.Map String Word)
+                  -> String -> String -> String -> IO Dict
 insertAcroRaw' _  (Fugly{dict=d}) _ [] _ _ _ _ = return d
 insertAcroRaw' st (Fugly dict' _ wne' aspell' _ _) w acro' before' after' topic' def = do
   pa <- wnPartPOS wne' after'
@@ -489,39 +491,39 @@ addBanAfter w ban' = let ba = wordGetBanAfter w in w{banafter=sort $ nub $ ban' 
 deleteBanAfter :: Word -> String -> Word
 deleteBanAfter w ban' = let ba = wordGetBanAfter w in w{banafter=sort $ nub $ delete ban' ba}
 
-dropWord :: Map.Map String Word -> String -> Map.Map String Word
+dropWord :: Dict -> String -> Dict
 dropWord m word' = Map.map del' $ Map.delete word' m
     where
       del' w = w{before=Map.delete word' (wordGetBefore w), after=Map.delete word' (wordGetAfter w)}
 
-dropAfter :: Map.Map String Word -> String -> String -> Map.Map String Word
+dropAfter :: Dict -> String -> String -> Dict
 dropAfter m word' after' = Map.adjust del' word' m
     where
       del' w = w{after=Map.delete after' (wordGetAfter w)}
 
-dropAllAfter :: Map.Map String Word -> String -> Map.Map String Word
+dropAllAfter :: Dict -> String -> Dict
 dropAllAfter m word' = Map.adjust del' word' m
     where
       del' w = w{after=Map.empty}
 
-dropBefore :: Map.Map String Word -> String -> String -> Map.Map String Word
+dropBefore :: Dict -> String -> String -> Dict
 dropBefore m word' before' = Map.adjust del' word' m
     where
       del' w = w{before=Map.delete before' (wordGetBefore w)}
 
-dropTopic :: Map.Map String Word -> String -> Map.Map String Word
+dropTopic :: Dict -> String -> Dict
 dropTopic m t = Map.map del' m
     where
       del' w = w{topic=nub $ "default" : (delete t $ wordGetTopic w)}
 
-ageWord :: Map.Map String Word -> String -> Int -> Map.Map String Word
+ageWord :: Dict -> String -> Int -> Dict
 ageWord m word' num = age m word' num 0
   where
     age m' w n i
       | i >= n    = m'
       | otherwise = age (ageWord' m' w) w n (i + 1)
 
-ageWord' :: Map.Map String Word -> String -> Map.Map String Word
+ageWord' :: Dict -> String -> Dict
 ageWord' m word' = Map.map age m
     where
       w = wordGetWord  $ fromJust $ Map.lookup word' m
@@ -529,7 +531,7 @@ ageWord' m word' = Map.map age m
       age w' = w'{count=if w == word' then if c - 1 < 1 then 1 else c - 1 else c,
                   before=incBefore' w' word' (-1), after=incAfter' w' word' (-1)}
 
-ageWords :: Map.Map String Word -> Int -> Map.Map String Word
+ageWords :: Dict -> Int -> Dict
 ageWords m num = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m) num
     where
       f m' []     _ = m'
@@ -574,21 +576,21 @@ listNeighMax m = [w | (w, c) <- Map.toList m, c == maximum [c' | (_, c') <- Map.
 listNeighLeast :: Map.Map String Int -> [String]
 listNeighLeast m = [w | (w, c) <- Map.toList m, c == minimum [c' | (_, c') <- Map.toList m]]
 
-listNeighTopic :: Map.Map String Word -> String -> [String] -> [String]
+listNeighTopic :: Dict -> String -> [String] -> [String]
 listNeighTopic d t n = map wordGetWord $ filter (\x -> elem t $ wordGetTopic x) $ map (\w -> fromMaybe emptyWord $ Map.lookup w d) n
 
 listNeighShow :: Map.Map String Int -> [String]
 listNeighShow m = concat [[w, show c] | (w, c) <- Map.toList m]
 
-listWords :: Map.Map String Word -> [String]
+listWords :: Dict -> [String]
 listWords m = map wordGetWord $ Map.elems m
 
-listWordsCountSort :: Map.Map String Word -> Int -> String -> [String]
+listWordsCountSort :: Dict -> Int -> String -> [String]
 listWordsCountSort m num t = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
                              sort $ map wordGetwc $ filter (\x -> wordIs x == t) $
                              Map.elems m]
 
-listWordFull :: Map.Map String Word -> String -> String
+listWordFull :: Dict -> String -> String
 listWordFull m word' =
   if isJust ww then
     unwords $ f (fromJust ww)
@@ -606,7 +608,7 @@ listWordFull m word' =
                  unwords $ listNeighShow b, " after:", unwords $ listNeighShow a,
                  " ban after:", unwords ba, " topic:", unwords t, " definition:", d]
 
-listTopics :: Map.Map String Word -> [String]
+listTopics :: Dict -> [String]
 listTopics m = sort $ nub $ concat $ map wordGetTopic $ Map.elems m
 
 cleanStringWhite :: (Char -> Bool) -> String -> String
