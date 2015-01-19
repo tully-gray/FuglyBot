@@ -1,28 +1,28 @@
-import Control.Concurrent
-import Control.Exception
-import Control.Monad
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.State.Lazy
-import Data.Char
-import Data.List
-import Data.Maybe
-import qualified Data.Map.Lazy as Map
-import Network.Socket
-import Network.Socks5
-import System.Environment
-import System.IO
-import System.IO.Error
-import qualified System.Random as Random
-import Text.Regex.Posix
-import Prelude
+import           Control.Concurrent
+import           Control.Exception
+import           Control.Monad
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.State.Lazy
+import           Data.Char
+import           Data.List
+import qualified Data.Map.Lazy                  as Map
+import           Data.Maybe
+import           Network.Socket
+import           Network.Socks5
+import           Prelude
+import           System.Environment
+import           System.IO
+import           System.IO.Error
+import qualified System.Random                  as Random
+import           Text.Regex.Posix
 
-import FuglyLib
-import NLP.WordNet.PrimTypes (allPOS, allForm)
+import           FuglyLib
+import           NLP.WordNet.PrimTypes          (allForm, allPOS)
 
 data Bot = Bot {
-    sock :: Handle,
+    sock   :: Handle,
     params :: Parameter,
-    fugly :: Fugly
+    fugly  :: Fugly
     }
 
 data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
@@ -256,11 +256,11 @@ changeNick line = do
     testNick :: (MVar Bot, MVar ()) -> Bot -> String -> [String] -> IO Bot
     testNick _ bot [] _ = return bot
     testNick _ bot _ [] = return bot
-    testNick st' bot@(Bot{params=p@(Parameter{owner = o})}) old line'
+    testNick st' bot@(Bot{params=p@(Parameter{owner=o})}) old line'
         | (x == "NICK") = return ("Nick change successful.") >>= (\x' -> evalStateT (replyMsg bot o [] x') st')
-                          >> return bot{params=p{nick = drop 1 y}}
+                          >> return bot{params=p{nick=drop 1 y}}
         | otherwise     = return ("Nick change failed!") >>= (\x' -> evalStateT (replyMsg bot o [] x') st')
-                          >> return bot{params=p{nick = old}}
+                          >> return bot{params=p{nick=old}}
       where
         x = fHead [] line'
         y = fLast [] line'
@@ -857,12 +857,12 @@ write :: Handle -> [Char] -> [Char] -> StateT (MVar Bot, MVar ()) IO ()
 write _ [] _  = return ()
 write _ _ []  = return ()
 write sock' s msg = do
-  hPutStrLnLock sock'  (s ++ " " ++ msg ++ "\r")
-  hPutStrLnLock stdout ("> " ++ s ++ " " ++ msg)
+    hPutStrLnLock sock'  (s ++ " " ++ msg ++ "\r")
+    hPutStrLnLock stdout ("> " ++ s ++ " " ++ msg)
 
 hPutStrLnLock :: Handle -> String -> StateT (MVar Bot, MVar ()) IO ()
 hPutStrLnLock s m = do
-  st <- get :: StateT (MVar Bot, MVar ()) IO (MVar Bot, MVar ())
-  let l = snd st
-  lock <- lift $ takeMVar l
-  lift (do hPutStrLn s m ; putMVar l lock)
+    st <- get :: StateT (MVar Bot, MVar ()) IO (MVar Bot, MVar ())
+    let l = snd st
+    lock <- lift $ takeMVar l
+    lift (do hPutStrLn s m ; putMVar l lock)

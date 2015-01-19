@@ -88,8 +88,10 @@ import NLP.WordNet.PrimTypes
 
 import PGF
 
+type Dict = Map.Map String Word
+
 data Fugly = Fugly {
-              dict    :: Map.Map String Word,
+              dict    :: Dict,
               pgf     :: PGF,
               wne     :: WordNetEnv,
               aspell  :: Aspell.SpellChecker,
@@ -174,8 +176,6 @@ instance Word_ Word where
 
 emptyWord :: Word
 emptyWord = Word [] 0 Map.empty Map.empty [] [] [] UnknownEPos
-
-type Dict = Map.Map String Word
 
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO (Fugly, [String])
 initFugly fuglydir wndir gfdir dfile = do
