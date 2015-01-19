@@ -314,7 +314,7 @@ badEndWords :: [String]
 badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "her", "he's", "his", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "no", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "what", "when", "where", "which", "with", "who", "whose", "yes", "you", "your", "you're", "you've"]
 
 sWords :: [String]
-sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we"]
+sWords = ["a", "am", "an", "as", "at", "by", "do", "fo", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we", "yo"]
 
 insertWords :: (MVar ()) -> Fugly -> Bool -> String -> [String] -> IO (Map.Map String Word)
 insertWords _ (Fugly{dict=d}) _ _ [] = return d

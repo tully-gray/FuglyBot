@@ -164,7 +164,7 @@ start = do
     (f, p) <- initFugly fdir wndir gfdir topic'
     let b = if null p then
               Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False True False topic' 50 False 30) f
-              else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, dictfile=dfile, Main.topic=topic'}) f
+              else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, dictfile=dfile}) f
     bot <- newMVar b
     lock <- newMVar ()
     evalStateT (write sh "NICK" nick') (bot, lock)
@@ -280,18 +280,18 @@ readParamsFromList a = Parameter{nick="", owner="", fuglydir="", dictfile="", us
                                  rejoinkick=read (a!!1), maxchanmsg=read (a!!2), stries=read (a!!3),
                                  slength=read (a!!4), plength=read (a!!5), learning=read (a!!6),
                                  strictlearn=read (a!!7), autoname=read (a!!8), allowpm=read (a!!9),
-                                 Main.topic="", randoms=read (a!!10), rwords=read (a!!11),
-                                 threadtime=read (a!!12)}
+                                 Main.topic=(a!!10), randoms=read (a!!11), rwords=read (a!!12),
+                                 threadtime=read (a!!13)}
 
 paramsToList :: Parameter -> [String]
-paramsToList (Parameter _ _ _ _ uc rk mcm st sl pl l stl an apm _ r rw tt) = [show uc, show rk, show mcm, show st,
+paramsToList (Parameter _ _ _ _ uc rk mcm st sl pl l stl an apm t r rw tt) = [show uc, show rk, show mcm, show st,
                                                                               show sl, show pl, show l, show stl,
-                                                                              show an, show apm, show r, show rw,
-                                                                              show tt]
+                                                                              show an, show apm, t, show r,
+                                                                              show rw, show tt]
 paramsToList _ = []
 
 changeParam :: Bot -> String -> String -> String -> String -> StateT (MVar Bot, MVar ()) IO Bot
-changeParam bot@(Bot{sock=s, params=p@(Parameter{nick=botnick, owner=owner', fuglydir=fdir, dictfile=dfile, Main.topic=topic'}),
+changeParam bot@(Bot{sock=s, params=p@(Parameter{nick=botnick, owner=owner', fuglydir=fdir, dictfile=dfile}),
                      fugly=f@(Fugly{dict=dict', ban=ban', FuglyLib.match=match'})}) chan nick' param value = do
     st <- get
     case (readParam param) of
@@ -314,7 +314,7 @@ changeParam bot@(Bot{sock=s, params=p@(Parameter{nick=botnick, owner=owner', fug
                                                                          return (dict', ban', match', (paramsToList p)))
                                                (loadDict fdir value) (\_ -> return (Map.empty, [], [], (paramsToList p)))
                            _ <- lift $ saveDict (snd st) f fdir dfile (paramsToList p)
-                           let pp = (readParamsFromList pl){nick=botnick, owner=owner', fuglydir=fdir, Main.topic=topic'}
+                           let pp = (readParamsFromList pl){nick=botnick, owner=owner', fuglydir=fdir}
                            replyMsg' value "Dict file" >>= (\x -> return bot{params=pp{dictfile=x}, fugly=f{dict=d, ban=b, FuglyLib.match=m}})
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
       ReplaceWords   -> replyMsg' (readBool value)      "Replace words"       >>= (\x -> return bot{params=p{rwords=x}})
@@ -478,7 +478,7 @@ execCmd b chan nick' (x:xs) = do
                                                                      evalStateT (hPutStrLnLock stderr ("Exception in loadDict: " ++ err)) st
                                                                      return (dict', ban', match', paramsToList p))
            replyMsgT st bot chan nick' "Loaded dict file!"
-           return bot{params=(readParamsFromList np){nick=botnick, owner=owner', fuglydir=fdir, dictfile=dfile, Main.topic=topic'},
+           return bot{params=(readParamsFromList np){nick=botnick, owner=owner', fuglydir=fdir, dictfile=dfile},
                       fugly=(Fugly nd pgf' wne' aspell' nb nm)}
                        else return bot
       | x == "!join" = if nick' == owner' then evalStateT (joinChannel s "JOIN" xs) st >> return bot else return bot
@@ -525,9 +525,6 @@ execCmd b chan nick' (x:xs) = do
                    replyMsgT st bot chan nick' ("Total " ++ (x =~ "word|name|acronym") ++ " count: " ++
                                             (show $ numWords dict' (x =~ "word|name|acronym"))) >> return bot
             _ -> replyMsgT st bot chan nick' ("Usage: " ++ x ++ " <number>") >> return bot
-      | x == "!listtopics" = case (length xs) of
-          0 -> replyMsgT st bot chan nick' ("topics: " ++ (unwords $ listTopics dict')) >> return bot
-          _ -> replyMsgT st bot chan nick' ("Usage: !listtopics") >> return bot
       | x == "!insertword" = if nick' == owner' then case (length xs) of
           2 -> do ww <- insertWordRaw (snd st) f (xs!!0) [] [] topic' (xs!!1) True
                   if isJust $ Map.lookup (xs!!0) dict' then
@@ -584,6 +581,9 @@ execCmd b chan nick' (x:xs) = do
                    return bot{fugly=f{dict=dropAllAfter dict' (xs!!0)}}
           _ -> replyMsgT st bot chan nick' "Usage: !dropafter <word> [after-word]" >> return bot
                             else return bot
+      | x == "!listtopics" = case (length xs) of
+          0 -> replyMsgT st bot chan nick' ("topics: " ++ (unwords $ listTopics dict')) >> return bot
+          _ -> replyMsgT st bot chan nick' ("Usage: !listtopics") >> return bot
       | x == "!droptopic" = if nick' == owner' then case (length xs) of
           1 -> if elem (xs!!0) $ listTopics dict' then
                  replyMsgT st bot chan nick' ("Dropped topic " ++ (xs!!0) ++ ".") >>
