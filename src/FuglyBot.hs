@@ -169,8 +169,7 @@ start = do
     lock <- newMVar ()
     evalStateT (write sh "NICK" nick') (bot, lock)
     evalStateT (write sh "USER" (nick' ++ " 0 * :user")) (bot, lock)
-    _ <- forkIO (do
-                    threadDelay 20000000
+    _ <- forkIO (do threadDelay 20000000
                     if not $ null passwd then evalStateT (replyMsg b "nickserv" [] ("IDENTIFY " ++ passwd)) (bot, lock) else return ()
                     evalStateT (joinChannel sh "JOIN" channels) (bot, lock))
     return (bot, lock)
@@ -708,7 +707,7 @@ execCmd b chan nick' (x:xs) = do
           _ -> replyMsgT st bot chan nick' "Usage: !meet <word> <word> [part-of-speech]" >> return bot
       | x == "!parse" = if nick' == owner' then case (length xs) of
           0 -> replyMsgT st bot chan nick' "Usage: !parse <msg>" >> return bot
-          _ -> (mapM (\x' -> replyMsgT st bot chan nick' x') $ take 3 (gfParseC pgf' (unwords $ take 12 xs))) >> return bot
+          _ -> (mapM (\x' -> replyMsgT st bot chan nick' x') $ take 3 (gfParseShow pgf' (unwords $ take 12 xs))) >> return bot
                         else return bot
       | x == "!related" = case (length xs) of
           3 -> (wnRelated wne' (xs!!0) (xs!!1) (xs!!2)) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
@@ -742,7 +741,7 @@ execCmd b chan nick' (x:xs) = do
       --     0 -> replyMsgT st bot chan nick' "Usage: !wnreplace <msg>" >> return bot
       --     _ -> do ww <- wnReplaceWords f True randoms' xs ; replyMsgT st bot chan nick' $ unwords ww >> return bot
       -- | x == "!random" = case (length xs) of
-      --     1 -> replyMsgT st bot chan nick' (gfRandom pgf' (read (xs!!0))) >> return bot
+      --     1 -> replyMsgT st bot chan nick' (gfRandomOld pgf' (read (xs!!0))) >> return bot
       --     _ -> replyMsgT st bot chan nick' "Usage: !random <number>" >> return bot
       -- | x == "!gfcats" = case (length xs) of
       --     0 -> return (unwords $ gfCategories pgf') >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
@@ -787,7 +786,7 @@ sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rwords' rand stries' slen
   where
     gf :: String -> IO String
     gf [] = do
-      r <- gfRandom2 pgf'
+      r <- gfRandom pgf'
       let rr = filter (\x -> x =~ "NP") $ words r
       gf (if rr == (\\) rr (words r) then r else [])
     gf msg = return msg

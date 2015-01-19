@@ -40,11 +40,9 @@ module FuglyLib
          gfLin,
          gfShowExpr,
          gfParseBool,
-         gfParseC,
+         gfParseShow,
          gfCategories,
          gfRandom,
-         gfRandom2,
-         gfAll,
          sentence,
          insertCommas,
          chooseWord,
@@ -56,37 +54,33 @@ module FuglyLib
          fHead,
          fLast,
          fTail,
-         -- fHeadUnsafe,
-         -- fLastUnsafe,
-         -- fTailUnsafe,
          Word (..),
          Fugly (..)
        )
        where
 
-import Control.Concurrent (MVar, putMVar, takeMVar)
-import Control.Exception
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.State.Lazy (StateT, evalStateT, get)
-import qualified Data.ByteString.Char8 as ByteString
-import Data.Char
-import Data.Either
-import Data.List
-import qualified Data.Map.Strict as Map
-import Data.Maybe
-import Data.Tree (flatten)
-import qualified System.Random as Random
-import System.IO
--- import System.IO.Unsafe {-- For easy debugging. --}
+import           Control.Concurrent             (MVar, putMVar, takeMVar)
+import           Control.Exception
+import           Control.Monad.Trans.Class      (lift)
+import           Control.Monad.Trans.State.Lazy (StateT, evalStateT, get)
+import qualified Data.ByteString.Char8          as ByteString
+import           Data.Char
+import           Data.Either
+import           Data.List
+import qualified Data.Map.Strict                as Map
+import           Data.Maybe
+import           Data.Tree                      (flatten)
+import qualified System.Random                  as Random
+import           System.IO
 
-import qualified Language.Aspell as Aspell
-import qualified Language.Aspell.Options as Aspell.Options
+import qualified Language.Aspell                as Aspell
+import qualified Language.Aspell.Options        as Aspell.Options
 
-import NLP.WordNet hiding (Word)
-import NLP.WordNet.Prims (indexLookup, senseCount, getSynset, getWords, getGloss)
-import NLP.WordNet.PrimTypes
+import           NLP.WordNet                    hiding (Word)
+import           NLP.WordNet.Prims              (indexLookup, senseCount, getSynset, getWords, getGloss)
+import           NLP.WordNet.PrimTypes
 
-import PGF
+import           PGF
 
 type Dict = Map.Map String Word
 
@@ -398,65 +392,65 @@ insertWordRaw st f@(Fugly{dict=d}) w b a t p s = insertWordRaw' st f (Map.lookup
 
 insertWordRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
                  -> String -> String -> String -> Bool -> IO Dict
-insertWordRaw' _ (Fugly{dict=d}) _ [] _ _ _ _ _ = return d
+insertWordRaw' _  (Fugly{dict=d})                  _ []    _       _      _      _    _ = return d
 insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' topic' pos' s = do
-  pp <- (if null pos' then wnPartPOS wne' word' else return $ readEPOS pos')
-  pa <- wnPartPOS wne' after'
-  pb <- wnPartPOS wne' before'
-  rel <- wnRelated' wne' word' "Hypernym" pp
-  as <- evalStateT (asSuggest aspell' word') st
-  let asw = words as
-  let nn x y  = if isJust $ Map.lookup x dict' then x
-                else if y == UnknownEPos && Aspell.check aspell'
-                        (ByteString.pack x) == False then [] else x
-  let insert' x = Map.insert x (Word x 1 (e (nn before' pb)) (e (nn after' pa)) [] [topic'] rel pp) dict'
-  let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new word: " ++ w')) st
-  if isJust w then let w' = fromJust w in return $ Map.insert word' w'{count=c, before=nb before' pb,
-                                            after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
-    else if s then msg word' >> return (insert' word')
-      else if pp /= UnknownEPos || Aspell.check aspell' (ByteString.pack word') then msg word' >> return (insert' word')
-        else if (length asw) > 0 then let hasw = head asw in
-          if (length hasw < 3 && (not $ elem (map toLower hasw) sWords)) || (isJust $ Map.lookup hasw dict')
-          then return dict' else msg hasw >> return (insert' hasw)
-            else return dict'
-  where
-    e [] = Map.empty
-    e x = Map.singleton x 1
-    c = incCount' (fromJust w) 1
-    na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1
-                else if y /= UnknownEPos || Aspell.check aspell'
-                        (ByteString.pack x) then incAfter' (fromJust w) x 1
-                     else wordGetAfter (fromJust w)
-    nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1
-                else if y /= UnknownEPos || Aspell.check aspell'
-                        (ByteString.pack x) then incBefore' (fromJust w) x 1
-                     else wordGetBefore (fromJust w)
+    pp <- (if null pos' then wnPartPOS wne' word' else return $ readEPOS pos')
+    pa <- wnPartPOS wne' after'
+    pb <- wnPartPOS wne' before'
+    rel <- wnRelated' wne' word' "Hypernym" pp
+    as <- evalStateT (asSuggest aspell' word') st
+    let asw = words as
+    let nn x y  = if isJust $ Map.lookup x dict' then x
+                  else if y == UnknownEPos && Aspell.check aspell'
+                          (ByteString.pack x) == False then [] else x
+    let insert' x = Map.insert x (Word x 1 (e (nn before' pb)) (e (nn after' pa)) [] [topic'] rel pp) dict'
+    let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new word: " ++ w')) st
+    if isJust w then let w' = fromJust w in return $ Map.insert word' w'{count=c, before=nb before' pb,
+                                              after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
+      else if s then msg word' >> return (insert' word')
+           else if pp /= UnknownEPos || Aspell.check aspell' (ByteString.pack word') then msg word' >> return (insert' word')
+                else if (length asw) > 0 then let hasw = head asw in
+                if (length hasw < 3 && (not $ elem (map toLower hasw) sWords)) || (isJust $ Map.lookup hasw dict')
+                then return dict' else msg hasw >> return (insert' hasw)
+                     else return dict'
+    where
+      e [] = Map.empty
+      e x = Map.singleton x 1
+      c = incCount' (fromJust w) 1
+      na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1
+               else if y /= UnknownEPos || Aspell.check aspell'
+                       (ByteString.pack x) then incAfter' (fromJust w) x 1
+                    else wordGetAfter (fromJust w)
+      nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1
+               else if y /= UnknownEPos || Aspell.check aspell'
+                       (ByteString.pack x) then incBefore' (fromJust w) x 1
+                    else wordGetBefore (fromJust w)
 
 insertNameRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> Bool -> IO Dict
 insertNameRaw st f@(Fugly{dict=d}) w b a t s = insertNameRaw' st f (Map.lookup w d) w b a t s
 
 insertNameRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
                   -> String -> String -> Bool -> IO Dict
-insertNameRaw' _  (Fugly{dict=d}) _ [] _ _ _ _ = return d
+insertNameRaw' _  (Fugly{dict=d})                  _ []    _       _      _      _ = return d
 insertNameRaw' st (Fugly dict' _ wne' aspell' _ _) w name' before' after' topic' s = do
-  pa <- wnPartPOS wne' after'
-  pb <- wnPartPOS wne' before'
-  let n = if s then name' else toUpperWord $ map toLower name'
-  let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new name: " ++ w')) st
-  if isJust w then let w' = fromJust w in return $ Map.insert name' w'{count=c, before=nb before' pb,
-                                            after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
-    else msg n >> return (Map.insert n (Name n 1 (e (nn before' pb)) (e (nn after' pa)) [] [topic']) dict')
-  where
-    e [] = Map.empty
-    e x = Map.singleton x 1
-    c = incCount' (fromJust w) 1
-    na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1
-                else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incAfter' (fromJust w) x 1
-                     else wordGetAfter (fromJust w)
-    nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1
-                else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incBefore' (fromJust w) x 1
-                     else wordGetBefore (fromJust w)
-    nn x y  = if isJust $ Map.lookup x dict' then x
+    pa <- wnPartPOS wne' after'
+    pb <- wnPartPOS wne' before'
+    let n = if s then name' else toUpperWord $ map toLower name'
+    let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new name: " ++ w')) st
+    if isJust w then let w' = fromJust w in return $ Map.insert name' w'{count=c, before=nb before' pb,
+                                              after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
+      else msg n >> return (Map.insert n (Name n 1 (e (nn before' pb)) (e (nn after' pa)) [] [topic']) dict')
+    where
+      e [] = Map.empty
+      e x = Map.singleton x 1
+      c = incCount' (fromJust w) 1
+      na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1
+               else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incAfter' (fromJust w) x 1
+                    else wordGetAfter (fromJust w)
+      nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1
+               else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incBefore' (fromJust w) x 1
+                    else wordGetBefore (fromJust w)
+      nn x y  = if isJust $ Map.lookup x dict' then x
                 else if y == UnknownEPos && Aspell.check aspell' (ByteString.pack x) == False then [] else x
 
 insertAcroRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> String -> IO Dict
@@ -464,25 +458,25 @@ insertAcroRaw st f@(Fugly{dict=d}) w b a t def = insertAcroRaw' st f (Map.lookup
 
 insertAcroRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
                   -> String -> String -> String -> IO Dict
-insertAcroRaw' _  (Fugly{dict=d}) _ [] _ _ _ _ = return d
+insertAcroRaw' _  (Fugly{dict=d})                  _ []    _       _      _       _  = return d
 insertAcroRaw' st (Fugly dict' _ wne' aspell' _ _) w acro' before' after' topic' def = do
-  pa <- wnPartPOS wne' after'
-  pb <- wnPartPOS wne' before'
-  let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new acronym: " ++ w')) st
-  if isJust w then let w' = fromJust w in return $ Map.insert acro' w'{count=c, before=nb before' pb,
-                                            after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
-    else msg acro' >> return (Map.insert acro' (Acronym acro' 1 (e (nn before' pb)) (e (nn after' pa)) [] [topic'] def) dict')
-  where
-    e [] = Map.empty
-    e x = Map.singleton x 1
-    c = incCount' (fromJust w) 1
-    na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1
-                else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incAfter' (fromJust w) x 1
-                     else wordGetAfter (fromJust w)
-    nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1
-                else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incBefore' (fromJust w) x 1
-                     else wordGetBefore (fromJust w)
-    nn x y  = if isJust $ Map.lookup x dict' then x
+    pa <- wnPartPOS wne' after'
+    pb <- wnPartPOS wne' before'
+    let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new acronym: " ++ w')) st
+    if isJust w then let w' = fromJust w in return $ Map.insert acro' w'{count=c, before=nb before' pb,
+                                              after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
+      else msg acro' >> return (Map.insert acro' (Acronym acro' 1 (e (nn before' pb)) (e (nn after' pa)) [] [topic'] def) dict')
+    where
+      e [] = Map.empty
+      e x = Map.singleton x 1
+      c = incCount' (fromJust w) 1
+      na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1
+               else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incAfter' (fromJust w) x 1
+                    else wordGetAfter (fromJust w)
+      nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1
+               else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incBefore' (fromJust w) x 1
+                    else wordGetBefore (fromJust w)
+      nn x y  = if isJust $ Map.lookup x dict' then x
                 else if y == UnknownEPos && Aspell.check aspell' (ByteString.pack x) == False then [] else x
 
 addBanAfter :: Word -> String -> Word
@@ -518,10 +512,10 @@ dropTopic m t = Map.map del' m
 
 ageWord :: Dict -> String -> Int -> Dict
 ageWord m word' num = age m word' num 0
-  where
-    age m' w n i
-      | i >= n    = m'
-      | otherwise = age (ageWord' m' w) w n (i + 1)
+    where
+      age m' w n i
+        | i >= n    = m'
+        | otherwise = age (ageWord' m' w) w n (i + 1)
 
 ageWord' :: Dict -> String -> Dict
 ageWord' m word' = Map.map age m
@@ -543,11 +537,11 @@ incCount' w n = let c = wordGetCount w in if c + n < 1 then 1 else c + n
 incBefore' :: Word -> String -> Int -> Map.Map String Int
 incBefore' w []      _ = wordGetBefore w
 incBefore' w before' n =
-  if isJust w' then
-    if (fromJust w') + n < 1 then b
-    else Map.insert before' ((fromJust w') + n) b
-  else if n < 0 then b
-       else Map.insert before' n b
+    if isJust w' then
+      if (fromJust w') + n < 1 then b
+      else Map.insert before' ((fromJust w') + n) b
+    else if n < 0 then b
+         else Map.insert before' n b
   where
     b  = wordGetBefore w
     w' = Map.lookup before' b
@@ -555,11 +549,11 @@ incBefore' w before' n =
 incAfter' :: Word -> String -> Int -> Map.Map String Int
 incAfter' w []     _ = wordGetAfter w
 incAfter' w after' n =
-  if isJust w' then
-    if (fromJust w') + n < 1 then a
-    else Map.insert after' ((fromJust w') + n) a
-  else if n < 0 then a
-       else Map.insert after' n a
+    if isJust w' then
+      if (fromJust w') + n < 1 then a
+      else Map.insert after' ((fromJust w') + n) a
+    else if n < 0 then a
+         else Map.insert after' n a
   where
     a  = wordGetAfter w
     w' = Map.lookup after' a
@@ -591,11 +585,10 @@ listWordsCountSort m num t = concat [[w, show c, ";"] | (c, w) <- take num $ rev
                              Map.elems m]
 
 listWordFull :: Dict -> String -> String
-listWordFull m word' =
-  if isJust ww then
-    unwords $ f (fromJust ww)
-  else
-    "Nothing!"
+listWordFull m word' = if isJust ww then
+                         unwords $ f (fromJust ww)
+                       else
+                         "Nothing!"
   where
     ww = Map.lookup word' m
     f (Word w c b a ba t r p) = ["word:", w, "count:", show c, " before:",
@@ -614,22 +607,22 @@ listTopics m = sort $ nub $ concat $ map wordGetTopic $ Map.elems m
 cleanStringWhite :: (Char -> Bool) -> String -> String
 cleanStringWhite _ [] = []
 cleanStringWhite f (x:xs)
-  | not $ f x =     cleanStringWhite f xs
-  | otherwise = x : cleanStringWhite f xs
+    | not $ f x =     cleanStringWhite f xs
+    | otherwise = x : cleanStringWhite f xs
 
 cleanStringBlack :: (Char -> Bool) -> String -> String
 cleanStringBlack _ [] = []
 cleanStringBlack f (x:xs)
-  | f x       =     cleanStringBlack f xs
-  | otherwise = x : cleanStringBlack f xs
+    | f x       =     cleanStringBlack f xs
+    | otherwise = x : cleanStringBlack f xs
 
 cleanString :: String -> String
-cleanString [] = []
+cleanString []  = []
 cleanString "i" = "I"
 cleanString x
-  | length x > 1 = filter (\y -> isAlpha y || y == '\'' || y == '-' || y == ' ') x
-  | x == "I" || map toLower x == "a" = x
-  | otherwise = []
+    | length x > 1 = filter (\y -> isAlpha y || y == '\'' || y == '-' || y == ' ') x
+    | x == "I" || map toLower x == "a" = x
+    | otherwise = []
 
 dePlenk :: String -> String
 dePlenk []  = []
@@ -647,18 +640,18 @@ dePlenk s   = dePlenk' s []
 strip :: Eq a => a -> [a] -> [a]
 strip _ [] = []
 strip a (x:xs)
-  | x == a    = strip a xs
-  | otherwise = x : strip a xs
+    | x == a    = strip a xs
+    | otherwise = x : strip a xs
 
 replace :: Eq a => a -> a -> [a] -> [a]
 replace _ _ [] = []
 replace a b (x:xs)
-  | x == a    = b : replace a b xs
-  | otherwise = x : replace a b xs
+    | x == a    = b : replace a b xs
+    | otherwise = x : replace a b xs
 
 joinWords :: Char -> [String] -> [String]
 joinWords _ [] = []
-joinWords a s = joinWords' a $ filter (not . null) s
+joinWords a s  = joinWords' a $ filter (not . null) s
   where
     joinWords' _ [] = []
     joinWords' a' (x:xs)
@@ -672,11 +665,11 @@ fixUnderscore = strip '"' . replace ' ' '_'
 
 toUpperWord :: String -> String
 toUpperWord [] = []
-toUpperWord w = (toUpper $ head w) : tail w
+toUpperWord w  = (toUpper $ head w) : tail w
 
 toUpperLast :: String -> String
 toUpperLast [] = []
-toUpperLast w = init w ++ [toUpper $ last w]
+toUpperLast w  = init w ++ [toUpper $ last w]
 
 toUpperSentence :: [String] -> [String]
 toUpperSentence []     = []
@@ -702,18 +695,6 @@ fTail :: [a] -> [a] -> [a]
 fTail b [] = b
 fTail _ c  = tail c
 
--- fHeadUnsafe :: String -> a -> [a] -> a
--- fHeadUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fHead: error in " ++ a) ; return b)
--- fHeadUnsafe _ _ c  = head c
-
--- fLastUnsafe :: String -> a -> [a] -> a
--- fLastUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fLast: error in " ++ a) ; return b)
--- fLastUnsafe _ _ c  = last c
-
--- fTailUnsafe :: String -> [a] -> [a] -> [a]
--- fTailUnsafe a b [] = unsafePerformIO (do hPutStrLn stderr ("fTail: error in " ++ a) ; return b)
--- fTailUnsafe _ _ c  = tail c
-
 wnPartString :: WordNetEnv -> String -> IO String
 wnPartString _ [] = return "Unknown"
 wnPartString w a  = do
@@ -724,7 +705,7 @@ wnPartString w a  = do
     return (type' ((count' ind1) : (count' ind2) : (count' ind3) : (count' ind4) : []))
   where
     count' a' = if isJust a' then senseCount (fromJust a') else 0
-    type' [] = "Other"
+    type' []  = "Other"
     type' a'
       | a' == [0, 0, 0, 0]                              = "Unknown"
       | fromMaybe (-1) (elemIndex (maximum a') a') == 0 = "Noun"
@@ -743,7 +724,7 @@ wnPartPOS w a  = do
     return (type' ((count' ind1) : (count' ind2) : (count' ind3) : (count' ind4) : []))
   where
     count' a' = if isJust a' then senseCount (fromJust a') else 0
-    type' [] = UnknownEPos
+    type' []  = UnknownEPos
     type' a'
       | a' == [0, 0, 0, 0]                              = UnknownEPos
       | fromMaybe (-1) (elemIndex (maximum a') a') == 0 = POS Noun
@@ -873,121 +854,110 @@ dictLookup st (Fugly _ _ wne' aspell' _ _) word' pos' = do
 asSuggest :: Aspell.SpellChecker -> String -> StateT (MVar ()) IO String
 asSuggest _       []    = return []
 asSuggest aspell' word' = do
-  l <- get :: StateT (MVar ()) IO (MVar ())
-  lock <- lift $ takeMVar l
-  w <- lift $ Aspell.suggest aspell' (ByteString.pack word')
-  let ww = map ByteString.unpack w
-  lift $ if null ww then do putMVar l lock ; return []
+    l <- get :: StateT (MVar ()) IO (MVar ())
+    lock <- lift $ takeMVar l
+    w <- lift $ Aspell.suggest aspell' (ByteString.pack word')
+    let ww = map ByteString.unpack w
+    lift $ if null ww then do putMVar l lock ; return []
            else if word' == head ww then do putMVar l lock ; return []
-             else do putMVar l lock ; return $ unwords ww
+                else do putMVar l lock ; return $ unwords ww
 
 gfLin :: PGF -> String -> String
-gfLin _ [] = []
+gfLin _    []  = []
 gfLin pgf' msg
-  | isJust expr = linearize pgf' (head $ languages pgf') $ fromJust $ expr
-  | otherwise   = []
-    where
-      expr = readExpr msg
+    | isJust expr = linearize pgf' (head $ languages pgf') $ fromJust $ expr
+    | otherwise   = []
+  where
+    expr = readExpr msg
 
 gfParseBool :: PGF -> Int -> String -> Bool
-gfParseBool _ _ [] = False
+gfParseBool _    _   []                 = False
 gfParseBool pgf' len msg
-  | elem (map toLower lw) badEndWords = False
-  | elem '\'' (map toLower lw)        = False
-  | len == 0       = True
-  | length w > len = (gfParseBoolA pgf' $ take len w) &&
-                     (gfParseBool pgf' len (unwords $ drop len w))
-  | otherwise      = gfParseBoolA pgf' w
-    where
-      w = words msg
-      lw = strip '?' $ strip '.' $ last w
+    | elem (map toLower lw) badEndWords = False
+    | elem '\'' (map toLower lw)        = False
+    | len == 0       = True
+    | length w > len = (gfParseBool' pgf' $ take len w) && (gfParseBool pgf' len (unwords $ drop len w))
+    | otherwise      = gfParseBool' pgf' w
+  where
+    w = words msg
+    lw = strip '?' $ strip '.' $ last w
 
-gfParseBoolA :: PGF -> [String] -> Bool
-gfParseBoolA pgf' msg
-  | null msg                                 = False
-  | null $ parse pgf' lang (startCat pgf') m = False
-  | otherwise                                = True
+gfParseBool' :: PGF -> [String] -> Bool
+gfParseBool' _    []                           = False
+gfParseBool' pgf' msg
+    | null $ parse pgf' lang (startCat pgf') m = False
+    | otherwise                                = True
   where
     m = unwords msg
     lang = head $ languages pgf'
 
-gfParseC :: PGF -> String -> [String]
-gfParseC pgf' msg = lin pgf' lang (parse_ pgf' lang (startCat pgf') Nothing msg)
+gfParseShow :: PGF -> String -> [String]
+gfParseShow pgf' msg = lin pgf' lang (parse_ pgf' lang (startCat pgf') Nothing msg)
   where
     lin p l (ParseOk tl, _)      = map (lin' p l) tl
     lin _ _ (ParseFailed a, b)   = ["parse failed at " ++ show a ++
                                     " tokens: " ++ showBracketedString b]
     lin _ _ (ParseIncomplete, b) = ["parse incomplete: " ++ showBracketedString b]
     lin _ _ _                    = ["No parse!"]
-    lin' p l t = "parse: " ++ showBracketedString (head $ bracketedLinearize p l t)
+    lin' p l t                   = "parse: " ++ showBracketedString (head $ bracketedLinearize p l t)
     lang = head $ languages pgf'
 
 gfCategories :: PGF -> [String]
 gfCategories pgf' = map showCId (categories pgf')
 
-gfRandom :: PGF -> Int -> String
-gfRandom pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 95 $
-                    filter (not . null) $ map cleanString $ words $ gfRandom'
-    where
-      gfRandom' = linearize pgf' (head $ languages pgf') $ head $
-                  generateRandomDepth (Random.mkStdGen num) pgf' (startCat pgf') (Just num)
-
-gfRandom2 :: PGF -> IO String
-gfRandom2 pgf' = do
-  num <- Random.getStdRandom (Random.randomR (0, 9999))
-  return $ dePlenk $ unwords $ toUpperSentence $ endSentence $
-    filter (not . null) $ map cleanString $ take 12 $ words $ gfRandom' num
-    where
-      gfRandom' n = linearize pgf' (head $ languages pgf') $ head $
-                    generateRandomDepth (Random.mkStdGen n) pgf' (startCat pgf') (Just n)
+gfRandom :: PGF -> IO String
+gfRandom pgf' = do
+    num <- Random.getStdRandom (Random.randomR (0, 9999))
+    return $ dePlenk $ unwords $ toUpperSentence $ endSentence $
+      filter (not . null) $ map cleanString $ take 12 $ words $ gfRandom' num
+  where
+    gfRandom' n = linearize pgf' (head $ languages pgf') $ head $
+                  generateRandomDepth (Random.mkStdGen n) pgf' (startCat pgf') (Just n)
 
 gfShowExpr :: PGF -> String -> Int -> String
 gfShowExpr pgf' type' num = if isJust $ readType type' then
-    let c = fromJust $ readType type'
-    in
-      head $ filter (not . null) $ map (\x -> fromMaybe [] (unStr x))
+    let c = fromJust $ readType type' in
+    head $ filter (not . null) $ map (\x -> fromMaybe [] (unStr x))
       (generateRandomDepth (Random.mkStdGen num) pgf' c (Just num))
-                          else "Not a GF type."
+                            else "Not a GF type."
 
-gfAll :: PGF -> Int -> String
-gfAll pgf' num = dePlenk $ unwords $ toUpperSentence $ endSentence $ take 15 $ words $
-                 linearize pgf' (head $ languages pgf') ((generateAllDepth pgf' (startCat pgf') (Just 3))!!num)
-
-sentence :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int -> String -> [String] -> [IO String]
+sentence :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
+            -> String -> [String] -> [IO String]
 sentence _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
-sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}) rwords randoms stries slen plen topic' msg = do
-  let s1f p x = if null x then return []
-                else if gfParseBool pgf' plen x && length (words x) > 2 && p /= POS Adj then return x
-                     else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
-  let s1h n a x = if a then map toUpper x else if n then x else map toLower x
-  let s1i x = do
-      a <- s1m x
-      n <- s1n x
-      return $ s1h n a x
-  let s1a x = do
-      a <- s1m x
-      n <- s1n x
-      z <- findNextWord fugly 0 randoms True topic' x
-      let zz = if null z then [] else head z
-      y <- findNextWord fugly 1 randoms True topic' zz
-      let yy = if null y then [] else head y
-      let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
-      w <- s1b fugly slen c $ findNextWord fugly 1 randoms False topic' x
-      ww <- s1b fugly slen 0 $ mapM s1i msg
-      res <- preSentence fugly $ map (\m -> map toLower m) msg
-      let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n a x] ++ w
-      -- return $ filter (\p -> {-- gfParseBool pgf' plen p && --}(not $ null p)) rep
-      wnReplaceWords fugly rwords randoms $ filter (not . null) $ take stries d
-  let s1d x = do
-      w <- x
-      if null w then return []
-        else return (init w ++ (last w ++ if elem (map toLower $ head w) qWords then "?" else ".") : [])
-  let s1e x = do
-      w <- x
-      if null w then return []
-        else return ([s1c w] ++ tail w)
-  let s1g = map (\x -> do y <- insertCommas wne' 0 x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
-  map (\x -> do y <- x ; p <- wnPartPOS wne' $ cleanString $ fLast [] $ words y ; s1f p y) s1g
+sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'})
+  rwords randoms stries slen plen topic' msg = do
+    let s1f p x = if null x then return []
+                  else if gfParseBool pgf' plen x && length (words x) > 2 && p /= POS Adj then return x
+                       else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
+    let s1h n a x = if a then map toUpper x else if n then x else map toLower x
+    let s1i x = do
+          a <- s1m x
+          n <- s1n x
+          return $ s1h n a x
+    let s1a x = do
+          a <- s1m x
+          n <- s1n x
+          z <- findNextWord fugly 0 randoms True topic' x
+          let zz = if null z then [] else head z
+          y <- findNextWord fugly 1 randoms True topic' zz
+          let yy = if null y then [] else head y
+          let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
+          w   <- s1b fugly slen c $ findNextWord fugly 1 randoms False topic' x
+          ww  <- s1b fugly slen 0 $ mapM s1i msg
+          res <- preSentence fugly $ map (\m -> map toLower m) msg
+          let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n a x] ++ w
+          -- return $ filter (\p -> {-- gfParseBool pgf' plen p && --}(not $ null p)) rep
+          wnReplaceWords fugly rwords randoms $ filter (not . null) $ take stries d
+    let s1d x = do
+          w <- x
+          if null w then return []
+            else return (init w ++ (last w ++ if elem (map toLower $ head w) qWords then "?" else ".") : [])
+    let s1e x = do
+          w <- x
+          if null w then return []
+            else return ([s1c w] ++ tail w)
+    let s1g = map (\x -> do y <- insertCommas wne' 0 x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
+    map (\x -> do y <- x ; p <- wnPartPOS wne' $ cleanString $ fLast [] $ words y ; s1f p y) s1g
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f n i msg' = do
@@ -998,54 +968,54 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}) rwords
                s1b f n (i + 1) (return $ ww ++ www)
     s1c :: [String] -> String
     s1c [] = []
-    s1c w = [toUpper $ head $ head w] ++ (fTail [] $ head w)
+    s1c w  = [toUpper $ head $ head w] ++ (fTail [] $ head w)
     s1m :: String -> IO Bool
     s1m [] = return False
-    s1m w = do
+    s1m w  = do
       a <- asIsAcronym st aspell' w
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "acronym" else a
     s1n :: String -> IO Bool
     s1n [] = return False
-    s1n w = do
+    s1n w  = do
       n <- asIsName st aspell' w
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "name" else n
 
 insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
 insertCommas wne' i w = do
-  w' <- w
-  r <- Random.getStdRandom (Random.randomR (0, 7)) :: IO Int
-  let x  = fHead [] w'
-  let xs = fTail [] w'
-  let y  = fHead [] xs
-  let l  = length xs
-  let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
-  let match' = ["a", "but", "however", "the", "then", "though"]
-  px <- wnPartPOS wne' x
-  py <- wnPartPOS wne' y
-  if l < 1 then w
-    else if elem x bad || elem '\'' x || i < 1 || l < 4 then do
-      xs' <- insertCommas wne' (i + 1) $ return xs
-      return (x : xs')
-         else if (elem y match') && r < 4 then do
-           xs' <- insertCommas wne' 0 $ return xs
-           return ((x ++ if r < 2 then ";" else ",") : xs')
-              else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 then do
-                xs' <- insertCommas wne' 0 $ return xs
-                return ((x ++ if r < 2 then ", or" else ", and") : xs')
-                   else if px == POS Adj && py == POS Adj && r < 2 then do
-                     xs' <- insertCommas wne' 0 $ return xs
-                     return ((x ++ " and") : xs')
-                        else do
-                          xs' <- insertCommas wne' (i + 1) $ return xs
-                          return (x : xs')
+    w' <- w
+    r <- Random.getStdRandom (Random.randomR (0, 7)) :: IO Int
+    let x  = fHead [] w'
+    let xs = fTail [] w'
+    let y  = fHead [] xs
+    let l  = length xs
+    let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
+    let match' = ["a", "but", "however", "the", "then", "though"]
+    px <- wnPartPOS wne' x
+    py <- wnPartPOS wne' y
+    if l < 1 then w
+      else if elem x bad || elem '\'' x || i < 1 || l < 4 then do
+        xs' <- insertCommas wne' (i + 1) $ return xs
+        return (x : xs')
+           else if (elem y match') && r < 4 then do
+             xs' <- insertCommas wne' 0 $ return xs
+             return ((x ++ if r < 2 then ";" else ",") : xs')
+                else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 then do
+                  xs' <- insertCommas wne' 0 $ return xs
+                  return ((x ++ if r < 2 then ", or" else ", and") : xs')
+                     else if px == POS Adj && py == POS Adj && r < 2 then do
+                       xs' <- insertCommas wne' 0 $ return xs
+                       return ((x ++ " and") : xs')
+                          else do
+                            xs' <- insertCommas wne' (i + 1) $ return xs
+                            return (x : xs')
 
 chooseWord :: [String] -> IO [String]
-chooseWord [] = return []
+chooseWord []  = return []
 chooseWord msg = do
-  cc <- c1 msg
-  c2 cc []
+    cc <- c1 msg
+    c2 cc []
   where
     c1 m = do
       r <- Random.getStdRandom (Random.randomR (0, 4)) :: IO Int
@@ -1059,82 +1029,82 @@ chooseWord msg = do
         else c2 ([x] ++ tail xs) (m ++ [head xs])
 
 wnReplaceWords :: Fugly -> Bool -> Int -> [String] -> IO [String]
-wnReplaceWords _ _     _ []  = return []
-wnReplaceWords _ False _ msg = return msg
-wnReplaceWords fugly@(Fugly{wne=wne', ban=ban'}) True randoms msg = do
-  cw <- chooseWord msg
-  cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
-  rr <- Random.getStdRandom (Random.randomR (0, 99))
-  w <- findRelated wne' (cw!!cr)
-  let ww = if elem w ban' || elem (map toLower w) sWords then cw!!cr else w
-  if randoms == 0 then
-    return msg
-    else if randoms == 100 then
-      mapM (\x -> findRelated wne' x) msg
-      else if rr + 20 < randoms then
-        wnReplaceWords fugly True randoms $ filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++
+wnReplaceWords _                                 _     _       []  = return []
+wnReplaceWords _                                 False _       msg = return msg
+wnReplaceWords fugly@(Fugly{wne=wne', ban=ban'}) True  randoms msg = do
+    cw <- chooseWord msg
+    cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
+    rr <- Random.getStdRandom (Random.randomR (0, 99))
+    w <- findRelated wne' (cw!!cr)
+    let ww = if elem w ban' || elem (map toLower w) sWords then cw!!cr else w
+    if randoms == 0 then
+      return msg
+      else if randoms == 100 then
+             mapM (\x -> findRelated wne' x) msg
+           else if rr + 20 < randoms then
+                  wnReplaceWords fugly True randoms $ filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++
                                                                  [ww] ++ (tail $ dropWhile (/= (cw!!cr)) msg))
-        else
-          return msg
+                else
+                  return msg
 
 asReplaceWords :: (MVar ()) -> Fugly -> [String] -> IO [String]
-asReplaceWords _ _ [] = return [[]]
+asReplaceWords _  _     []  = return [[]]
 asReplaceWords st fugly msg = do
-  mapM (\x -> asReplace st fugly x) msg
+    mapM (\x -> asReplace st fugly x) msg
 
 asReplace :: (MVar ()) -> Fugly -> String -> IO String
-asReplace _ _ [] = return []
+asReplace _  _                                []    = return []
 asReplace st (Fugly dict' _ wne' aspell' _ _) word' = do
-  n  <- asIsName st aspell' word'
-  ac <- asIsAcronym st aspell' word'
-  if (elem ' ' word') || (elem '\'' word') || word' == (toUpperWord word') || n || ac then return word'
-    else do
-    a <- evalStateT (asSuggest aspell' word') st
-    p <- wnPartPOS wne' word'
-    let w = Map.lookup word' dict'
-    let rw = words a
-    rr <- Random.getStdRandom (Random.randomR (0, (length rw) - 1))
-    if null rw || p /= UnknownEPos || isJust w then return word' else
-      if head rw == word' then return word' else return $ map toLower (rw!!rr)
+    n  <- asIsName st aspell' word'
+    ac <- asIsAcronym st aspell' word'
+    if (elem ' ' word') || (elem '\'' word') || word' == (toUpperWord word') || n || ac then return word'
+      else do
+      a <- evalStateT (asSuggest aspell' word') st
+      p <- wnPartPOS wne' word'
+      let w = Map.lookup word' dict'
+      let rw = words a
+      rr <- Random.getStdRandom (Random.randomR (0, (length rw) - 1))
+      if null rw || p /= UnknownEPos || isJust w then return word' else
+        if head rw == word' then return word' else return $ map toLower (rw!!rr)
 
 findNextWord :: Fugly -> Int -> Int -> Bool -> String -> String -> IO [String]
-findNextWord _ _ _ _ _ [] = return []
+findNextWord _                    _ _       _    _      []    = return []
 findNextWord (Fugly {dict=dict'}) i randoms prev topic' word' = do
-  let ln = if isJust w then length neigh else 0
-  let lm = if isJust w then length neighmax else 0
-  let ll = if isJust w then length neighleast else 0
-  nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
-  mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
-  lr <- Random.getStdRandom (Random.randomR (0, ll - 1))
-  rr <- Random.getStdRandom (Random.randomR (0, 99))
-  let f1 = if isJust w && length neigh > 0 then neighleast!!lr else []
-  let f2 = if isJust w && length neigh > 0 then case mod i 3 of
-        0 -> neigh!!nr
-        1 -> neighleast!!lr
-        2 -> neighleast!!lr
-        _ -> []
-           else []
-  let f3 = if isJust w && length neigh > 0 then case mod i 5 of
-        0 -> neighleast!!lr
-        1 -> neigh!!nr
-        2 -> neighmax!!mr
-        3 -> neigh!!nr
-        4 -> neigh!!nr
-        _ -> []
-           else []
-  let f4 = if isJust w && length neigh > 0 then case mod i 3 of
-        0 -> neighmax!!mr
-        1 -> neigh!!nr
-        2 -> neighmax!!mr
-        _ -> []
-           else []
-  let f5 = if isJust w && length neigh > 0 then neighmax!!mr else []
-  let out = if randoms > 89 then words f1 else
-              if rr < randoms - 25 then words f2 else
-                if rr < randoms + 35 then words f3 else
-                  if rr < randoms + 65 then words f4 else
-                    words f5
-  return out
+    let ln = if isJust w then length neigh else 0
+    let lm = if isJust w then length neighmax else 0
+    let ll = if isJust w then length neighleast else 0
+    nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
+    mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
+    lr <- Random.getStdRandom (Random.randomR (0, ll - 1))
+    rr <- Random.getStdRandom (Random.randomR (0, 99))
+    let f1 = if isJust w && length neigh > 0 then neighleast!!lr else []
+    let f2 = if isJust w && length neigh > 0 then case mod i 3 of
+          0 -> neigh!!nr
+          1 -> neighleast!!lr
+          2 -> neighleast!!lr
+          _ -> []
+             else []
+    let f3 = if isJust w && length neigh > 0 then case mod i 5 of
+          0 -> neighleast!!lr
+          1 -> neigh!!nr
+          2 -> neighmax!!mr
+          3 -> neigh!!nr
+          4 -> neigh!!nr
+          _ -> []
+             else []
+    let f4 = if isJust w && length neigh > 0 then case mod i 3 of
+          0 -> neighmax!!mr
+          1 -> neigh!!nr
+          2 -> neighmax!!mr
+          _ -> []
+             else []
+    let f5 = if isJust w && length neigh > 0 then neighmax!!mr else []
+    let out = if randoms > 89 then words f1 else
+                if rr < randoms - 25 then words f2 else
+                  if rr < randoms + 35 then words f3 else
+                    if rr < randoms + 65 then words f4 else
+                      words f5
+    return out
     where
       w        = Map.lookup word' dict'
       wordGet' = if prev then wordGetBefore else wordGetAfter
@@ -1150,8 +1120,8 @@ findNextWord (Fugly {dict=dict'}) i randoms prev topic' word' = do
 
 findRelated :: WordNetEnv -> String -> IO String
 findRelated wne' word' = do
-  pp <- wnPartPOS wne' word'
-  out <- do if pp /= UnknownEPos then do
+    pp <- wnPartPOS wne' word'
+    out <- do if pp /= UnknownEPos then do
               hyper <- wnRelated' wne' word' "Hypernym" pp
               hypo  <- wnRelated' wne' word' "Hyponym" pp
               anto  <- wnRelated' wne' word' "Antonym" pp
@@ -1172,7 +1142,7 @@ findRelated wne' word' = do
                   r <- Random.getStdRandom (Random.randomR (0, (length anto') - 1))
                   return (anto'!!r)
               else return word'
-  if null out then return word' else return out
+    if null out then return word' else return out
 
 preSentence :: Fugly -> [String] -> IO String
 preSentence _ [] = return []
@@ -1252,12 +1222,12 @@ preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
 
 hPutStrLock :: Handle -> String -> StateT (MVar ()) IO ()
 hPutStrLock s m = do
-  l <- get :: StateT (MVar ()) IO (MVar ())
-  lock <- lift $ takeMVar l
-  lift (do hPutStr s m ; putMVar l lock)
+    l <- get :: StateT (MVar ()) IO (MVar ())
+    lock <- lift $ takeMVar l
+    lift (do hPutStr s m ; putMVar l lock)
 
 hPutStrLnLock :: Handle -> String -> StateT (MVar ()) IO ()
 hPutStrLnLock s m = do
-  l <- get :: StateT (MVar ()) IO (MVar ())
-  lock <- lift $ takeMVar l
-  lift (do hPutStrLn s m ; putMVar l lock)
+    l <- get :: StateT (MVar ()) IO (MVar ())
+    lock <- lift $ takeMVar l
+    lift (do hPutStrLn s m ; putMVar l lock)
