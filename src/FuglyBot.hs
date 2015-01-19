@@ -529,12 +529,17 @@ execCmd b chan nick' (x:xs) = do
           0 -> replyMsgT st bot chan nick' ("topics: " ++ (unwords $ listTopics dict')) >> return bot
           _ -> replyMsgT st bot chan nick' ("Usage: !listtopics") >> return bot
       | x == "!insertword" = if nick' == owner' then case (length xs) of
-          2 -> do ww <- insertWordRaw (snd st) f (xs!!1) [] [] topic' (xs!!0)
-                  if isJust $ Map.lookup (xs!!1) dict' then
-                    replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " already in dict.") >> return bot
+          2 -> do ww <- insertWordRaw (snd st) f (xs!!0) [] [] topic' (xs!!1) True
+                  if isJust $ Map.lookup (xs!!0) dict' then
+                    replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " already in dict.") >> return bot
                     else
-                    replyMsgT st bot chan nick' ("Inserted word " ++ (xs!!1) ++ ".") >> return bot{fugly=f{dict=ww}}
-          _ -> replyMsgT st bot chan nick' "Usage: !insertword <pos> <word>" >> return bot
+                    replyMsgT st bot chan nick' ("Inserted word " ++ (xs!!0) ++ ".") >> return bot{fugly=f{dict=ww}}
+          1 -> do ww <- insertWordRaw (snd st) f (xs!!0) [] [] topic' [] True
+                  if isJust $ Map.lookup (xs!!0) dict' then
+                    replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " already in dict.") >> return bot
+                    else
+                    replyMsgT st bot chan nick' ("Inserted word " ++ (xs!!0) ++ ".") >> return bot{fugly=f{dict=ww}}
+          _ -> replyMsgT st bot chan nick' "Usage: !insertword <word> [pos]" >> return bot
                              else return bot
       | x == "!insertname" = if nick' == owner' then case (length xs) of
           1 -> do ww <- insertNameRaw (snd st) f (xs!!0) [] [] topic' True

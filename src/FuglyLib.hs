@@ -355,8 +355,8 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname topic
           else if n && autoname then
                   if elem (upperword word') ban' then return dict'
                   else insertNameRaw' st fugly wn (upperword word') (bi nb acb) (ai na aca) topic' False
-            else if isJust ww then insertWordRaw' st fugly ww (lowerword word') (bi nb acb) (ai na aca) topic' pos'
-              else insertWordRaw' st fugly w (lowerword word') (bi nb acb) (ai na aca) topic' pos'
+            else if isJust ww then insertWordRaw' st fugly ww (lowerword word') (bi nb acb) (ai na aca) topic' pos' False
+              else insertWordRaw' st fugly w (lowerword word') (bi nb acb) (ai na aca) topic' pos' False
   where
     lowerword = map toLower . cleanString
     upperword = toUpperWord . cleanString
@@ -387,17 +387,17 @@ insertWord st fugly@(Fugly{dict=dict', aspell=aspell', ban=ban'}) autoname topic
                                 if elem (upperword before') ban' then []
                                 else upperword before'
                               else lowerword before'
-    f st' bn an ba aa (Word{})    = insertWordRaw' st' fugly w  word'             (bi bn ba) (ai an aa) topic' pos'
+    f st' bn an ba aa (Word{})    = insertWordRaw' st' fugly w  word'             (bi bn ba) (ai an aa) topic' pos' False
     f st' bn an ba aa (Name{})    = insertNameRaw' st' fugly wn (upperword word') (bi bn ba) (ai an aa) topic' False
     f st' bn an ba aa (Acronym{}) = insertAcroRaw' st' fugly wa (acroword word')  (bi bn ba) (ai an aa) topic' []
 
-insertWordRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> String -> IO (Map.Map String Word)
-insertWordRaw st f@(Fugly{dict=d}) w b a t p = insertWordRaw' st f (Map.lookup w d) w b a t p
+insertWordRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> String -> Bool -> IO (Map.Map String Word)
+insertWordRaw st f@(Fugly{dict=d}) w b a t p s = insertWordRaw' st f (Map.lookup w d) w b a t p s
 
 insertWordRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
-                 -> String -> String -> String -> IO (Map.Map String Word)
-insertWordRaw' _ (Fugly{dict=d}) _ [] _ _ _ _ = return d
-insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' topic' pos' = do
+                 -> String -> String -> String -> Bool -> IO (Map.Map String Word)
+insertWordRaw' _ (Fugly{dict=d}) _ [] _ _ _ _ _ = return d
+insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' topic' pos' s = do
   pp <- (if null pos' then wnPartPOS wne' word' else return $ readEPOS pos')
   pa <- wnPartPOS wne' after'
   pb <- wnPartPOS wne' before'
@@ -411,11 +411,12 @@ insertWordRaw' st (Fugly dict' _ wne' aspell' _ _) w word' before' after' topic'
   let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new word: " ++ w')) st
   if isJust w then let w' = fromJust w in return $ Map.insert word' w'{count=c, before=nb before' pb,
                                             after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
-    else if pp /= UnknownEPos || Aspell.check aspell' (ByteString.pack word') then msg word' >> return (insert' word')
-      else if (length asw) > 0 then let hasw = head asw in
-        if (length hasw < 3 && (not $ elem (map toLower hasw) sWords)) || (isJust $ Map.lookup hasw dict')
-        then return dict' else msg hasw >> return (insert' hasw)
-          else return dict'
+    else if s then msg word' >> return (insert' word')
+      else if pp /= UnknownEPos || Aspell.check aspell' (ByteString.pack word') then msg word' >> return (insert' word')
+        else if (length asw) > 0 then let hasw = head asw in
+          if (length hasw < 3 && (not $ elem (map toLower hasw) sWords)) || (isJust $ Map.lookup hasw dict')
+          then return dict' else msg hasw >> return (insert' hasw)
+            else return dict'
   where
     e [] = Map.empty
     e x = Map.singleton x 1
