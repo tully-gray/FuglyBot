@@ -18,6 +18,7 @@ module FuglyLib
          dropAllAfter,
          dropBefore,
          dropTopic,
+         dropTopicWords,
          ageWord,
          ageWords,
          numWords,
@@ -508,7 +509,13 @@ dropBefore m word' before' = Map.adjust del' word' m
 dropTopic :: Dict -> String -> Dict
 dropTopic m t = Map.map del' m
     where
-      del' w = w{topic=nub $ "default" : (delete t $ wordGetTopic w)}
+      del' w = w{topic=sort $ nub ("default" : (delete t $ wordGetTopic w))}
+
+dropTopicWords :: Dict -> String -> Dict
+dropTopicWords m t = del' (filter (\w -> [t] == (delete "default" $ wordGetTopic w)) $ Map.elems m) m
+    where
+      del' []     m' = m'
+      del' (x:xs) m' = del' xs (dropWord m' $ wordGetWord x)
 
 ageWord :: Dict -> String -> Int -> Dict
 ageWord m word' num = age m word' num 0

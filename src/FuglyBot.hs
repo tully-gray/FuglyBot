@@ -591,6 +591,14 @@ execCmd b chan nick' (x:xs) = do
                  replyMsgT st bot chan nick' ("Topic " ++ (xs!!0) ++ " not in dict.") >> return bot
           _ -> replyMsgT st bot chan nick' "Usage: !droptopic <topic>" >> return bot
                             else return bot
+      | x == "!droptopicwords" = if nick' == owner' then case (length xs) of
+          1 -> if elem (xs!!0) $ listTopics dict' then let nd = dropTopicWords dict' (xs!!0) in
+                 replyMsgT st bot chan nick' ("Dropped all words in topic " ++ (xs!!0) ++ ".") >>
+                   return bot{fugly=f{dict=dropTopic nd (xs!!0)}}
+               else
+                 replyMsgT st bot chan nick' ("Topic " ++ (xs!!0) ++ " not in dict.") >> return bot
+          _ -> replyMsgT st bot chan nick' "Usage: !droptopicwords <topic>" >> return bot
+                            else return bot
       | x == "!banafter" = if nick' == owner' then case (length xs) of
           3 -> if (xs!!0) == "add" then let w = Map.lookup (xs!!1) dict' in
                  if isJust w then
@@ -761,7 +769,7 @@ execCmd b chan nick' (x:xs) = do
       | otherwise  = if nick' == owner' then replyMsgT st bot chan nick'
           ("Commands: !word !wordlist !insertword !name !namelist !insertname !acronym !acronymlist !insertacronym "
           ++ "!dropword !banword !matchword !dropafter !banafter "
-          ++ "!ageword(s) !listtopics !droptopic !internalize "
+          ++ "!ageword(s) !listtopics !droptopic !droptopicwords !internalize "
           ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
           ++ "!setparam !showparams !nick !join !part !talk !raw !quit !readfile !load !save") >> return bot
                      else replyMsgT st bot chan nick'
