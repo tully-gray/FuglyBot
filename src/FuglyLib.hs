@@ -565,8 +565,8 @@ incAfter' w after' n =
     a  = wordGetAfter w
     w' = Map.lookup after' a
 
-numWords :: Word_ a => Map.Map k a -> String -> Int
-numWords m t = length $ filter (\x -> wordIs x == t) $ Map.elems m
+numWords :: Word_ a => Map.Map k a -> String -> String -> Int
+numWords m typ top = length $ filter (\x -> wordIs x == typ && (elem top (wordGetTopic x) || null top)) $ Map.elems m
 
 listNeigh :: Map.Map String Int -> [String]
 listNeigh m = [w | (w, _) <- Map.toList m]
@@ -586,10 +586,10 @@ listNeighShow m = concat [[w, show c] | (w, c) <- Map.toList m]
 listWords :: Dict -> [String]
 listWords m = map wordGetWord $ Map.elems m
 
-listWordsCountSort :: Dict -> Int -> String -> [String]
-listWordsCountSort m num t = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
-                             sort $ map wordGetwc $ filter (\x -> wordIs x == t) $
-                             Map.elems m]
+listWordsCountSort :: Dict -> Int -> String -> String -> [String]
+listWordsCountSort m num typ top = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
+                                   sort $ map wordGetwc $ filter (\x -> wordIs x == typ &&
+                                   (elem top (wordGetTopic x) || null top)) $ Map.elems m]
 
 listWordFull :: Dict -> String -> String
 listWordFull m word' = if isJust ww then

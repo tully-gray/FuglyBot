@@ -520,10 +520,13 @@ execCmd b chan nick' (x:xs) = do
       | x == "!wordlist" || x == "!namelist" || x == "!acronymlist" =
           let num = if read (xs!!0) > (100 :: Int) then 100 :: Int else read (xs!!0) in
           case (length xs) of
-            1 -> replyMsgT st bot chan nick' (unwords $ listWordsCountSort dict' num (x =~ "word|name|acronym")) >>
+            2 -> replyMsgT st bot chan nick' (unwords $ listWordsCountSort dict' num (x =~ "word|name|acronym") (xs!!1)) >>
+                   replyMsgT st bot chan nick' ("Total " ++ (x =~ "word|name|acronym") ++ " count with topic " ++ (xs!!1) ++ ": " ++
+                                            (show $ numWords dict' (x =~ "word|name|acronym") (xs!!1))) >> return bot
+            1 -> replyMsgT st bot chan nick' (unwords $ listWordsCountSort dict' num (x =~ "word|name|acronym") []) >>
                    replyMsgT st bot chan nick' ("Total " ++ (x =~ "word|name|acronym") ++ " count: " ++
-                                            (show $ numWords dict' (x =~ "word|name|acronym"))) >> return bot
-            _ -> replyMsgT st bot chan nick' ("Usage: " ++ x ++ " <number>") >> return bot
+                                            (show $ numWords dict' (x =~ "word|name|acronym") [])) >> return bot
+            _ -> replyMsgT st bot chan nick' ("Usage: " ++ x ++ " <number> [topic]") >> return bot
       | x == "!insertword" = if nick' == owner' then case (length xs) of
           2 -> do ww <- insertWordRaw (snd st) f True (xs!!0) [] [] topic' (xs!!1)
                   if isJust $ Map.lookup (xs!!0) dict' then
