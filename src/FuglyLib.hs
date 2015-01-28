@@ -311,7 +311,7 @@ badEndWords :: [String]
 badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "her", "he's", "his", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "no", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "what", "when", "where", "which", "with", "who", "whose", "yes", "you", "your", "you're", "you've"]
 
 sWords :: [String]
-sWords = ["a", "am", "an", "as", "at", "by", "do", "fo", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we", "yo"]
+sWords = ["a", "am", "an", "as", "at", "by", "da", "do", "fo", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we", "yo"]
 
 insertWords :: (MVar ()) -> Fugly -> Bool -> String -> [String] -> IO Dict
 insertWords _ (Fugly{dict=d}) _ _ []      = return d
@@ -936,7 +936,8 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'})
     let s1f p x = if null x then return []
                   else if gfParseBool pgf' plen x && length (words x) > 2 && p /= POS Adj then return x
                        else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
-    let s1h n a x = if a then map toUpper x else if n then x else map toLower x
+    let s1h n a x = let out = if a then map toUpper x else if n then x else map toLower x in
+          if isJust $ Map.lookup out dict' then out else topic'
     let s1i x = do
           a <- s1m x
           n <- s1n x
@@ -958,7 +959,7 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'})
     let s1d x = do
           w <- x
           if null w then return []
-            else return (init w ++ (last w ++ if elem (map toLower $ head w) qWords then "?" else ".") : [])
+            else return (init w ++ (cleanString (last w) ++ if elem (map toLower $ head w) qWords then "?" else ".") : [])
     let s1e x = do
           w <- x
           if null w then return []
