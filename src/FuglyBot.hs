@@ -435,7 +435,9 @@ reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ _ stries'
                           else forkIO $ return ()
                         else sentenceReply st s f chan nick' rwords' randoms' stries' slen plen topic' mm)
     if ttime > 0 then
-      lift $ forkIO (do threadDelay $ ttime * 1000000 ; evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st ; killThread tId) >> return ()
+      lift $ forkIO (do threadDelay $ ttime * 1000000
+                        evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st
+                        killThread tId) >> return ()
       else return ()
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords (snd st) f autoname' topic' fmsg
@@ -443,6 +445,36 @@ reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ _ stries'
       return bot{fugly=f{dict=nd}} else
       return bot
 reply bot _ _ _ = return bot
+
+sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String
+                 -> Bool -> Int -> Int -> Int -> Int -> String -> [String] -> IO ThreadId
+sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rwords' rand stries' slen plen topic' m = forkIO (do
+    num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
+    let num = if num' - 4 < 1 || stries' < 4 then 1 else num' - 4
+    bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
+    x <- f ((sentence (snd st) fugly' rwords' rand stries' slen plen topic' m) ++ [gf []]) [] num 0
+    let ww = unwords x
+    evalStateT (do if null ww then return ()
+                     else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
+                                             hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
+                          else if nick' == chan || bloop == 0 then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
+                                                                   hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
+                               else hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww) ++ "\r") >>
+                                    hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww))) st)
+  where
+    gf :: String -> IO String
+    gf [] = do
+      r <- gfRandom pgf'
+      let rr = filter (\x -> x =~ "NP") $ words r
+      gf (if rr == (\\) rr (words r) then r else [])
+    gf msg = return msg
+    f :: [IO String] -> [String] -> Int -> Int -> IO [String]
+    f []     a _ _ = return a
+    f (x:xs) a n i = do
+      xx <- x
+      if i >= n then return a
+        else if null xx then f xs a n i
+        else f xs ([xx ++ " "] ++ a) n (i + 1)
 
 execCmd :: Bot -> String -> String -> [String] -> StateT (MVar Bot, MVar ()) IO Bot
 execCmd b _ _ [] = lift $ return b
@@ -779,35 +811,6 @@ execCmd b chan nick' (x:xs) = do
           ("Commands: !word !wordlist !name !namelist !acronym !acronymlist !listtopics "
           ++ "!dict !closure !meet !related !forms !parts !isname !isacronym") >> return bot
     execCmd' bot _ = return bot
-
-sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String -> Bool -> Int -> Int -> Int -> Int -> String -> [String] -> IO ThreadId
-sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rwords' rand stries' slen plen topic' m = forkIO (do
-    num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
-    let num = if num' - 4 < 1 || stries' < 4 then 1 else num' - 4
-    bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
-    x <- f ((sentence (snd st) fugly' rwords' rand stries' slen plen topic' m) ++ [gf []]) [] num 0
-    let ww = unwords x
-    evalStateT (do if null ww then return ()
-                     else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
-                                             hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
-                          else if nick' == chan || bloop == 0 then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
-                                                                   hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
-                               else hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww) ++ "\r") >>
-                                    hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww))) st)
-  where
-    gf :: String -> IO String
-    gf [] = do
-      r <- gfRandom pgf'
-      let rr = filter (\x -> x =~ "NP") $ words r
-      gf (if rr == (\\) rr (words r) then r else [])
-    gf msg = return msg
-    f :: [IO String] -> [String] -> Int -> Int -> IO [String]
-    f []     a _ _ = return a
-    f (x:xs) a n i = do
-      xx <- x
-      if i >= n then return a
-        else if null xx then f xs a n i
-        else f xs ([xx ++ " "] ++ a) n (i + 1)
 
 replyMsg :: Bot -> String -> String -> String -> StateT (MVar Bot, MVar ()) IO ()
 replyMsg bot@(Bot{sock=s, params=p@(Parameter{maxchanmsg=mcm})}) chan nick' msg
