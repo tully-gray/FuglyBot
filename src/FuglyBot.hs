@@ -22,7 +22,8 @@ import           NLP.WordNet.PrimTypes          (allForm, allPOS)
 data Bot = Bot {
     sock   :: Handle,
     params :: Parameter,
-    fugly  :: Fugly
+    fugly  :: Fugly,
+    tcount :: MVar Int
     }
 
 data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
@@ -161,10 +162,12 @@ start = do
          else socksConnectAddr s (addrAddress $ head s5serv) (addrAddress $ head serv)
     sh <- socketToHandle s ReadWriteMode
     hSetBuffering sh NoBuffering
+    tc <- newEmptyMVar
+    putMVar tc 0
     (f, p) <- initFugly fdir wndir gfdir topic'
     let b = if null p then
-              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False True False topic' 50 False 30) f
-              else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, dictfile=dfile}) f
+              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False True False topic' 50 False 30) f tc
+              else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, dictfile=dfile}) f tc
     bot <- newMVar b
     lock <- newMVar ()
     evalStateT (write sh "NICK" nick') (bot, lock)
@@ -205,6 +208,12 @@ run = do
                                  evalStateT (hPutStrLnLock stderr ("Exception in processLine: " ++ err)) st
                                  putMVar b bot
                                  return ()))
+
+incT :: MVar Int -> IO ()
+incT c = do { v <- takeMVar c ; putMVar c (v+1) }
+
+decT :: MVar Int -> IO ()
+decT c = do { v <- takeMVar c ; putMVar c (v-1) }
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -411,49 +420,56 @@ processLine line = do
 
 reply :: Bot -> String -> String -> [String] -> StateT (MVar Bot, MVar ()) IO Bot
 reply bot _ _ [] = return bot
-reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ _ stries'
-                                 slen plen learning' slearn autoname' allowpm'
-                                 topic' randoms' rwords' ttime),
-           fugly=f@(Fugly{pgf=pgf', FuglyLib.match=match'})}) chan nick' msg = do
-    st <- get :: StateT (MVar Bot, MVar ()) IO (MVar Bot, MVar ())
+reply bot@(Bot{params=p@(Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
+                                   autoname=an, allowpm=apm, Main.topic=top, threadtime=ttime}),
+           fugly=f@(Fugly{pgf=pgf', FuglyLib.match=match'}), tcount=tc}) chan nick' msg = do
+    st  <- get :: StateT (MVar Bot, MVar ()) IO (MVar Bot, MVar ())
+    tc' <- lift $ readMVar tc
+    _   <- lift $ evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
                    ':' -> tail msg
                    ',' -> tail msg
                    _   -> msg
     let fmsg = map cleanString mmsg
-    let parse = if slearn then gfParseBool pgf' 7 $ unwords fmsg else True
-    let matchon = map toLower (" " ++ intercalate " | " (botnick : match') ++ " ")
-    mm <- lift $ chooseWord fmsg
+    let parse = if sl then gfParseBool pgf' 7 $ unwords fmsg else True
+    let matchon = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
+    mm  <- lift $ chooseWord fmsg
     tId <- lift $ (if null chan then
-                     if allowpm' then
-                       return $ Just (sentenceReply st s f nick' [] rwords' randoms' stries' slen plen topic' mm)
+                     if apm && tc' < 3 then
+                       return $ Just (sentenceReply st bot nick' [] mm)
                      else return Nothing
                    else if null nick' then
-                          if map toLower (unwords msg) =~ matchon then
-                            return $ Just (sentenceReply st s f chan chan rwords' randoms' stries' slen plen topic' mm)
+                          if map toLower (unwords msg) =~ matchon && tc' < 3 then
+                            return $ Just (sentenceReply st bot chan chan mm)
                           else return Nothing
-                        else return $ Just (sentenceReply st s f chan nick' rwords' randoms' stries' slen plen topic' mm))
+                        else if tc' < 3 then return $ Just (sentenceReply st bot chan nick' mm)
+                             else return Nothing)
     if ttime > 0 && isJust tId then do
       tId' <- lift $ fromJust tId
       lift $ forkIO (do threadDelay $ ttime * 1000000
                         evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId')) st
                         killThread tId') >> return ()
       else return ()
-    if ((nick' == owner' && null chan) || parse) && learning' then do
-      nd <- lift $ insertWords (snd st) f autoname' topic' fmsg
+    if ((nick' == o && null chan) || parse) && l then do
+      nd <- lift $ insertWords (snd st) f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd}} else
       return bot
 reply bot _ _ _ = return bot
 
-sentenceReply :: (MVar Bot, MVar ()) -> Handle -> Fugly -> String -> String
-                 -> Bool -> Int -> Int -> Int -> Int -> String -> [String] -> IO ThreadId
-sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rwords' rand stries' slen plen topic' m = forkIO (do
+sentenceReply :: (MVar Bot, MVar ()) -> Bot -> String -> String -> [String] -> IO ThreadId
+sentenceReply _ _ _ _ [] = forkIO $ return ()
+sentenceReply st (Bot{sock=h, params=p@(Parameter{stries=str, slength=slen, plength=plen,
+                                                  Main.topic=top, randoms=rand, rwords=rw}),
+                      fugly=fugly'@(Fugly{pgf=pgf'}), tcount=tc}) chan nick' m = forkIO (do
+    incT tc
+    tc'  <- readMVar tc
     num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
-    let num = if num' - 4 < 1 || stries' < 4 then 1 else num' - 4
+    let num = if num' - 4 < 1 || str < 4 then 1 else num' - 4
     bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
-    x <- f ((sentence (snd st) fugly' rwords' rand stries' slen plen topic' m) ++ [gf []]) [] num 0
+    let plen' = if tc' < 2 then plen else 0
+    x <- f ((sentence (snd st) fugly' rw rand str slen plen' top m) ++ [gf []]) [] num 0
     let ww = unwords x
     evalStateT (do if null ww then return ()
                      else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
@@ -461,7 +477,8 @@ sentenceReply st h fugly'@(Fugly{pgf=pgf'}) chan nick' rwords' rand stries' slen
                           else if nick' == chan || bloop == 0 then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
                                                                    hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
                                else hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww) ++ "\r") >>
-                                    hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww))) st)
+                                    hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww))) st
+    decT tc)
   where
     gf :: String -> IO String
     gf [] = do
@@ -724,7 +741,7 @@ execCmd b chan nick' (x:xs) = do
                             else return bot
       | x == "!talk" = if nick' == owner' then
           if length xs > 2 then do
-            tId <- sentenceReply st s f (xs!!0) (xs!!1) rwords' randoms' stries' slen plen topic' (drop 2 xs)
+            tId <- sentenceReply st bot (xs!!0) (xs!!1) (drop 2 xs)
             if ttime > 0 then
               forkIO (do threadDelay $ ttime * 1000000
                          evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st
