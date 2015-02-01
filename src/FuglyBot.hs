@@ -427,17 +427,18 @@ reply bot@(Bot{sock=s, params=p@(Parameter botnick owner' _ _ _ _ _ stries'
     mm <- lift $ chooseWord fmsg
     tId <- lift $ (if null chan then
                      if allowpm' then
-                       sentenceReply st s f nick' [] rwords' randoms' stries' slen plen topic' mm
-                     else forkIO $ return ()
+                       return $ Just (sentenceReply st s f nick' [] rwords' randoms' stries' slen plen topic' mm)
+                     else return Nothing
                    else if null nick' then
                           if map toLower (unwords msg) =~ matchon then
-                            sentenceReply st s f chan chan rwords' randoms' stries' slen plen topic' mm
-                          else forkIO $ return ()
-                        else sentenceReply st s f chan nick' rwords' randoms' stries' slen plen topic' mm)
-    if ttime > 0 then
+                            return $ Just (sentenceReply st s f chan chan rwords' randoms' stries' slen plen topic' mm)
+                          else return Nothing
+                        else return $ Just (sentenceReply st s f chan nick' rwords' randoms' stries' slen plen topic' mm))
+    if ttime > 0 && isJust tId then do
+      tId' <- lift $ fromJust tId
       lift $ forkIO (do threadDelay $ ttime * 1000000
-                        evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st
-                        killThread tId) >> return ()
+                        evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId')) st
+                        killThread tId') >> return ()
       else return ()
     if ((nick' == owner' && null chan) || parse) && learning' then do
       nd <- lift $ insertWords (snd st) f autoname' topic' fmsg
