@@ -954,7 +954,6 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'})
           ww  <- s1b fugly slen 0 $ mapM s1i msg
           res <- preSentence fugly $ map (\m -> map toLower m) msg
           let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n a x] ++ w
-          -- return $ filter (\p -> {-- gfParseBool pgf' plen p && --}(not $ null p)) rep
           wnReplaceWords fugly rwords randoms $ filter (not . null) $ take stries d
     let s1d x = do
           w <- x
@@ -1009,7 +1008,7 @@ insertCommas wne' i w = do
            else if (elem y match') && r < 4 then do
              xs' <- insertCommas wne' 0 $ return xs
              return ((x ++ if r < 2 then ";" else ",") : xs')
-                else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 then do
+                else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 && y /= "or" && y /= "and" then do
                   xs' <- insertCommas wne' 0 $ return xs
                   return ((x ++ if r < 2 then ", or" else ", and") : xs')
                      else if px == POS Adj && py == POS Adj && r < 2 then do
