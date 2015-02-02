@@ -436,14 +436,14 @@ reply bot@(Bot{params=p@(Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
     let matchon = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
     mm  <- lift $ chooseWord fmsg
     tId <- lift $ (if null chan then
-                     if apm && tc' < 3 then
+                     if apm && tc' < 4 then
                        return $ Just (sentenceReply st bot nick' [] mm)
                      else return Nothing
                    else if null nick' then
-                          if map toLower (unwords msg) =~ matchon && tc' < 3 then
+                          if map toLower (unwords msg) =~ matchon && tc' < 4 then
                             return $ Just (sentenceReply st bot chan chan mm)
                           else return Nothing
-                        else if tc' < 3 then return $ Just (sentenceReply st bot chan nick' mm)
+                        else if tc' < 4 then return $ Just (sentenceReply st bot chan nick' mm)
                              else return Nothing)
     if ttime > 0 && isJust tId then do
       tId' <- lift $ fromJust tId
@@ -509,7 +509,7 @@ execCmd b chan nick' (x:xs) = do
                                         dfile usercmd' rkick maxcmsg
                                         stries' slen plen learn slearn
                                         autoname' allowpm' topic' randoms' rwords' ttime),
-                      fugly=f@(Fugly dict' pgf' wne' aspell' ban' match')}) st
+                      fugly=f@(Fugly dict' pgf' wne' aspell' ban' match'), tcount=tc}) st
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" = if nick' == owner' then case (length xs) of
           0 -> do evalStateT (write s "QUIT" ":Bye") st >> return bot
@@ -739,16 +739,18 @@ execCmd b chan nick' (x:xs) = do
                else replyMsgT st bot chan nick' "Usage: !matchword <list|add|delete> <word>" >> return bot
           _ -> replyMsgT st bot chan nick' "Usage: !matchword <list|add|delete> <word>" >> return bot
                             else return bot
-      | x == "!talk" = if nick' == owner' then
-          if length xs > 2 then do
-            tId <- sentenceReply st bot (xs!!0) (xs!!1) (drop 2 xs)
-            if ttime > 0 then
-              forkIO (do threadDelay $ ttime * 1000000
-                         evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st
-                         killThread tId) >> return bot
-              else return bot
-          else replyMsgT st bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
-                       else return bot
+      | x == "!talk" = do
+          tc' <- readMVar tc
+          if nick' == owner' then
+            if length xs > 2 && tc' < 4 then do
+              tId <- sentenceReply st bot (xs!!0) (xs!!1) (drop 2 xs)
+              if ttime > 0 then
+                forkIO (do threadDelay $ ttime * 1000000
+                           evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st
+                           killThread tId) >> return bot
+                else return bot
+            else replyMsgT st bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
+            else return bot
       | x == "!raw" = if nick' == owner' then
           if (length xs) > 0 then evalStateT (write s (xs!!0)(unwords $ tail xs)) st >> return bot
           else replyMsgT st bot chan nick' "Usage: !raw <msg>" >> return bot
