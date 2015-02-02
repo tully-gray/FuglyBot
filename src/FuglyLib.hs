@@ -45,6 +45,7 @@ module FuglyLib
          gfCategories,
          gfRandom,
          sentence,
+         sentenceB,
          insertCommas,
          chooseWord,
          findRelated,
@@ -988,6 +989,24 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'})
       n <- asIsName st aspell' w
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "name" else n
+
+sentenceB :: [String] -> IO String
+sentenceB [] = return []
+sentenceB m = do
+    r <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
+    let mm = map (map toLower) m
+    case mm of
+      ["test"] -> return (case mod r 5 of
+                            0 -> "What are we testing?"
+                            1 -> "But I don't want to test."
+                            2 -> "Is this just a test?"
+                            3 -> "Test it yourself."
+                            _ -> "")
+      ["lol"] -> return (case mod r 3 of
+                            0 -> "Very funny."
+                            1 -> "Hilarious, I'm sure."
+                            _ -> "")
+      _ -> return []
 
 insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
 insertCommas wne' i w = do

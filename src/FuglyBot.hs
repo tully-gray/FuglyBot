@@ -470,8 +470,11 @@ sentenceReply st (Bot{sock=h, params=p@(Parameter{stries=str, slength=slen, plen
     let num = if num' - 4 < 1 || str < 4 then 1 else num' - 4
     bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
     let plen' = if tc' < 2 then plen else 0
-    x <- f ((sentence (snd st) fugly' rw rand str slen plen' top m) ++ [gf []]) [] num 0
-    let ww = unwords x
+    w <- do
+      xx <- sentenceB m
+      if null xx then f ((sentence (snd st) fugly' rw rand str slen plen' top m) ++ [gf []]) [] num 0
+        else return $ words xx
+    let ww = unwords w
     evalStateT (do if null ww then return ()
                      else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
                                              hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
