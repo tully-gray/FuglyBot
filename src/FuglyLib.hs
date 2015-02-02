@@ -992,7 +992,7 @@ sentence st fugly@(Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'})
 insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
 insertCommas wne' i w = do
     w' <- w
-    r <- Random.getStdRandom (Random.randomR (0, 7)) :: IO Int
+    r  <- Random.getStdRandom (Random.randomR (0, 7)) :: IO Int
     let x  = fHead [] w'
     let xs = fTail [] w'
     let y  = fHead [] xs
@@ -1049,8 +1049,8 @@ wnReplaceWords fugly@(Fugly{wne=wne', ban=ban'}) True  randoms msg = do
       else if randoms == 100 then
              mapM (\x -> findRelated wne' x) msg
            else if rr + 20 < randoms then
-                  wnReplaceWords fugly True randoms $ filter (not . null) ((takeWhile (/= (cw!!cr)) msg) ++
-                                                                 [ww] ++ (tail $ dropWhile (/= (cw!!cr)) msg))
+                  wnReplaceWords fugly True randoms $ filter (not . null)
+                  ((takeWhile (/= (cw!!cr)) msg) ++ [ww] ++ (tail $ dropWhile (/= (cw!!cr)) msg))
                 else
                   return msg
 
@@ -1060,8 +1060,8 @@ asReplaceWords st fugly msg = do
     mapM (\x -> asReplace st fugly x) msg
 
 asReplace :: (MVar ()) -> Fugly -> String -> IO String
-asReplace _  _                                []    = return []
-asReplace st (Fugly dict' _ wne' aspell' _ _) word' = do
+asReplace _  _                                             []    = return []
+asReplace st (Fugly{dict=dict', wne=wne', aspell=aspell'}) word' = do
     n  <- asIsName st aspell' word'
     ac <- asIsAcronym st aspell' word'
     if (elem ' ' word') || (elem '\'' word') || word' == (toUpperWord word') || n || ac then return word'
@@ -1075,8 +1075,8 @@ asReplace st (Fugly dict' _ wne' aspell' _ _) word' = do
         if head rw == word' then return word' else return $ map toLower (rw!!rr)
 
 findNextWord :: Fugly -> Int -> Int -> Bool -> String -> String -> IO [String]
-findNextWord _                    _ _       _    _      []    = return []
-findNextWord (Fugly {dict=dict'}) i randoms prev topic' word' = do
+findNextWord _                   _ _       _    _      []    = return []
+findNextWord (Fugly{dict=dict'}) i randoms prev topic' word' = do
     let ln = if isJust w then length neigh else 0
     let lm = if isJust w then length neighmax else 0
     let ll = if isJust w then length neighleast else 0
@@ -1152,8 +1152,8 @@ findRelated wne' word' = do
     if null out then return word' else return out
 
 preSentence :: Fugly -> [String] -> IO String
-preSentence _ [] = return []
-preSentence (Fugly {ban=ban', FuglyLib.match=match'}) msg@(x : _) = do
+preSentence _                                        []        = return []
+preSentence (Fugly{ban=ban', FuglyLib.match=match'}) msg@(x:_) = do
     r <- Random.getStdRandom (Random.randomR (0, 60)) :: IO Int
     if elem x qWords then
       return (case r of
