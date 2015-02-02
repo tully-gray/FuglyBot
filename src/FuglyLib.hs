@@ -308,7 +308,7 @@ qWords :: [String]
 qWords = ["am", "are", "can", "did", "do", "does", "if", "is", "want", "was", "what", "when", "where", "who", "why", "will"]
 
 badEndWords :: [String]
-badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "her", "he's", "his", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "no", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "what", "when", "where", "which", "with", "who", "whose", "yes", "you", "your", "you're", "you've"]
+badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "her", "he's", "his", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "no", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "were", "what", "when", "where", "which", "with", "who", "whose", "yes", "you", "your", "you're", "you've"]
 
 sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "da", "do", "fo", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we", "yo"]
@@ -997,7 +997,7 @@ insertCommas wne' i w = do
     let xs = fTail [] w'
     let y  = fHead [] xs
     let l  = length xs
-    let bad = ["a", "an", "and", "as", "but", "by", "for", "from", "had", "has", "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
+    let bad = ["a", "am", "an", "and", "as", "but", "by", "for", "from", "had", "has", "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
     let match' = ["a", "but", "however", "the", "then", "though"]
     px <- wnPartPOS wne' x
     py <- wnPartPOS wne' y
