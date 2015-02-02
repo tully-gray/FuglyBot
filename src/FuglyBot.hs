@@ -449,7 +449,8 @@ reply bot@(Bot{params=p@(Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
       tId' <- lift $ fromJust tId
       lift $ forkIO (do threadDelay $ ttime * 1000000
                         evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId')) st
-                        killThread tId') >> return ()
+                        killThread tId'
+                        putMVar tc tc') >> return ()
       else return ()
     if ((nick' == o && null chan) || parse) && l then do
       nd <- lift $ insertWords (snd st) f an top fmsg
@@ -747,7 +748,8 @@ execCmd b chan nick' (x:xs) = do
               if ttime > 0 then
                 forkIO (do threadDelay $ ttime * 1000000
                            evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st
-                           killThread tId) >> return bot
+                           killThread tId
+                           putMVar tc tc') >> return bot
                 else return bot
             else replyMsgT st bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
             else return bot
