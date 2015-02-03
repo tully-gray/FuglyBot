@@ -446,12 +446,14 @@ reply bot@(Bot{params=p@(Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
                           else return Nothing
                         else if tc' < 4 then return $ Just (sentenceReply st bot chan nick' mm)
                              else return Nothing)
-    if ttime > 0 && isJust tId then do
+    if isJust tId then do
       tId' <- lift $ fromJust tId
-      lift $ forkIO (do threadDelay $ ttime * 1000000
-                        evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId')) st
-                        killThread tId'
-                        putMVar tc tc') >> return ()
+      if ttime > 0 then
+        lift $ forkIO (do threadDelay $ ttime * 1000000
+                          evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId')) st
+                          killThread tId'
+                          putMVar tc tc') >> return ()
+        else return ()
       else return ()
     if ((nick' == o && null chan) || parse) && l then do
       nd <- lift $ insertWords (snd st) f an top fmsg
