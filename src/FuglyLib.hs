@@ -312,7 +312,7 @@ badEndWords :: [String]
 badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "her", "he's", "his", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "no", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "were", "what", "when", "where", "which", "with", "who", "whose", "yes", "you", "your", "you're", "you've"]
 
 sWords :: [String]
-sWords = ["a", "am", "an", "as", "at", "by", "da", "do", "fo", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we", "yo"]
+sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we", "yo"]
 
 insertWords :: (MVar ()) -> Fugly -> Bool -> String -> [String] -> IO Dict
 insertWords _ (Fugly{dict=d}) _ _ []      = return d
@@ -840,13 +840,14 @@ asIsAcronym :: (MVar ()) -> Aspell.SpellChecker -> String -> IO Bool
 asIsAcronym _  _       []    = return False
 asIsAcronym _  _      (_:[]) = return False
 asIsAcronym st aspell' word' = do
-    let n = ["on", "who"]
+    let n = ["who"]
     let a = [toLower $ head word'] ++ (tail $ map toUpper word')
     let u = map toUpper word'
+    let l = map toLower word'
     na <- evalStateT (asSuggest aspell' a) st
-    return $ if elem (map toLower word') n && (not $ word' == u) then False
+    return $ if (elem l n || elem l sWords) && word' /= u then False
              else if u == word' && null na then True
-                  else if (length $ words na) > 2 && word' == (words na)!!1 || elem word' sWords then False
+                  else if (length $ words na) > 2 && word' == (words na)!!1 then False
                        else if (not $ null na) && u == (words na)!!0 then True
                             else False
 
