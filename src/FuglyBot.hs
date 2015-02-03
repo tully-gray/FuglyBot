@@ -192,7 +192,9 @@ run = do
     where
       listenIRC st s l = do
         let b = fst st
-        bot@Bot{params=p@(Parameter{nick=bn, owner=o})} <- readMVar b
+        bot@Bot{params=p@(Parameter{nick=bn, owner=o}), tcount=tc} <- readMVar b
+        tc' <- readMVar tc
+        _   <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
         let ll = words l
         let lll = take 2 $ drop 1 ll
         if "PING :" `isPrefixOf` l then do
@@ -425,7 +427,6 @@ reply bot@(Bot{params=p@(Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
            fugly=f@(Fugly{pgf=pgf', FuglyLib.match=match'}), tcount=tc}) chan nick' msg = do
     st  <- get :: StateT (MVar Bot, MVar ()) IO (MVar Bot, MVar ())
     tc' <- lift $ readMVar tc
-    _   <- lift $ evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
                    ':' -> tail msg
