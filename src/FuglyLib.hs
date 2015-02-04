@@ -941,13 +941,13 @@ sentenceA fugly rwords randoms m = do
     s1a :: Int -> [String] -> String
     s1a _ [] = []
     s1a r w
-      | head w == "test" = case mod r 5 of
+      | head w == "test" = case mod r 10 of
          0 -> "what are we testing"
          1 -> "but I don't want to test"
          2 -> "is this just a test"
          3 -> "test it yourself"
          _ -> []
-      | head w == "lol" = case mod r 7 of
+      | head w == "lol" = case mod r 10 of
          0 -> "very funny"
          1 -> "hilarious, I'm sure"
          2 -> "what's so funny"
@@ -955,11 +955,18 @@ sentenceA fugly rwords randoms m = do
          4 -> "please don't laugh"
          5 -> "oh really"
          _ -> []
-      | length w > 3 && take 3 w == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want"] = case mod r 5 of
+      | length w > 3 && take 3 w == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want"] = case mod r 7 of
          0 -> "I don't " ++ s1b r w
          1 -> "yeah, I " ++ s1b r w
          2 -> "sometimes I " ++ s1b r w
          3 -> unwords (drop 3 w) ++ " is " ++ if r < 50 then "not" else "" ++ " something I " ++ w!!2 Regex.=~ "like|hate|love|have|want"
+         _ -> []
+      | length w > 2 && take 2 w == ["can", "you"] = case mod r 7 of
+         0 -> "no I can't " ++ if r < 35 then "" else unwords (drop 2 w)
+         1 -> "sure, I can " ++ if r < 40 then "do that" else unwords (drop 2 w)
+         2 -> "it depends"
+         3 -> "why would I want to " ++ if r < 50 then "do something like that" else unwords (drop 2 w)
+         4 -> unwords (drop 2 w) ++ " is " ++ if r < 20 then "boring" else if r < 50 then "fun" else "certainly possible"
          _ -> []
       | otherwise = []
     s1b r w = w!!2 Regex.=~ "like|hate|love|have|want" ++ " " ++ if r < 20 then "it" else if r < 40 then "that" else unwords (drop 3 w)
