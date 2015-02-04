@@ -261,6 +261,7 @@ changeNick [] = do
 changeNick line = do
     st <- get
     bot@Bot{params=p@Parameter{nick=n}} <- lift $ readMVar $ fst st
+    _ <- return p
     lift $ testNick st bot n line
   where
     testNick :: (MVar Bot, MVar ()) -> Bot -> String -> [String] -> IO Bot
@@ -400,6 +401,7 @@ processLine line = do
     st <- get :: StateT (MVar Bot, MVar ()) IO (MVar Bot, MVar ())
     let b = fst st
     bot@Bot{sock=s, params=p@Parameter{nick=n, rejoinkick=rk}} <- lift $ takeMVar b
+    _ <- return p
     let bk = beenKicked n line
     if (not $ null bk) then do (rejoinChannel s bk rk >> lift (putMVar b bot) >> return ())
       else if null msg then lift $ putMVar b bot >> return ()
@@ -427,6 +429,7 @@ reply bot@Bot{params=p@Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
               fugly=f@Fugly{pgf=pgf', FuglyLib.match=match'}, tcount=tc} chan nick' msg = do
     st  <- get :: StateT (MVar Bot, MVar ()) IO (MVar Bot, MVar ())
     tc' <- lift $ readMVar tc
+    _   <- return p
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
                    ':' -> tail msg
@@ -470,6 +473,7 @@ sentenceReply st Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plengt
     incT tc
     tc'  <- readMVar tc
     num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
+    _    <- return p
     let num = if num' - 4 < 1 || str < 4 then 1 else num' - 4
     bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
     let plen' = if tc' < 2 then plen else 0
@@ -500,6 +504,7 @@ sentenceReply st Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plengt
       if i >= n then return a
         else if null xx then f xs a n i
         else f xs ([xx ++ " "] ++ a) n (i + 1)
+sentenceReply _ _ _ _ _ = forkIO $ return ()
 
 execCmd :: Bot -> String -> String -> [String] -> StateT (MVar Bot, MVar ()) IO Bot
 execCmd b _ _ [] = lift $ return b
@@ -842,17 +847,18 @@ execCmd b chan nick' (x:xs) = do
 
 replyMsg :: Bot -> String -> String -> String -> StateT (MVar Bot, MVar ()) IO ()
 replyMsg bot@Bot{sock=s, params=p@Parameter{maxchanmsg=mcm}} chan nick' msg
-    | null nick'      = if length msg > mcm then do
+    | null nick' = if length msg > mcm then do
+      _ <- return p
       write s "PRIVMSG" (chan ++ " :" ++ (take mcm msg))
       lift $ threadDelay 2000000
       replyMsg bot chan [] (drop mcm msg) else
         write s "PRIVMSG" (chan ++ " :" ++ msg)
-    | chan == nick'   = if length msg > mcm then do
+    | chan == nick' = if length msg > mcm then do
       write s "PRIVMSG" (nick' ++ " :" ++ (take mcm msg))
       lift $ threadDelay 2000000
       replyMsg bot chan nick' (drop mcm msg) else
         write s "PRIVMSG" (nick' ++ " :" ++ msg)
-    | otherwise      = if length msg > mcm then do
+    | otherwise = if length msg > mcm then do
       write s "PRIVMSG" (chan ++ " :" ++ nick' ++ ": " ++ (take mcm msg))
       lift $ threadDelay 2000000
       replyMsg bot chan nick' (drop mcm msg) else
@@ -865,24 +871,26 @@ replyMsgT st bot chan nick' msg = evalStateT (replyMsg bot chan nick' msg) st
 insertFromFile :: (MVar ()) -> Bot -> FilePath -> IO Bot
 insertFromFile _ b [] = return b
 insertFromFile st bot@Bot{params=p@Parameter{autoname=a, Main.topic=t}, fugly=f} file = do
-    ff <- readFile file
+    _    <- return p
+    ff   <- readFile file
     fmsg <- asReplaceWords st f $ map cleanString $ words ff
-    n <- insertWords st f a t fmsg
+    n    <- insertWords st f a t fmsg
     return bot{fugly=f{dict=n}}
 insertFromFile _ b _ = return b
 
 internalize :: (MVar Bot, MVar ()) -> Bot -> Int -> String -> IO Bot
-internalize _ b 0 _   = return b
-internalize _ b _ []  = return b
+internalize _  b 0 _   = return b
+internalize _  b _ []  = return b
 internalize st b n msg = internalize' st b n 0 msg
   where
     internalize' :: (MVar Bot, MVar ()) -> Bot -> Int -> Int -> String -> IO Bot
     internalize' _ bot _ _ [] = return bot
     internalize' st' bot@Bot{params=p@Parameter{autoname=aname, Main.topic=topic', stries=tries, slength=slen,
                                                 plength=plen, rwords=rw, randoms=rands}, fugly=f} num i imsg = do
-      mm <- chooseWord $ words imsg
+      _   <- return p
+      mm  <- chooseWord $ words imsg
       sen <- getSentence $ sentence (snd st') f rw rands tries slen plen topic' mm
-      nd <- insertWords (snd st') f aname topic' $ words sen
+      nd  <- insertWords (snd st') f aname topic' $ words sen
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot
         else if r == 0 then evalStateT (hPutStrLnLock stdout ("> internalize: " ++ msg)) st >> internalize' st bot{fugly=f{dict=nd}} num (i + 1) msg
