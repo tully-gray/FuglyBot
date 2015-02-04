@@ -438,16 +438,15 @@ reply bot@Bot{params=p@Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
     let fmsg = map cleanString mmsg
     let parse = if sl then gfParseBool pgf' 7 $ unwords fmsg else True
     let matchon = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
-    mm  <- lift $ chooseWord fmsg
     tId <- lift $ (if null chan then
                      if apm && tc' < 4 then
-                       return $ Just (sentenceReply st bot nick' [] mm)
+                       return $ Just (sentenceReply st bot nick' [] fmsg)
                      else return Nothing
                    else if null nick' then
                           if map toLower (unwords msg) =~ matchon && tc' < 4 then
-                            return $ Just (sentenceReply st bot chan chan mm)
+                            return $ Just (sentenceReply st bot chan chan fmsg)
                           else return Nothing
-                        else if tc' < 4 then return $ Just (sentenceReply st bot chan nick' mm)
+                        else if tc' < 4 then return $ Just (sentenceReply st bot chan nick' fmsg)
                              else return Nothing)
     if isJust tId then do
       tId' <- lift $ fromJust tId
@@ -474,13 +473,14 @@ sentenceReply st Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plengt
     tc'  <- readMVar tc
     num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
     _    <- return p
+    mm   <- chooseWord m
     let num = if num' - 4 < 1 || str < 4 then 1 else num' - 4
     bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
     let plen' = if tc' < 2 then plen else 0
     w <- do
-      xx <- sentenceB m
-      if null xx then f ((sentence (snd st) fugly' rw rand str slen plen' top m) ++ [gf []]) [] num 0
-        else return $ words xx
+      xx <- sentenceA fugly' rw rand m
+      if null xx then f ((sentenceB (snd st) fugly' rw rand str slen plen' top mm) ++ [gf []]) [] num 0
+        else return xx
     let ww = unwords w
     evalStateT (do if null ww then return ()
                      else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
@@ -889,7 +889,7 @@ internalize st b n msg = internalize' st b n 0 msg
                                                 plength=plen, rwords=rw, randoms=rands}, fugly=f} num i imsg = do
       _   <- return p
       mm  <- chooseWord $ words imsg
-      sen <- getSentence $ sentence (snd st') f rw rands tries slen plen topic' mm
+      sen <- getSentence $ sentenceB (snd st') f rw rands tries slen plen topic' mm
       nd  <- insertWords (snd st') f aname topic' $ words sen
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot
