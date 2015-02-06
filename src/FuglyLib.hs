@@ -310,7 +310,7 @@ qWords :: [String]
 qWords = ["am", "are", "can", "did", "do", "does", "if", "is", "want", "was", "what", "when", "where", "who", "why", "will"]
 
 badEndWords :: [String]
-badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "her", "he's", "his", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "no", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "were", "what", "when", "where", "which", "with", "who", "whose", "yes", "you", "your", "you're", "you've"]
+badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "her", "he's", "his", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "no", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "were", "what", "when", "where", "which", "why", "with", "who", "whose", "yes", "you", "your", "you're", "you've"]
 
 sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we", "yo"]
@@ -955,12 +955,15 @@ sentenceA fugly rwords randoms m = do
          4 -> "please don't laugh"
          5 -> "oh really"
          _ -> []
-      | length w > 3 && take 3 w == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want"] = case mod r 7 of
-         0 -> "I don't " ++ s1b r w
-         1 -> "yeah, I " ++ s1b r w
-         2 -> "sometimes I " ++ s1b r w
-         3 -> unwords (drop 3 w) ++ " is " ++ if r < 50 then "not" else "" ++ " something I " ++ w!!2 Regex.=~ "like|hate|love|have|want"
-         _ -> []
+      | length w > 3 && take 3 w == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want"] =
+        let s1b rr ww = ww!!2 Regex.=~ "like|hate|love|have|want" ++ " " ++
+                        if rr < 20 then "it" else if rr < 40 then "that" else unwords (drop 3 ww) in
+          case mod r 7 of
+            0 -> "I don't " ++ s1b r w
+            1 -> "yeah, I " ++ s1b r w
+            2 -> "sometimes I " ++ s1b r w
+            3 -> unwords (drop 3 w) ++ " is " ++ if r < 50 then "not" else "" ++ " something I " ++ w!!2 Regex.=~ "like|hate|love|have|want"
+            _ -> []
       | length w > 2 && take 2 w == ["can", "you"] = case mod r 7 of
          0 -> "no I can't " ++ if r < 35 then "" else unwords (drop 2 w)
          1 -> "sure, I can " ++ if r < 40 then "do that" else unwords (drop 2 w)
@@ -969,7 +972,6 @@ sentenceA fugly rwords randoms m = do
          4 -> unwords (drop 2 w) ++ " is " ++ if r < 20 then "boring" else if r < 50 then "fun" else "certainly possible"
          _ -> []
       | otherwise = []
-    s1b r w = w!!2 Regex.=~ "like|hate|love|have|want" ++ " " ++ if r < 20 then "it" else if r < 40 then "that" else unwords (drop 3 w)
 
 sentenceB :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
              -> String -> [String] -> [IO String]
