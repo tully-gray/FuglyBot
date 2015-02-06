@@ -22,8 +22,7 @@ import           NLP.WordNet.PrimTypes          (allForm, allPOS)
 data Bot = Bot {
     sock   :: Handle,
     params :: Parameter,
-    fugly  :: Fugly,
-    tcount :: MVar Int
+    fugly  :: Fugly
     }
 
 data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
@@ -126,17 +125,19 @@ readParam a | (map toLower a) == "threadtime"      = ThreadTime
 readParam a | (map toLower a) == "ttime"           = ThreadTime
 readParam _                                        = UnknownParam
 
+type Fstate = (MVar Bot, MVar (), MVar Int)
+
 main :: IO ()
 main = do
     bracket start stop loop
   where
-    loop :: (MVar Bot, MVar ()) -> IO ()
+    loop :: Fstate -> IO ()
     loop st = do catch (evalStateT run st)
                    (\e -> do let err = show (e :: SomeException)
                              evalStateT (hPutStrLnLock stderr ("Exception in main: " ++ err)) st
                              return ())
 
-start :: IO (MVar Bot, MVar ())
+start :: IO Fstate
 start = do
     args <- cmdLine
     let servn    = args !! 0
@@ -162,39 +163,36 @@ start = do
          else socksConnectAddr s (addrAddress $ head s5serv) (addrAddress $ head serv)
     sh <- socketToHandle s ReadWriteMode
     hSetBuffering sh NoBuffering
-    tc <- newEmptyMVar
-    putMVar tc 0
     (f, p) <- initFugly fdir wndir gfdir topic'
     let b = if null p then
-              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False True False topic' 50 False 30) f tc
-              else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, dictfile=dfile}) f tc
-    bot <- newMVar b
+              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False True False topic' 50 False 30) f
+              else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, dictfile=dfile}) f
+    bot  <- newMVar b
     lock <- newMVar ()
-    evalStateT (write sh "NICK" nick') (bot, lock)
-    evalStateT (write sh "USER" (nick' ++ " 0 * :user")) (bot, lock)
+    tc   <- newMVar 0
+    evalStateT (write sh "NICK" nick') (bot, lock, tc)
+    evalStateT (write sh "USER" (nick' ++ " 0 * :user")) (bot, lock, tc)
     _ <- forkIO (do threadDelay 20000000
-                    if not $ null passwd then evalStateT (replyMsg b "nickserv" [] ("IDENTIFY " ++ passwd)) (bot, lock) else return ()
-                    evalStateT (joinChannel sh "JOIN" channels) (bot, lock))
-    return (bot, lock)
+                    if not $ null passwd then evalStateT (replyMsg b "nickserv" [] ("IDENTIFY " ++ passwd)) (bot, lock, tc) else return ()
+                    evalStateT (joinChannel sh "JOIN" channels) (bot, lock, tc))
+    return (bot, lock, tc)
 
-stop :: (MVar Bot, MVar ()) -> IO ()
-stop (bot, lock) = do
+stop :: Fstate -> IO ()
+stop (bot, lock, _) = do
     Bot{sock=s, params=p@Parameter{fuglydir=fd, dictfile=df}, fugly=f} <- readMVar bot
     hClose s
     stopFugly lock fd f df (paramsToList p)
 
-run :: StateT (MVar Bot, MVar ()) IO b
+run :: StateT Fstate IO b
 run = do
     st <- get
-    Bot{sock=s} <- lift $ readMVar $ fst st
+    Bot{sock=s} <- lift $ readMVar $ getBot st
     -- forever $ do lift (hGetLine s >>= (\l -> do evalStateT (hPutStrLnLock stdout l) st >> return l) >>= (\ll -> listenIRC st s ll))
     forever $ do lift (hGetLine s >>= (\ll -> listenIRC st s ll))
     where
       listenIRC st s l = do
-        let b = fst st
-        bot@Bot{params=p@(Parameter{nick=bn, owner=o}), tcount=tc} <- readMVar b
-        tc' <- readMVar tc
-        _   <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
+        let b = getBot st
+        bot@Bot{params=p@Parameter{nick=bn, owner=o}} <- readMVar b
         let ll = words l
         let lll = take 2 $ drop 1 ll
         if "PING :" `isPrefixOf` l then do
@@ -211,11 +209,23 @@ run = do
                                  putMVar b bot
                                  return ()))
 
-incT :: MVar Int -> IO ()
-incT c = do { v <- takeMVar c ; putMVar c (v+1) }
+getBot :: Fstate -> MVar Bot
+getBot (b, _, _) = b
+
+getLock :: Fstate -> MVar ()
+getLock (_, l, _) = l
+
+getTCount :: Fstate -> MVar Int
+getTCount (_, _, tc) = tc
+
+incT :: MVar Int -> IO Int
+incT c = do { v <- takeMVar c ; putMVar c (v+1) ; return (v+1) }
 
 decT :: MVar Int -> IO ()
 decT c = do { v <- takeMVar c ; putMVar c (v-1) }
+
+decKillT :: MVar Int -> ThreadId -> IO ()
+decKillT c tId = do { v <- takeMVar c ; killThread tId ; putMVar c v }
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -253,18 +263,18 @@ cmdLine = do
     maximum' [] = 1000
     maximum' a  = maximum a
 
-changeNick :: [String] -> StateT (MVar Bot, MVar ()) IO Bot
+changeNick :: [String] -> StateT Fstate IO Bot
 changeNick [] = do
-    st <- get
-    bot <- lift $ readMVar $ fst st
+    b   <- gets getBot
+    bot <- lift $ readMVar b
     return bot
 changeNick line = do
     st <- get
-    bot@Bot{params=p@Parameter{nick=n}} <- lift $ readMVar $ fst st
+    bot@Bot{params=p@Parameter{nick=n}} <- lift $ readMVar $ getBot st
     _ <- return p
     lift $ testNick st bot n line
   where
-    testNick :: (MVar Bot, MVar ()) -> Bot -> String -> [String] -> IO Bot
+    testNick :: Fstate -> Bot -> String -> [String] -> IO Bot
     testNick _ bot [] _ = return bot
     testNick _ bot _ [] = return bot
     testNick st' bot@Bot{params=p@Parameter{owner=o}} old line'
@@ -277,8 +287,8 @@ changeNick line = do
         y = fLast [] line'
     testNick _ bot _ _ = return bot
 
-joinChannel :: Handle -> String -> [String] -> StateT (MVar Bot, MVar ()) IO ()
-joinChannel _ _  []    = return () :: StateT (MVar Bot, MVar ()) IO ()
+joinChannel :: Handle -> String -> [String] -> StateT Fstate IO ()
+joinChannel _ _  []    = return () :: StateT Fstate IO ()
 joinChannel h [] b     = joinChannel h "join" b
 joinChannel h a (x:xs) = do
     if a == "JOIN" || a == "PART" then do
@@ -301,10 +311,10 @@ paramsToList (Parameter _ _ _ _ uc rk mcm st sl pl l stl an apm t r rw tt) = [sh
                                                                               show rw, show tt]
 paramsToList _ = []
 
-changeParam :: Bot -> String -> String -> String -> String -> StateT (MVar Bot, MVar ()) IO Bot
+changeParam :: Bot -> String -> String -> String -> String -> StateT Fstate IO Bot
 changeParam bot@Bot{sock=s, params=p@Parameter{nick=botnick, owner=owner', fuglydir=fdir, dictfile=dfile},
                     fugly=f@Fugly{dict=dict', ban=ban', FuglyLib.match=match'}} chan nick' param value = do
-    st <- get
+    lock <- gets getLock
     case readParam param of
       Nick           -> (write s "NICK" $ cleanStringWhite isAscii value)     >> return bot
       Owner          -> replyMsg' value                 "Owner"               >>= (\x -> return bot{params=p{owner=x}})
@@ -324,7 +334,7 @@ changeParam bot@Bot{sock=s, params=p@Parameter{nick=botnick, owner=owner', fugly
                                                                        else
                                                                          return (dict', ban', match', (paramsToList p)))
                                                (loadDict fdir value) (\_ -> return (Map.empty, [], [], (paramsToList p)))
-                           _ <- lift $ saveDict (snd st) f fdir dfile (paramsToList p)
+                           _ <- lift $ saveDict lock f fdir dfile (paramsToList p)
                            let pp = (readParamsFromList pl){nick=botnick, owner=owner', fuglydir=fdir}
                            replyMsg' value "Dict file" >>= (\x -> return bot{params=pp{dictfile=x}, fugly=f{dict=d, ban=b, FuglyLib.match=m}})
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
@@ -385,8 +395,8 @@ beenKicked n a
     | (head $ drop 1 a) == "KICK" = if (head $ drop 3 a) == n then getChannel a else []
     | otherwise                   = []
 
-rejoinChannel :: Handle -> String -> Int -> StateT (MVar Bot, MVar ()) IO ()
-rejoinChannel _ []   _  = return () :: StateT (MVar Bot, MVar ()) IO ()
+rejoinChannel :: Handle -> String -> Int -> StateT Fstate IO ()
+rejoinChannel _ []   _  = return () :: StateT Fstate IO ()
 rejoinChannel h chan rk = do
     if rk == 0 then return () else rejoin' rk chan h >> return ()
   where
@@ -395,11 +405,10 @@ rejoinChannel h chan rk = do
       lift $ forkIO (threadDelay (rk' * 1000000) >>
                      evalStateT (hPutStrLnLock h' ("JOIN " ++ chan' ++ "\r")) st)
 
-processLine :: [String] -> StateT (MVar Bot, MVar ()) IO ()
+processLine :: [String] -> StateT Fstate IO ()
 processLine [] = return ()
 processLine line = do
-    st <- get :: StateT (MVar Bot, MVar ()) IO (MVar Bot, MVar ())
-    let b = fst st
+    (b, l, tc) <- get :: StateT Fstate IO Fstate
     bot@Bot{sock=s, params=p@Parameter{nick=n, rejoinkick=rk}} <- lift $ takeMVar b
     _ <- return p
     let bk = beenKicked n line
@@ -413,6 +422,7 @@ processLine line = do
                                                else do nb <- reply bot chan who (tail msg)
                                                        lift $ putMVar b nb >> return ()
                    else do nb <- reply bot chan [] msg ; lift $ putMVar b nb >> return ()
+    -- put (b, l, tc)
   where
     msg  = getMsg line
     who  = getNick line
@@ -422,13 +432,12 @@ processLine line = do
                    else reply bot [] who msg
                  else reply bot [] who msg
 
-reply :: Bot -> String -> String -> [String] -> StateT (MVar Bot, MVar ()) IO Bot
+reply :: Bot -> String -> String -> [String] -> StateT Fstate IO Bot
 reply bot _ _ [] = return bot
 reply bot@Bot{params=p@Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
                                  autoname=an, allowpm=apm, Main.topic=top, threadtime=ttime},
-              fugly=f@Fugly{pgf=pgf', FuglyLib.match=match'}, tcount=tc} chan nick' msg = do
-    st  <- get :: StateT (MVar Bot, MVar ()) IO (MVar Bot, MVar ())
-    tc' <- lift $ readMVar tc
+              fugly=f@Fugly{pgf=pgf', FuglyLib.match=match'}} chan nick' msg = do
+    st@(_, lock, tc) <- get :: StateT Fstate IO Fstate
     _   <- return p
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
@@ -439,56 +448,54 @@ reply bot@Bot{params=p@Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
     let parse = if sl then gfParseBool pgf' 7 $ unwords fmsg else True
     let matchon = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
     tId <- lift $ (if null chan then
-                     if apm && tc' < 4 then
+                     if apm then
                        return $ Just (sentenceReply st bot nick' [] fmsg)
                      else return Nothing
                    else if null nick' then
-                          if map toLower (unwords msg) =~ matchon && tc' < 4 then
+                          if map toLower (unwords msg) =~ matchon then
                             return $ Just (sentenceReply st bot chan chan fmsg)
                           else return Nothing
-                        else if tc' < 4 then return $ Just (sentenceReply st bot chan nick' fmsg)
-                             else return Nothing)
+                        else return $ Just (sentenceReply st bot chan nick' fmsg))
     if isJust tId then do
       tId' <- lift $ fromJust tId
       if ttime > 0 then
         lift $ forkIO (do threadDelay $ ttime * 1000000
                           evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId')) st
-                          killThread tId'
-                          putMVar tc tc') >> return ()
+                          decKillT tc tId') >> return ()
         else return ()
       else return ()
     if ((nick' == o && null chan) || parse) && l then do
-      nd <- lift $ insertWords (snd st) f an top fmsg
+      nd <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd}} else
       return bot
 reply bot _ _ _ = return bot
 
-sentenceReply :: (MVar Bot, MVar ()) -> Bot -> String -> String -> [String] -> IO ThreadId
+sentenceReply :: Fstate -> Bot -> String -> String -> [String] -> IO ThreadId
 sentenceReply _ _ _ _ [] = forkIO $ return ()
-sentenceReply st Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plength=plen,
-                                                Main.topic=top, randoms=rand, rwords=rw},
-                      fugly=fugly'@Fugly{pgf=pgf'}, tcount=tc} chan nick' m = forkIO (do
-    incT tc
-    tc'  <- readMVar tc
-    num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
-    _    <- return p
-    mm   <- chooseWord m
-    let num = if num' - 4 < 1 || str < 4 then 1 else num' - 4
-    bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
-    let plen' = if tc' < 2 then plen else 0
-    w <- do
-      xx <- sentenceA fugly' rw rand m
-      if null xx then f ((sentenceB (snd st) fugly' rw rand str slen plen' top mm) ++ [gf []]) [] num 0
-        else return xx
-    let ww = unwords w
-    evalStateT (do if null ww then return ()
-                     else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
-                                             hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
-                          else if nick' == chan || bloop == 0 then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
-                                                                   hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
-                               else hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww) ++ "\r") >>
-                                    hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww))) st
+sentenceReply st@(_, lock, tc) Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plength=plen,
+                                                              Main.topic=top, randoms=rand, rwords=rw},
+                                   fugly=fugly'@Fugly{pgf=pgf'}} chan nick' m = forkIO (do
+    tc'  <- incT tc
+    _    <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
+    if tc' < 4 then do
+      num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
+      _    <- return p
+      mm   <- chooseWord m
+      let num = if num' - 4 < 1 || str < 4 then 1 else num' - 4
+      bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
+      let plen' = if tc' < 2 then plen else 0
+      x <- sentenceA fugly' rw rand m
+      y <- f (sentenceB lock fugly' rw rand str slen plen' top mm ++ [return $ unwords x] ++ [gf []]) [] num 0
+      let ww = unwords y
+      evalStateT (do if null ww then return ()
+                       else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
+                                               hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
+                            else if nick' == chan || bloop == 0 then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
+                                                                     hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
+                                 else hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww) ++ "\r") >>
+                                      hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww))) st
+      else return ()
     decT tc)
   where
     gf :: String -> IO String
@@ -506,7 +513,7 @@ sentenceReply st Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plengt
         else f xs ([xx ++ " "] ++ a) n (i + 1)
 sentenceReply _ _ _ _ _ = forkIO $ return ()
 
-execCmd :: Bot -> String -> String -> [String] -> StateT (MVar Bot, MVar ()) IO Bot
+execCmd :: Bot -> String -> String -> [String] -> StateT Fstate IO Bot
 execCmd b _ _ [] = lift $ return b
 execCmd b _ [] _ = lift $ return b
 execCmd b [] _ _ = lift $ return b
@@ -516,19 +523,19 @@ execCmd b chan nick' (x:xs) = do
                                            evalStateT (hPutStrLnLock stderr ("Exception in execCmd: " ++ err)) st
                                            return b)
   where
-    execCmd' :: Bot -> (MVar Bot, MVar ()) -> IO Bot
+    execCmd' :: Bot -> Fstate -> IO Bot
     execCmd' bot@Bot{sock=s, params=p@(Parameter botnick owner' fdir
                                        dfile usercmd' rkick maxcmsg
                                        stries' slen plen learn slearn
                                        autoname' allowpm' topic' randoms' rwords' ttime),
-                     fugly=f@(Fugly dict' pgf' wne' aspell' ban' match'), tcount=tc} st
+                     fugly=f@(Fugly dict' pgf' wne' aspell' ban' match')} st
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" = if nick' == owner' then case length xs of
           0 -> do evalStateT (write s "QUIT" ":Bye") st >> return bot
           _ -> do evalStateT (write s "QUIT" (":" ++ unwords xs)) st >> return bot
                        else return bot
       | x == "!save" = if nick' == owner' then
-                         catch (saveDict (snd st) f fdir dfile (paramsToList p))
+                         catch (saveDict (getLock st) f fdir dfile (paramsToList p))
                          (\e -> do let err = show (e :: SomeException)
                                    evalStateT (hPutStrLnLock stderr ("Exception in saveDict: " ++ err)) st
                                    return ())
@@ -549,9 +556,9 @@ execCmd b chan nick' (x:xs) = do
           _ -> replyMsgT st bot chan nick' "Usage: !nick <nick>" >> return bot
                        else return bot
       | x == "!readfile" = if nick' == owner' then case length xs of
-          1 -> catch (insertFromFile (snd st) bot (xs!!0)) (\e -> do let err = show (e :: SomeException)
-                                                                     evalStateT (hPutStrLnLock stderr ("Exception in insertFromFile: " ++ err)) st
-                                                                     return bot)
+          1 -> catch (insertFromFile (getLock st) bot (xs!!0)) (\e -> do let err = show (e :: SomeException)
+                                                                         evalStateT (hPutStrLnLock stderr ("Exception in insertFromFile: " ++ err)) st
+                                                                         return bot)
           _ -> replyMsgT st bot chan nick' "Usage: !readfile <file>" >> return bot
                            else return bot
       | x == "!internalize" = if nick' == owner' then
@@ -590,12 +597,12 @@ execCmd b chan nick' (x:xs) = do
                                             (show $ numWords dict' (x =~ "word|name|acronym") [])) >> return bot
             _ -> replyMsgT st bot chan nick' ("Usage: " ++ x ++ " <number> [topic]") >> return bot
       | x == "!insertword" = if nick' == owner' then case length xs of
-          2 -> do ww <- insertWordRaw (snd st) f True (xs!!0) [] [] topic' (xs!!1)
+          2 -> do ww <- insertWordRaw (getLock st) f True (xs!!0) [] [] topic' (xs!!1)
                   if isJust $ Map.lookup (xs!!0) dict' then
                     replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " already in dict.") >> return bot
                     else
                     replyMsgT st bot chan nick' ("Inserted word " ++ (xs!!0) ++ ".") >> return bot{fugly=f{dict=ww}}
-          1 -> do ww <- insertWordRaw (snd st) f True (xs!!0) [] [] topic' []
+          1 -> do ww <- insertWordRaw (getLock st) f True (xs!!0) [] [] topic' []
                   if isJust $ Map.lookup (xs!!0) dict' then
                     replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " already in dict.") >> return bot
                     else
@@ -603,7 +610,7 @@ execCmd b chan nick' (x:xs) = do
           _ -> replyMsgT st bot chan nick' "Usage: !insertword <word> [pos]" >> return bot
                              else return bot
       | x == "!insertname" = if nick' == owner' then case length xs of
-          1 -> do ww <- insertNameRaw (snd st) f True (xs!!0) [] [] topic'
+          1 -> do ww <- insertNameRaw (getLock st) f True (xs!!0) [] [] topic'
                   if isJust $ Map.lookup (xs!!0) dict' then
                     replyMsgT st bot chan nick' ("Name " ++ (xs!!0) ++ " already in dict.") >> return bot
                     else
@@ -612,7 +619,7 @@ execCmd b chan nick' (x:xs) = do
                              else return bot
       | x == "!insertacronym" = if nick' == owner' then
             if length xs > 1 then do
-              ww <- insertAcroRaw (snd st) f (xs!!0) [] [] topic' (unwords $ tail xs)
+              ww <- insertAcroRaw (getLock st) f (xs!!0) [] [] topic' (unwords $ tail xs)
               if isJust $ Map.lookup (xs!!0) dict' then
                 replyMsgT st bot chan nick' ("Acronym " ++ (xs!!0) ++ " already in dict.") >> return bot
                 else
@@ -752,15 +759,14 @@ execCmd b chan nick' (x:xs) = do
           _ -> replyMsgT st bot chan nick' "Usage: !matchword <list|add|delete> <word>" >> return bot
                             else return bot
       | x == "!talk" = do
-          tc' <- readMVar tc
+          let tc = getTCount st
           if nick' == owner' then
-            if length xs > 2 && tc' < 4 then do
+            if length xs > 2 then do
               tId <- sentenceReply st bot (xs!!0) (xs!!1) (drop 2 xs)
               if ttime > 0 then
                 forkIO (do threadDelay $ ttime * 1000000
                            evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st
-                           killThread tId
-                           putMVar tc tc') >> return bot
+                           decKillT tc tId) >> return bot
                 else return bot
             else replyMsgT st bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
             else return bot
@@ -769,8 +775,8 @@ execCmd b chan nick' (x:xs) = do
           else replyMsgT st bot chan nick' "Usage: !raw <msg>" >> return bot
                       else return bot
       | x == "!dict" = case length xs of
-          2 -> (dictLookup (snd st) f (xs!!0) (xs!!1)) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
-          1 -> (dictLookup (snd st) f (xs!!0) []) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
+          2 -> (dictLookup (getLock st) f (xs!!0) (xs!!1)) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
+          1 -> (dictLookup (getLock st) f (xs!!0) []) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
           _ -> replyMsgT st bot chan nick' "Usage: !dict <word> [part-of-speech]" >> return bot
       | x == "!closure" = case length xs of
           3 -> (wnClosure wne' (xs!!0) (xs!!1) (xs!!2)) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
@@ -797,12 +803,12 @@ execCmd b chan nick' (x:xs) = do
           0 -> replyMsgT st bot chan nick' (concat $ map (++ " ") $ map show allPOS) >> return bot
           _ -> replyMsgT st bot chan nick' "Usage: !parts" >> return bot
       | x == "!isname" = case length xs of
-          1 -> do n <- asIsName (snd st) aspell' (xs!!0)
+          1 -> do n <- asIsName (getLock st) aspell' (xs!!0)
                   replyMsgT st bot chan nick' (show n)
                   return bot
           _ -> replyMsgT st bot chan nick' "Usage: !isname <word>" >> return bot
       | x == "!isacronym" = case length xs of
-          1 -> do n <- asIsAcronym (snd st) aspell' (xs!!0)
+          1 -> do n <- asIsAcronym (getLock st) aspell' (xs!!0)
                   replyMsgT st bot chan nick' (show n)
                   return bot
           _ -> replyMsgT st bot chan nick' "Usage: !isacronym <word>" >> return bot
@@ -845,7 +851,7 @@ execCmd b chan nick' (x:xs) = do
           ++ "!dict !closure !meet !related !forms !parts !isname !isacronym") >> return bot
     execCmd' bot _ = return bot
 
-replyMsg :: Bot -> String -> String -> String -> StateT (MVar Bot, MVar ()) IO ()
+replyMsg :: Bot -> String -> String -> String -> StateT Fstate IO ()
 replyMsg bot@Bot{sock=s, params=p@Parameter{maxchanmsg=mcm}} chan nick' msg
     | null nick' = if length msg > mcm then do
       _ <- return p
@@ -865,7 +871,7 @@ replyMsg bot@Bot{sock=s, params=p@Parameter{maxchanmsg=mcm}} chan nick' msg
         write s "PRIVMSG" (chan ++ " :" ++ nick' ++ ": " ++ msg)
 replyMsg _ _ _ _ = return ()
 
-replyMsgT :: (MVar Bot, MVar ()) -> Bot -> String -> String -> String -> IO ()
+replyMsgT :: Fstate -> Bot -> String -> String -> String -> IO ()
 replyMsgT st bot chan nick' msg = evalStateT (replyMsg bot chan nick' msg) st
 
 insertFromFile :: (MVar ()) -> Bot -> FilePath -> IO Bot
@@ -878,19 +884,19 @@ insertFromFile st bot@Bot{params=p@Parameter{autoname=a, Main.topic=t}, fugly=f}
     return bot{fugly=f{dict=n}}
 insertFromFile _ b _ = return b
 
-internalize :: (MVar Bot, MVar ()) -> Bot -> Int -> String -> IO Bot
+internalize :: Fstate -> Bot -> Int -> String -> IO Bot
 internalize _  b 0 _   = return b
 internalize _  b _ []  = return b
 internalize st b n msg = internalize' st b n 0 msg
   where
-    internalize' :: (MVar Bot, MVar ()) -> Bot -> Int -> Int -> String -> IO Bot
+    internalize' :: Fstate -> Bot -> Int -> Int -> String -> IO Bot
     internalize' _ bot _ _ [] = return bot
     internalize' st' bot@Bot{params=p@Parameter{autoname=aname, Main.topic=topic', stries=tries, slength=slen,
                                                 plength=plen, rwords=rw, randoms=rands}, fugly=f} num i imsg = do
       _   <- return p
       mm  <- chooseWord $ words imsg
-      sen <- getSentence $ sentenceB (snd st') f rw rands tries slen plen topic' mm
-      nd  <- insertWords (snd st') f aname topic' $ words sen
+      sen <- getSentence $ sentenceB (getLock st') f rw rands tries slen plen topic' mm
+      nd  <- insertWords (getLock st') f aname topic' $ words sen
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot
         else if r == 0 then evalStateT (hPutStrLnLock stdout ("> internalize: " ++ msg)) st >> internalize' st bot{fugly=f{dict=nd}} num (i + 1) msg
@@ -902,16 +908,16 @@ internalize st b n msg = internalize' st b n 0 msg
       if null ww then getSentence xs
         else return ww
 
-write :: Handle -> [Char] -> [Char] -> StateT (MVar Bot, MVar ()) IO ()
+write :: Handle -> [Char] -> [Char] -> StateT Fstate IO ()
 write _ [] _  = return ()
 write _ _ []  = return ()
 write sock' s msg = do
     hPutStrLnLock sock'  (s ++ " " ++ msg ++ "\r")
     hPutStrLnLock stdout ("> " ++ s ++ " " ++ msg)
 
-hPutStrLnLock :: Handle -> String -> StateT (MVar Bot, MVar ()) IO ()
+hPutStrLnLock :: Handle -> String -> StateT Fstate IO ()
 hPutStrLnLock s m = do
-    st <- get :: StateT (MVar Bot, MVar ()) IO (MVar Bot, MVar ())
-    let l = snd st
+    st <- get :: StateT Fstate IO Fstate
+    let l = getLock st
     lock <- lift $ takeMVar l
     lift (do hPutStrLn s m ; putMVar l lock)
