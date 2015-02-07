@@ -125,7 +125,7 @@ readParam a | (map toLower a) == "threadtime"      = ThreadTime
 readParam a | (map toLower a) == "ttime"           = ThreadTime
 readParam _                                        = UnknownParam
 
-type Fstate = (MVar Bot, MVar (), MVar Int)
+type Fstate = (MVar Bot, MVar (), MVar [ThreadId])
 
 main :: IO ()
 main = do
@@ -169,7 +169,7 @@ start = do
               else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, dictfile=dfile}) f
     bot  <- newMVar b
     lock <- newMVar ()
-    tc   <- newMVar 0
+    tc   <- newMVar []
     evalStateT (write sh "NICK" nick') (bot, lock, tc)
     evalStateT (write sh "USER" (nick' ++ " 0 * :user")) (bot, lock, tc)
     _ <- forkIO (do threadDelay 20000000
@@ -215,17 +215,17 @@ getBot (b, _, _) = b
 getLock :: Fstate -> MVar ()
 getLock (_, l, _) = l
 
-getTCount :: Fstate -> MVar Int
+getTCount :: Fstate -> MVar [ThreadId]
 getTCount (_, _, tc) = tc
 
-incT :: MVar Int -> IO Int
-incT c = do { v <- takeMVar c ; putMVar c (v+1) ; return (v+1) }
+incT :: MVar [ThreadId] -> ThreadId -> IO Int
+incT c tId = do { v <- takeMVar c ; putMVar c (tId : v) ; return $ length v }
 
-decT :: MVar Int -> IO ()
-decT c = do { v <- takeMVar c ; putMVar c (v-1) }
+decT :: MVar [ThreadId] -> ThreadId -> IO ()
+decT c tId = do { v <- takeMVar c ; putMVar c (delete tId v) }
 
-decKillT :: MVar Int -> ThreadId -> IO ()
-decKillT c tId = do { v <- takeMVar c ; killThread tId ; putMVar c v }
+decKillT :: MVar [ThreadId] -> ThreadId -> IO ()
+decKillT c tId = do { v <- takeMVar c ; killThread tId ; putMVar c (delete tId v) }
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -476,7 +476,8 @@ sentenceReply _ _ _ _ [] = forkIO $ return ()
 sentenceReply st@(_, lock, tc) Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plength=plen,
                                                               Main.topic=top, randoms=rand, rwords=rw},
                                    fugly=fugly'@Fugly{pgf=pgf'}} chan nick' m = forkIO (do
-    tc'  <- incT tc
+    tId <- myThreadId
+    tc'  <- incT tc tId
     _    <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
     if tc' < 4 then do
       num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
@@ -496,7 +497,7 @@ sentenceReply st@(_, lock, tc) Bot{sock=h, params=p@Parameter{stries=str, slengt
                                  else hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww) ++ "\r") >>
                                       hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww))) st
       else return ()
-    decT tc)
+    decT tc tId)
   where
     gf :: String -> IO String
     gf [] = do
