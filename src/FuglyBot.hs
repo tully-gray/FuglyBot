@@ -476,7 +476,7 @@ sentenceReply _ _ _ _ [] = forkIO $ return ()
 sentenceReply st@(_, lock, tc) Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plength=plen,
                                                               Main.topic=top, randoms=rand, rwords=rw},
                                    fugly=fugly'@Fugly{pgf=pgf'}} chan nick' m = forkIO (do
-    tId <- myThreadId
+    tId  <- myThreadId
     tc'  <- incT tc tId
     _    <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
     if tc' < 4 then do
@@ -486,9 +486,9 @@ sentenceReply st@(_, lock, tc) Bot{sock=h, params=p@Parameter{stries=str, slengt
       let num = if num' - 4 < 1 || str < 4 then 1 else num' - 4
       bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
       let plen' = if tc' < 2 then plen else 0
-      x <- sentenceA fugly' rw rand m
-      y <- f (sentenceB lock fugly' rw rand str slen plen' top mm ++ [return $ unwords x] ++ [gf []]) [] num 0
-      let ww = unwords y
+      x <- sentenceA lock fugly' rw rand m
+      y <- f (sentenceB lock fugly' rw rand str slen plen' top mm ++ [gf []]) [] num 0
+      let ww = unwords $ if null x then y else x
       evalStateT (do if null ww then return ()
                        else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
                                                hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
