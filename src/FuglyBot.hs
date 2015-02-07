@@ -408,7 +408,7 @@ rejoinChannel h chan rk = do
 processLine :: [String] -> StateT Fstate IO ()
 processLine [] = return ()
 processLine line = do
-    (b, l, tc) <- get :: StateT Fstate IO Fstate
+    (b, _, _) <- get :: StateT Fstate IO Fstate
     bot@Bot{sock=s, params=p@Parameter{nick=n, rejoinkick=rk}} <- lift $ takeMVar b
     _ <- return p
     let bk = beenKicked n line
@@ -422,7 +422,6 @@ processLine line = do
                                                else do nb <- reply bot chan who (tail msg)
                                                        lift $ putMVar b nb >> return ()
                    else do nb <- reply bot chan [] msg ; lift $ putMVar b nb >> return ()
-    -- put (b, l, tc)
   where
     msg  = getMsg line
     who  = getNick line

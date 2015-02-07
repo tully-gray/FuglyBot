@@ -148,23 +148,18 @@ instance Word_ Word where
   wordGetCount Word{count=c}          = c
   wordGetCount Name{count=c}          = c
   wordGetCount Acronym{count=c}       = c
-  wordGetCount _                      = 0
   wordGetAfter Word{after=a}          = a
   wordGetAfter Name{after=a}          = a
   wordGetAfter Acronym{after=a}       = a
-  wordGetAfter _                      = Map.empty
   wordGetBefore Word{before=b}        = b
   wordGetBefore Name{before=b}        = b
   wordGetBefore Acronym{before=b}     = b
-  wordGetBefore _                     = Map.empty
   wordGetBanAfter Word{banafter=a}    = a
   wordGetBanAfter Name{banafter=a}    = a
   wordGetBanAfter Acronym{banafter=a} = a
-  wordGetBanAfter _                   = []
   wordGetTopic Word{topic=t}          = t
   wordGetTopic Name{topic=t}          = t
   wordGetTopic Acronym{topic=t}       = t
-  wordGetTopic _                      = []
   wordGetRelated Word{related=r}      = r
   wordGetRelated _                    = []
   wordGetPos Word{FuglyLib.pos=p}     = p
