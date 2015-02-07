@@ -85,6 +85,8 @@ import           NLP.WordNet.PrimTypes
 
 import           PGF
 
+import           Text.EditDistance              as EditDistance
+
 type Dict = Map.Map String Word
 
 data Fugly = Fugly {
@@ -931,11 +933,26 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
       (generateRandomDepth (Random.mkStdGen num) pgf' c (Just num))
                             else "Not a GF type."
 
-sentenceA :: Fugly -> Bool -> Int -> [String] -> IO [String]
-sentenceA _     _      _      [] = return []
-sentenceA fugly rwords randoms m = do
-    r <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
-    let mm = map (map toLower) m
+rhymesWith :: MVar () -> Aspell.SpellChecker -> String -> IO [String]
+rhymesWith _  _       []    = return []
+rhymesWith st aspell' word' = do
+    let l = map toLower word'
+    let b = toUpperLast l
+    as <- evalStateT (asSuggest aspell' b) st
+    let asw = words as
+    let end = case length l of
+          1 -> []
+          2 -> []
+          3 -> drop 1 l
+          4 -> drop 2 l
+          x -> drop (x-3) l
+    return [l]
+
+sentenceA :: MVar () -> Fugly -> Bool -> Int -> [String] -> IO [String]
+sentenceA _  _                     _      _      [] = return []
+sentenceA st fugly@Fugly{pgf=pgf'} rwords randoms m = do
+    r  <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
+    mm <- asReplaceWords st fugly $ map (map toLower) m
     wnReplaceWords fugly rwords randoms $ toUpperSentence $ endSentence $ replace "i" "I" $ words $ s1a r mm
   where
     s1a :: Int -> [String] -> String
@@ -971,6 +988,7 @@ sentenceA fugly rwords randoms m = do
          3 -> "why would I want to " ++ if r < 50 then "do something like that" else unwords (drop 2 w)
          4 -> unwords (drop 2 w) ++ " is " ++ if r < 20 then "boring" else if r < 50 then "fun" else "certainly possible"
          _ -> []
+      | length w > 4 && length w < 8 = fHead [] $ filter (\x -> gfParseBool pgf' 3 x) $ map unwords (reverse $ tail $ permutations w)
       | otherwise = []
 
 sentenceB :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
