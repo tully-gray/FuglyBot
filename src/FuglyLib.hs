@@ -1190,9 +1190,9 @@ findRelated wne' word' = do
               hyper <- wnRelated' wne' word' "Hypernym" pp
               hypo  <- wnRelated' wne' word' "Hyponym" pp
               anto  <- wnRelated' wne' word' "Antonym" pp
-              let hyper' = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') hyper
-              let hypo'  = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') hypo
-              let anto'  = filter (\x -> not $ elem ' ' x && length x > 2) $ map (strip '"') anto
+              let hyper' = filter (\x -> (not $ elem ' ' x) && length x > 2) $ map (strip '"') hyper
+              let hypo'  = filter (\x -> (not $ elem ' ' x) && length x > 2) $ map (strip '"') hypo
+              let anto'  = filter (\x -> (not $ elem ' ' x) && length x > 2) $ map (strip '"') anto
               if null anto' then
                 if null hypo' then
                   if null hyper' then
