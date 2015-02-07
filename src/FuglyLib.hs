@@ -928,63 +928,56 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
       (generateRandomDepth (Random.mkStdGen num) pgf' c (Just num))
                             else "Not a GF type."
 
-rhymesWith :: MVar () -> Aspell.SpellChecker -> String -> IO [String]
-rhymesWith _  _       []    = return []
-rhymesWith st aspell' word' = do
-    let l = map toLower word'
-    let b = toUpperLast l
-    as <- evalStateT (asSuggest aspell' b) st
-    let asw = words as
-    let end = case length l of
-          1 -> []
-          2 -> []
-          3 -> drop 1 l
-          4 -> drop 2 l
-          x -> drop (x-3) l
-    return [l]
-
 sentenceA :: MVar () -> Fugly -> Bool -> Int -> [String] -> IO [String]
-sentenceA _  _                     _      _      [] = return []
-sentenceA st fugly@Fugly{pgf=pgf'} rwords randoms m = do
-    r  <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
-    mm <- asReplaceWords st fugly $ map (map toLower) m
-    wnReplaceWords fugly rwords randoms $ toUpperSentence $ endSentence $ replace "i" "I" $ words $ s1a r mm
+sentenceA _  _                     _      _      []   = return []
+sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
+    r <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
+    m <- s1a r msg
+    wnReplaceWords fugly rwords randoms $ toUpperSentence $ endSentence $ replace "i" "I" $ words m
   where
-    s1a :: Int -> [String] -> String
-    s1a _ [] = []
+    s1a :: Int -> [String] -> IO String
+    s1a _ [] = return []
     s1a r w
-      | head w == "test" = case mod r 10 of
+      | head w == "test" = return (case mod r 10 of
          0 -> "what are we testing"
          1 -> "but I don't want to test"
          2 -> "is this just a test"
          3 -> "test it yourself"
-         _ -> []
-      | head w == "lol" = case mod r 10 of
+         _ -> [])
+      | head w == "lol" = return (case mod r 10 of
          0 -> "very funny"
          1 -> "hilarious, I'm sure"
          2 -> "what's so funny"
          3 -> "it's not funny"
          4 -> "please don't laugh"
          5 -> "oh really"
-         _ -> []
+         _ -> [])
+      | elem "rhyme" w || elem "rhymes" w || elem "sing" w || elem "song" w || r > 92 = do
+          w' <- mapM (\x -> do ry <- rhymesWith st aspell' x
+                               if null ry then return []
+                                 else return $ ry!!(mod r (length ry))) w
+          x' <- asReplaceWords st fugly w'
+          return $ unwords x'
       | length w > 3 && take 3 w == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want"] =
         let s1b rr ww = ww!!2 Regex.=~ "like|hate|love|have|want" ++ " " ++
                         if rr < 20 then "it" else if rr < 40 then "that" else unwords (drop 3 ww) in
-          case mod r 7 of
+          return (case mod r 7 of
             0 -> "I don't " ++ s1b r w
             1 -> "yeah, I " ++ s1b r w
             2 -> "sometimes I " ++ s1b r w
             3 -> unwords (drop 3 w) ++ " is " ++ if r < 50 then "not" else "" ++ " something I " ++ w!!2 Regex.=~ "like|hate|love|have|want"
-            _ -> []
-      | length w > 2 && take 2 w == ["can", "you"] = case mod r 7 of
+            _ -> [])
+      | length w > 2 && take 2 w == ["can", "you"] = return (case mod r 7 of
          0 -> "no I can't " ++ if r < 35 then "" else unwords (drop 2 w)
          1 -> "sure, I can " ++ if r < 40 then "do that" else unwords (drop 2 w)
          2 -> "it depends"
          3 -> "why would I want to " ++ if r < 50 then "do something like that" else unwords (drop 2 w)
          4 -> unwords (drop 2 w) ++ " is " ++ if r < 20 then "boring" else if r < 50 then "fun" else "certainly possible"
-         _ -> []
-      | length w > 3 && length w < 10 && r < 30 = fHead [] $ filter (\x -> gfParseBool pgf' 3 x) $ map unwords (reverse $ tail $ permutations w)
-      | otherwise = []
+         _ -> [])
+      | length w > 3 && length w < 10 && r < 30 = do
+          mm <- asReplaceWords st fugly $ map (map toLower) w
+          return $ fHead [] $ filter (\x -> gfParseBool pgf' 3 x) $ map unwords (reverse $ tail $ permutations mm)
+      | otherwise = return []
 
 sentenceB :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
              -> String -> [String] -> [IO String]
@@ -1100,7 +1093,7 @@ wnReplaceWords fugly@Fugly{wne=wne', ban=ban'} True  randoms msg = do
     cw <- chooseWord msg
     cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
     rr <- Random.getStdRandom (Random.randomR (0, 99))
-    w <- findRelated wne' (cw!!cr)
+    w  <- findRelated wne' (cw!!cr)
     let ww = if elem w ban' || elem (map toLower w) sWords then cw!!cr else w
     if randoms == 0 then
       return msg
@@ -1127,10 +1120,27 @@ asReplace st Fugly{dict=dict', wne=wne', aspell=aspell'} word' = do
       a <- evalStateT (asSuggest aspell' word') st
       p <- wnPartPOS wne' word'
       let w  = Map.lookup word' dict'
-      let rw = filter (\x -> not $ elem '\'' x) $ words a
+      let rw = filter (\x -> (not $ elem '\'' x) && levenshteinDistance defaultEditCosts word' x < 4) $ words a
       rr <- Random.getStdRandom (Random.randomR (0, (length rw) - 1))
       if null rw || p /= UnknownEPos || isJust w then return word' else
         if head rw == word' then return word' else return $ map toLower (rw!!rr)
+
+rhymesWith :: MVar () -> Aspell.SpellChecker -> String -> IO [String]
+rhymesWith _  _       []    = return []
+rhymesWith st aspell' word' = do
+    let l = map toLower word'
+    let b = toUpperLast l
+    as <- evalStateT (asSuggest aspell' b) st
+    let asw = words as
+    let end = case length l of
+          1 -> l
+          2 -> l
+          3 -> drop 1 l
+          4 -> drop 2 l
+          x -> drop (x-3) l
+    let out = filter (\x -> (not $ elem '\'' x) && length x > 2 && length l > 2 &&
+                       x Regex.=~ (end ++ "$") && levenshteinDistance defaultEditCosts l x < 4) asw
+    return $ if null out then [word'] else out
 
 findNextWord :: Fugly -> Int -> Int -> Bool -> String -> String -> IO [String]
 findNextWord _                 _ _       _    _      []    = return []
