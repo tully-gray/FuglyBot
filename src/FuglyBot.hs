@@ -485,7 +485,7 @@ sentenceReply st@(_, lock, tc) Bot{sock=h, params=p@Parameter{stries=str, slengt
       mm   <- chooseWord m
       let num = if num' - 4 < 1 || str < 4 then 1 else num' - 4
       bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
-      let plen' = if tc' < 2 then plen else 0
+      let plen' = if tc' < 1 then plen else 0
       x <- sentenceA lock fugly' rw rand m
       y <- f (sentenceB lock fugly' rw rand str slen plen' top mm ++ [gf []]) [] num 0
       let ww = unwords $ if null x then y else x

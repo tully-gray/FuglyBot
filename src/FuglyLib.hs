@@ -988,7 +988,7 @@ sentenceA st fugly@Fugly{pgf=pgf'} rwords randoms m = do
          3 -> "why would I want to " ++ if r < 50 then "do something like that" else unwords (drop 2 w)
          4 -> unwords (drop 2 w) ++ " is " ++ if r < 20 then "boring" else if r < 50 then "fun" else "certainly possible"
          _ -> []
-      | length w > 4 && length w < 8 = fHead [] $ filter (\x -> gfParseBool pgf' 3 x) $ map unwords (reverse $ tail $ permutations w)
+      | length w > 3 && length w < 10 && r < 30 = fHead [] $ filter (\x -> gfParseBool pgf' 3 x) $ map unwords (reverse $ tail $ permutations w)
       | otherwise = []
 
 sentenceB :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
@@ -1131,8 +1131,8 @@ asReplace st Fugly{dict=dict', wne=wne', aspell=aspell'} word' = do
       else do
       a <- evalStateT (asSuggest aspell' word') st
       p <- wnPartPOS wne' word'
-      let w = Map.lookup word' dict'
-      let rw = words a
+      let w  = Map.lookup word' dict'
+      let rw = filter (\x -> not $ elem '\'' x) $ words a
       rr <- Random.getStdRandom (Random.randomR (0, (length rw) - 1))
       if null rw || p /= UnknownEPos || isJust w then return word' else
         if head rw == word' then return word' else return $ map toLower (rw!!rr)
