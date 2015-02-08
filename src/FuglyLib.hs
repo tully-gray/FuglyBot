@@ -684,7 +684,14 @@ toUpperSentence (x:xs) = toUpperWord x : xs
 
 endSentence :: [String] -> [String]
 endSentence []  = []
-endSentence msg = (init msg) ++ ((last msg) ++ if elem (head msg) qWords then "?" else ".") : []
+endSentence msg
+    | l == '?'  = msg
+    | l == '.'  = if r == 0 then (init msg) ++ ((last msg) ++ "..") : []
+                  else if r == 1 then (init msg) ++ ((cleanString $ last msg) ++ "!") : []
+                    else msg
+    | otherwise = (init msg) ++ ((last msg) ++ if elem (head msg) qWords then "?" else ".") : []
+  where l = last $ last msg
+        r = mod (length $ concat msg) 4
 
 fHead :: a -> [a] -> a
 {-# INLINE fHead #-}
