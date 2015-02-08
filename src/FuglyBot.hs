@@ -178,15 +178,18 @@ start = do
     return (bot, lock, tc)
 
 stop :: Fstate -> IO ()
-stop (bot, lock, _) = do
+stop (bot, lock, tc) = do
     Bot{sock=s, params=p@Parameter{fuglydir=fd, dictfile=df}, fugly=f} <- readMVar bot
     hClose s
+    tc' <- readMVar tc
+    _   <- mapM killThread tc'
     stopFugly lock fd f df (paramsToList p)
 
 run :: StateT Fstate IO b
 run = do
     st <- get
     Bot{sock=s} <- lift $ readMVar $ getBot st
+    _ <- lift $ forkIO $ timer st >> return ()
     -- forever $ do lift (hGetLine s >>= (\l -> do evalStateT (hPutStrLnLock stdout l) st >> return l) >>= (\ll -> listenIRC st s ll))
     forever $ do lift (hGetLine s >>= (\ll -> listenIRC st s ll))
     where
@@ -219,13 +222,24 @@ getTCount :: Fstate -> MVar [ThreadId]
 getTCount (_, _, tc) = tc
 
 incT :: MVar [ThreadId] -> ThreadId -> IO Int
-incT c tId = do { v <- takeMVar c ; putMVar c (tId : v) ; return $ length v }
+incT c tId = do { v <- takeMVar c ; putMVar c (nub $ tId : v) ; return $ length v }
 
 decT :: MVar [ThreadId] -> ThreadId -> IO ()
 decT c tId = do { v <- takeMVar c ; putMVar c (delete tId v) }
 
 decKillT :: MVar [ThreadId] -> ThreadId -> IO ()
 decKillT c tId = do { v <- takeMVar c ; killThread tId ; putMVar c (delete tId v) }
+
+timer :: Fstate -> IO ThreadId
+timer st = do
+    let tc = getTCount st
+    tId <- myThreadId
+    _   <- incT tc tId
+    forever $ do
+      threadDelay 60000000
+      let b = getBot st
+      bot <- readMVar b
+      sentenceReply st bot "#fuglybot" "#fuglybot" $ words "It's time for another test."
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -478,7 +492,7 @@ sentenceReply st@(_, lock, tc) Bot{sock=h, params=p@Parameter{stries=str, slengt
     tId  <- myThreadId
     tc'  <- incT tc tId
     _    <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
-    if tc' < 4 then do
+    if tc' < 3 then do
       num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
       _    <- return p
       mm   <- chooseWord m
