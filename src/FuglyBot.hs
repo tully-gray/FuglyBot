@@ -125,7 +125,8 @@ readParam a | (map toLower a) == "threadtime"      = ThreadTime
 readParam a | (map toLower a) == "ttime"           = ThreadTime
 readParam _                                        = UnknownParam
 
-type Fstate = (MVar Bot, MVar (), MVar [ThreadId])
+type ChanNicks = Map.Map String [String]
+type Fstate = (MVar Bot, MVar (), MVar [ThreadId], MVar ChanNicks)
 
 main :: IO ()
 main = do
@@ -142,7 +143,7 @@ start = do
     args <- cmdLine
     let servn    = args !! 0
     let port     = args !! 1
-    let hints = defaultHints {addrFlags = [AI_NUMERICSERV]}
+    let hints    = defaultHints {addrFlags = [AI_NUMERICSERV]}
     serv <- getAddrInfo (Just hints) (Just servn) (Just port)
     let nick'    = cleanStringWhite isAscii (args !! 2)
     let owner'   = args !! 3
@@ -170,15 +171,17 @@ start = do
     bot  <- newMVar b
     lock <- newMVar ()
     tc   <- newMVar []
-    evalStateT (write sh "NICK" nick') (bot, lock, tc)
-    evalStateT (write sh "USER" (nick' ++ " 0 * :user")) (bot, lock, tc)
+    cn   <- newMVar Map.empty
+    let fstate = (bot, lock, tc, cn)
+    evalStateT (write sh "NICK" nick') fstate
+    evalStateT (write sh "USER" (nick' ++ " 0 * :user")) fstate
     _ <- forkIO (do threadDelay 20000000
-                    if not $ null passwd then evalStateT (replyMsg b "nickserv" [] ("IDENTIFY " ++ passwd)) (bot, lock, tc) else return ()
-                    evalStateT (joinChannel sh "JOIN" channels) (bot, lock, tc))
-    return (bot, lock, tc)
+                    if not $ null passwd then evalStateT (replyMsg b "nickserv" [] ("IDENTIFY " ++ passwd)) fstate else return ()
+                    evalStateT (joinChannel sh "JOIN" channels) fstate)
+    return fstate
 
 stop :: Fstate -> IO ()
-stop (bot, lock, tc) = do
+stop (bot, lock, tc, _) = do
     Bot{sock=s, params=p@Parameter{fuglydir=fd, dictfile=df}, fugly=f} <- readMVar bot
     hClose s
     tc' <- readMVar tc
@@ -190,36 +193,45 @@ run = do
     st <- get
     Bot{sock=s} <- lift $ readMVar $ getBot st
     _ <- lift $ forkIO $ timer st >> return ()
-    -- forever $ do lift (hGetLine s >>= (\l -> do evalStateT (hPutStrLnLock stdout l) st >> return l) >>= (\ll -> listenIRC st s ll))
-    forever $ do lift (hGetLine s >>= (\ll -> listenIRC st s ll))
+    forever $ do lift (hGetLine s >>= (\l -> do evalStateT (hPutStrLnLock stdout ("> debug: IRC msg: " ++ l)) st >> return l) >>= (\ll -> listenIRC st s ll))
+    -- forever $ do lift (hGetLine s >>= (\ll -> listenIRC st s ll))
     where
       listenIRC st s l = do
-        let b = getBot st
+        let b  = getBot st
         bot@Bot{params=p@Parameter{nick=bn, owner=o}} <- readMVar b
-        let ll = words l
+        let cn = getChanNicks st
+        cn' <- readMVar cn
+        let ll  = words l
         let lll = take 2 $ drop 1 ll
+        let lm  = unwords (drop 1 ll)
         if "PING :" `isPrefixOf` l then do
           evalStateT (write s "PONG" (':' : drop 6 l)) st >> return ()
-          else if "433 " `isPrefixOf` (unwords (drop 1 ll)) then do
+          else if "433 " `isPrefixOf` lm then do
             evalStateT (write s "NICK" (bn ++ "_")) st >> swapMVar b bot{params=p{nick=(bn ++ "_")}}
               >> return ("Nickname is already in use.") >>= (\x -> evalStateT (replyMsg bot o [] x) st)
-               else if (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == bn then do
-                 (do nb <- evalStateT (changeNick lll) st ; swapMVar b nb) >> return ()
-                    else do
-                      (catch (evalStateT (processLine $ words l) st >> return ())
-                       (\e -> do let err = show (e :: SomeException)
-                                 evalStateT (hPutStrLnLock stderr ("Exception in processLine: " ++ err)) st
-                                 putMVar b bot
-                                 return ()))
+            else if "353 " `isPrefixOf` lm then let cnicks = words $ drop 1 $ dropWhile (\x -> x /= ':') $ drop 1 l
+                                                    chan   = takeWhile (\x -> x /= ' ') $ dropWhile (\x -> x /= '#') l in do
+              swapMVar cn (Map.insert chan cnicks cn') >> return ()
+              else if (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == bn then do
+                (do nb <- evalStateT (changeNick lll) st ; swapMVar b nb) >> return ()
+                   else do
+                     (catch (evalStateT (processLine $ words l) st >> return ())
+                      (\e -> do let err = show (e :: SomeException)
+                                evalStateT (hPutStrLnLock stderr ("Exception in processLine: " ++ err)) st
+                                putMVar b bot
+                                return ()))
 
 getBot :: Fstate -> MVar Bot
-getBot (b, _, _) = b
+getBot (b, _, _, _) = b
 
 getLock :: Fstate -> MVar ()
-getLock (_, l, _) = l
+getLock (_, l, _, _) = l
 
 getTCount :: Fstate -> MVar [ThreadId]
-getTCount (_, _, tc) = tc
+getTCount (_, _, tc, _) = tc
+
+getChanNicks :: Fstate -> MVar (Map.Map String [String])
+getChanNicks (_, _, _, cn) = cn
 
 incT :: MVar [ThreadId] -> ThreadId -> IO Int
 incT c tId = do { v <- takeMVar c ; putMVar c (nub $ tId : v) ; return $ length v }
@@ -238,8 +250,17 @@ timer st = do
     forever $ do
       threadDelay 60000000
       let b = getBot st
-      bot <- readMVar b
-      sentenceReply st bot "#fuglybot" "#fuglybot" $ words "It's time for another test."
+      bot@Bot{sock=s} <- readMVar b
+      evalStateT (getChannelNicks s "#fuglybot") st
+      threadDelay 1000000
+      let cn = getChanNicks st
+      cn' <- readMVar cn
+      let nicks = Map.lookup "#fuglybot" cn'
+      if isJust nicks then do
+        r <- Random.getStdRandom (Random.randomR (0, 999))
+        let n = fromJust nicks
+        sentenceReply st bot "#fuglybot" (n!!mod r (length n)) $ words "It's time for another test."
+        else sentenceReply st bot "#fuglybot" "#fuglybot" $ words "It's time for another test."
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -393,6 +414,9 @@ getChannel msg
     | (length $ drop 2 msg) > 0 = head $ drop 2 msg
     | otherwise                 = []
 
+getChannelNicks :: Handle -> String -> StateT Fstate IO ()
+getChannelNicks h c = write h "NAMES" c
+
 spokenTo :: String -> [String] -> Bool
 spokenTo _ []         = False
 spokenTo n b
@@ -422,7 +446,7 @@ rejoinChannel h chan rk = do
 processLine :: [String] -> StateT Fstate IO ()
 processLine [] = return ()
 processLine line = do
-    (b, _, _) <- get :: StateT Fstate IO Fstate
+    b <- gets getBot
     bot@Bot{sock=s, params=p@Parameter{nick=n, rejoinkick=rk}} <- lift $ takeMVar b
     _ <- return p
     let bk = beenKicked n line
@@ -450,7 +474,7 @@ reply bot _ _ [] = return bot
 reply bot@Bot{params=p@Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
                                  autoname=an, allowpm=apm, Main.topic=top, threadtime=ttime},
               fugly=f@Fugly{pgf=pgf', FuglyLib.match=match'}} chan nick' msg = do
-    st@(_, lock, tc) <- get :: StateT Fstate IO Fstate
+    st@(_, lock, tc, _) <- get :: StateT Fstate IO Fstate
     _   <- return p
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
@@ -486,9 +510,9 @@ reply bot _ _ _ = return bot
 
 sentenceReply :: Fstate -> Bot -> String -> String -> [String] -> IO ThreadId
 sentenceReply _ _ _ _ [] = forkIO $ return ()
-sentenceReply st@(_, lock, tc) Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plength=plen,
-                                                              Main.topic=top, randoms=rand, rwords=rw},
-                                   fugly=fugly'} chan nick' m = forkIO (do
+sentenceReply st@(_, lock, tc, _) Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plength=plen,
+                                                                 Main.topic=top, randoms=rand, rwords=rw},
+                                      fugly=fugly'} chan nick' m = forkIO (do
     tId  <- myThreadId
     tc'  <- incT tc tId
     _    <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
