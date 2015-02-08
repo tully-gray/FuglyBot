@@ -248,20 +248,21 @@ timer st = do
     tId <- myThreadId
     _   <- incT tc tId
     forever $ do
-      threadDelay 60000000
+      r <- Random.getStdRandom (Random.randomR (0, 999))
+      threadDelay $ 60000000 + (r * 30000)
       let b = getBot st
-      bot@Bot{sock=s, params=p@Parameter{nick=botnick}} <- readMVar b
+      bot@Bot{sock=s, params=p@Parameter{nick=botnick, Main.topic=topic'}} <- readMVar b
       _ <- return p
       evalStateT (getChannelNicks s "#fuglybot") st
       threadDelay 1000000
       let cn = getChanNicks st
       cn' <- readMVar cn
       let nicks = Map.lookup "#fuglybot" cn'
+      let msg = words $ if r < 500 then "It's time for another test." else ("Does anybody here like " ++ topic')
       if isJust nicks then do
-        r <- Random.getStdRandom (Random.randomR (0, 999))
         let n = delete botnick $ fromJust nicks
-        sentenceReply st bot "#fuglybot" (n!!mod r (length n)) $ words "It's time for another test."
-        else sentenceReply st bot "#fuglybot" "#fuglybot" $ words "It's time for another test."
+        sentenceReply st bot "#fuglybot" (n!!mod r (length n)) msg
+        else sentenceReply st bot "#fuglybot" "#fuglybot" msg
 
 cmdLine :: IO [String]
 cmdLine = do
