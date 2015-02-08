@@ -967,8 +967,14 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
          4 -> "please don't laugh"
          5 -> "oh really"
          _ -> [])
+      | head w == "hey" = do
+          w' <- mapM (\x -> do ry <- rhymesWith st aspell' x
+                               if null ry then return []
+                                 else return $ ry!!(mod r (length ry))) w
+          x' <- asReplaceWords st fugly w'
+          return $ "well hey, " ++ unwords x'
       | elem "rhyme" w || elem "rhymes" w || elem "sing" w || elem "song" w || r > 87 = do
-          m' <- fixIt (sentenceB' st fugly rwords randoms 10 6 6 "rhymes" w ++ [gfRandom pgf' []]) [] 1 0
+          m' <- fixIt (sentenceB' st fugly rwords randoms 5 5 5 "rhymes" w ++ [gfRandom pgf' []]) [] 1 0
           w' <- mapM (\x -> do ry <- rhymesWith st aspell' x
                                if null ry then return []
                                  else return $ ry!!(mod r (length ry))) m'
