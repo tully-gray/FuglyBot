@@ -953,13 +953,13 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
     s1a :: Int -> [String] -> IO String
     s1a _ [] = return []
     s1a r w
-      | head w == "test" = return (case mod r 10 of
+      | (map toLower $ head w) == "test" = return (case mod r 10 of
          0 -> "what are we testing"
          1 -> "but I don't want to test"
          2 -> "is this just a test"
          3 -> "test it yourself"
          _ -> [])
-      | head w == "lol" = return (case mod r 10 of
+      | (map toLower $ head w) == "lol" = return (case mod r 10 of
          0 -> "very funny"
          1 -> "hilarious, I'm sure"
          2 -> "what's so funny"
@@ -967,7 +967,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
          4 -> "please don't laugh"
          5 -> "oh really"
          _ -> [])
-      | head w == "hey" = do
+      | (map toLower $ head w) == "hey" = do
           w' <- mapM (\x -> do ry <- rhymesWith st aspell' x
                                if null ry then return []
                                  else return $ ry!!(mod r (length ry))) w
