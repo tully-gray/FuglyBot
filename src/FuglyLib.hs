@@ -46,6 +46,7 @@ module FuglyLib
          gfRandom,
          sentenceA,
          sentenceB,
+         sentenceB',
          insertCommas,
          chooseWord,
          findRelated,
@@ -304,7 +305,7 @@ loadDict fuglydir dfile = do
                     ff h ww nm
 
 qWords :: [String]
-qWords = ["am", "are", "can", "did", "do", "does", "if", "is", "want", "was", "what", "when", "where", "who", "why", "will"]
+qWords = ["am", "are", "can", "did", "do", "does", "if", "is", "want", "was", "were", "what", "when", "where", "who", "why", "will"]
 
 badEndWords :: [String]
 badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "her", "he's", "his", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "no", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "were", "what", "when", "where", "which", "why", "with", "who", "whose", "yes", "you", "your", "you're", "you've"]
@@ -919,14 +920,21 @@ gfParseShow pgf' msg = lin pgf' lang (parse_ pgf' lang (startCat pgf') Nothing m
 gfCategories :: PGF -> [String]
 gfCategories pgf' = map showCId (categories pgf')
 
-gfRandom :: PGF -> IO String
-gfRandom pgf' = do
+gfRandom :: PGF -> String -> IO String
+gfRandom pgf' [] = do
+    r <- gfRandom' pgf'
+    let rr = filter (\x -> x Regex.=~ "NP") $ words r
+    gfRandom pgf' (if rr == (\\) rr (words r) then r else [])
+gfRandom _ msg' = return msg'
+
+gfRandom' :: PGF -> IO String
+gfRandom' pgf' = do
     num <- Random.getStdRandom (Random.randomR (0, 9999))
     return $ dePlenk $ unwords $ toUpperSentence $ endSentence $
-      filter (not . null) $ map cleanString $ take 12 $ words $ gfRandom' num
+      filter (not . null) $ map cleanString $ take 12 $ words $ gfRand num
   where
-    gfRandom' n = linearize pgf' (head $ languages pgf') $ head $
-                  generateRandomDepth (Random.mkStdGen n) pgf' (startCat pgf') (Just n)
+    gfRand n = linearize pgf' (head $ languages pgf') $ head $
+               generateRandomDepth (Random.mkStdGen n) pgf' (startCat pgf') (Just n)
 
 gfShowExpr :: PGF -> String -> Int -> String
 gfShowExpr pgf' type' num = if isJust $ readType type' then
@@ -959,10 +967,11 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
          4 -> "please don't laugh"
          5 -> "oh really"
          _ -> [])
-      | elem "rhyme" w || elem "rhymes" w || elem "sing" w || elem "song" w || r > 92 = do
+      | elem "rhyme" w || elem "rhymes" w || elem "sing" w || elem "song" w || r > 87 = do
+          m' <- fixIt (sentenceB' st fugly rwords randoms 10 6 6 "rhymes" w ++ [gfRandom pgf' []]) [] 1 0
           w' <- mapM (\x -> do ry <- rhymesWith st aspell' x
                                if null ry then return []
-                                 else return $ ry!!(mod r (length ry))) w
+                                 else return $ ry!!(mod r (length ry))) m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'
       | length w > 3 && take 3 w == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want"] =
@@ -987,9 +996,14 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
       | otherwise = return []
 
 sentenceB :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
-             -> String -> [String] -> [IO String]
-sentenceB _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
-sentenceB st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
+             -> String -> Int -> [String] -> IO [String]
+sentenceB st fugly@Fugly{pgf=pgf'} rwords randoms stries slen plen topic' num msg =
+  fixIt (sentenceB' st fugly rwords randoms stries slen plen topic' msg ++ [gfRandom pgf' []]) [] num 0
+
+sentenceB' :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
+              -> String -> [String] -> [IO String]
+sentenceB' _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
+sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
   rwords randoms stries slen plen topic' msg = do
     let s1f p x = if null x then return []
                   else if gfParseBool pgf' plen x && length (words x) > 2 && p /= POS Adj then return x
@@ -1046,6 +1060,14 @@ sentenceB st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
       n <- asIsName st aspell' w
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "name" else n
+
+fixIt :: [IO String] -> [String] -> Int -> Int -> IO [String]
+fixIt []     a _ _ = return a
+fixIt (x:xs) a n i = do
+    xx <- x
+    if i >= n then return a
+      else if null xx then fixIt xs a n i
+      else fixIt xs ([xx ++ " "] ++ a) n (i + 1)
 
 insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
 insertCommas wne' i w = do

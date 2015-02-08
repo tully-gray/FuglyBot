@@ -474,7 +474,7 @@ sentenceReply :: Fstate -> Bot -> String -> String -> [String] -> IO ThreadId
 sentenceReply _ _ _ _ [] = forkIO $ return ()
 sentenceReply st@(_, lock, tc) Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plength=plen,
                                                               Main.topic=top, randoms=rand, rwords=rw},
-                                   fugly=fugly'@Fugly{pgf=pgf'}} chan nick' m = forkIO (do
+                                   fugly=fugly'} chan nick' m = forkIO (do
     tId  <- myThreadId
     tc'  <- incT tc tId
     _    <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
@@ -486,7 +486,7 @@ sentenceReply st@(_, lock, tc) Bot{sock=h, params=p@Parameter{stries=str, slengt
       bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
       let plen' = if tc' < 1 then plen else 0
       x <- sentenceA lock fugly' rw rand m
-      y <- f (sentenceB lock fugly' rw rand str slen plen' top mm ++ [gf []]) [] num 0
+      y <- sentenceB lock fugly' rw rand str slen plen' top num mm
       let ww = unwords $ if null x then y else x
       evalStateT (do if null ww then return ()
                        else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
@@ -497,20 +497,6 @@ sentenceReply st@(_, lock, tc) Bot{sock=h, params=p@Parameter{stries=str, slengt
                                       hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww))) st
       else return ()
     decT tc tId)
-  where
-    gf :: String -> IO String
-    gf [] = do
-      r <- gfRandom pgf'
-      let rr = filter (\x -> x =~ "NP") $ words r
-      gf (if rr == (\\) rr (words r) then r else [])
-    gf msg = return msg
-    f :: [IO String] -> [String] -> Int -> Int -> IO [String]
-    f []     a _ _ = return a
-    f (x:xs) a n i = do
-      xx <- x
-      if i >= n then return a
-        else if null xx then f xs a n i
-        else f xs ([xx ++ " "] ++ a) n (i + 1)
 sentenceReply _ _ _ _ _ = forkIO $ return ()
 
 execCmd :: Bot -> String -> String -> [String] -> StateT Fstate IO Bot
@@ -822,9 +808,6 @@ execCmd b chan nick' (x:xs) = do
       -- | x == "!wnreplace" = case length xs of
       --     0 -> replyMsgT st bot chan nick' "Usage: !wnreplace <msg>" >> return bot
       --     _ -> do ww <- wnReplaceWords f True randoms' xs ; replyMsgT st bot chan nick' $ unwords ww >> return bot
-      -- | x == "!random" = case length xs of
-      --     1 -> replyMsgT st bot chan nick' (gfRandomOld pgf' (read (xs!!0))) >> return bot
-      --     _ -> replyMsgT st bot chan nick' "Usage: !random <number>" >> return bot
       -- | x == "!gfcats" = case length xs of
       --     0 -> return (unwords $ gfCategories pgf') >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
       --     _ -> replyMsgT st bot chan nick' "Usage: !gfcats" >> return bot
@@ -895,7 +878,7 @@ internalize st b n msg = internalize' st b n 0 msg
                                                 plength=plen, rwords=rw, randoms=rands}, fugly=f} num i imsg = do
       _   <- return p
       mm  <- chooseWord $ words imsg
-      sen <- getSentence $ sentenceB (getLock st') f rw rands tries slen plen topic' mm
+      sen <- getSentence $ sentenceB' (getLock st') f rw rands tries slen plen topic' mm
       nd  <- insertWords (getLock st') f aname topic' $ words sen
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot
