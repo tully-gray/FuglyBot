@@ -418,7 +418,8 @@ getChannel msg
     | otherwise                 = []
 
 getChannelNicks :: Handle -> String -> StateT Fstate IO ()
-getChannelNicks h c = write h "NAMES" c
+getChannelNicks h [] = write h "NAMES" []
+getChannelNicks h c  = write h "NAMES" c
 
 spokenTo :: String -> [String] -> Bool
 spokenTo _ []         = False
@@ -798,7 +799,7 @@ execCmd b chan nick' (x:xs) = do
             else replyMsgT st bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
             else return bot
       | x == "!raw" = if nick' == owner' then
-          if length xs > 0 then evalStateT (write s (xs!!0)(unwords $ tail xs)) st >> return bot
+          if length xs > 0 then evalStateT (write s (xs!!0) (unwords $ tail xs)) st >> return bot
           else replyMsgT st bot chan nick' "Usage: !raw <msg>" >> return bot
                       else return bot
       | x == "!dict" = case length xs of
@@ -933,8 +934,10 @@ internalize st b n msg = internalize' st b n 0 msg
         else return ww
 
 write :: Handle -> [Char] -> [Char] -> StateT Fstate IO ()
-write _ [] _  = return ()
-write _ _ []  = return ()
+write _     [] _  = return ()
+write sock' s []  = do
+    hPutStrLnLock sock'  (s ++ "\r")
+    hPutStrLnLock stdout ("> " ++ s)
 write sock' s msg = do
     hPutStrLnLock sock'  (s ++ " " ++ msg ++ "\r")
     hPutStrLnLock stdout ("> " ++ s ++ " " ++ msg)
