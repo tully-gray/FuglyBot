@@ -254,16 +254,24 @@ timer st = do
       let b = getBot st
       bot@Bot{sock=s, params=p@Parameter{nick=botnick, Main.topic=topic'}} <- readMVar b
       _ <- return p
-      evalStateT (getChannelNicks s "#fuglybot") st
-      threadDelay 1000000
       let cn = getChanNicks st
       cn' <- readMVar cn
-      let nicks = Map.lookup "#fuglybot" cn'
-      let msg = words $ if r < 500 then "It's time for another test." else ("Does anybody here like " ++ topic')
+      let chans = concat [[c] | (c, _) <- Map.toList cn']
+      let chan  = chans!!mod (r + 55) (length chans)
+      evalStateT (getChannelNicks s chan) st
+      threadDelay 1000000
+      let nicks = Map.lookup chan cn'
       if isJust nicks then do
-        let n = delete botnick $ fromJust nicks
-        sentenceReply st bot "#fuglybot" (n!!mod r (length n)) msg
-        else sentenceReply st bot "#fuglybot" "#fuglybot" msg
+        let n   = delete botnick $ fromJust nicks
+        let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~') $ n!!mod r (length n)
+        let msg = words (case mod r 5 of
+                             0 -> "It's time for another test."
+                             1 -> "Does anybody here like " ++ topic' ++ "?"
+                             2 -> topic' ++ " is interesting don't you think?"
+                             3 -> "I've heard that " ++ n' ++ " likes " ++ topic' ++ "."
+                             _ -> n' ++ " told me that " ++ topic' ++ " is boring.")
+        sentenceReply st bot chan n' msg
+        else sentenceReply st bot chan chan $ words "I'm all alone."
 
 cmdLine :: IO [String]
 cmdLine = do
