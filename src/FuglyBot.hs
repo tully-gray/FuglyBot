@@ -212,7 +212,8 @@ run = do
               >> return ("Nickname is already in use.") >>= (\x -> evalStateT (replyMsg bot o [] x) st)
             else if "353 " `isPrefixOf` lm then let cnicks = words $ drop 1 $ dropWhile (\x -> x /= ':') $ drop 1 l
                                                     chan   = takeWhile (\x -> x /= ' ') $ dropWhile (\x -> x /= '#') l in do
-              swapMVar cn (Map.insert chan cnicks cn') >> return ()
+              if null cnicks then swapMVar cn (Map.delete chan cn') >> return ()
+                else swapMVar cn (Map.insert chan cnicks cn') >> return ()
               else if (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == bn then do
                 (do nb <- evalStateT (changeNick lll) st ; swapMVar b nb) >> return ()
                    else do
