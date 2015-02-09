@@ -155,13 +155,14 @@ start = do
     let passwd   = args !! 10
     let socks5   = args !! 11
     let s5hostn  = takeWhile (\x -> x /= ':') socks5
-    let s5port   = tail $ dropWhile (\x -> x /= ':') socks5
+    let s5port   = fTail [] $ dropWhile (\x -> x /= ':') socks5
     let channels = words $ args !! 4
-    s5serv <- getAddrInfo (Just hints) (Just s5hostn) (Just s5port)
     s <- socket AF_INET Stream defaultProtocol
     _ <- setSocketOption s KeepAlive 0
     _ <- if null socks5 then connect s (addrAddress $ head serv)
-         else socksConnectAddr s (addrAddress $ head s5serv) (addrAddress $ head serv)
+         else do
+           s5serv <- getAddrInfo (Just hints) (Just s5hostn) (Just s5port)
+           socksConnectAddr s (addrAddress $ head s5serv) (addrAddress $ head serv)
     sh <- socketToHandle s ReadWriteMode
     hSetBuffering sh NoBuffering
     (f, p) <- initFugly fdir wndir gfdir topic'
