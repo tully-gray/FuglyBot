@@ -27,7 +27,7 @@ data Bot = Bot {
 
 data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
                | SentenceTries | SentenceLength | ParseLength | Learning | StrictLearn
-               | Autoname | AllowPM | Topic | Randoms | ReplaceWords | UnknownParam
+               | Autoname | AllowPM | Topic | Randoms | ReplaceWords | Timer | UnknownParam
                | Parameter {
                  nick        :: String,
                  owner       :: String,
@@ -46,7 +46,8 @@ data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | ThreadTim
                  topic       :: String,
                  randoms     :: Int,
                  rwords      :: Bool,
-                 threadtime  :: Int
+                 threadtime  :: Int,
+                 timer       :: Int
                  }
                deriving (Eq, Ord, Show)
 
@@ -71,7 +72,8 @@ instance Enum Parameter where
     toEnum 15 = Randoms
     toEnum 16 = ReplaceWords
     toEnum 17 = ThreadTime
-    toEnum 18 = UnknownParam
+    toEnum 18 = Timer
+    toEnum 19 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
@@ -90,8 +92,9 @@ instance Enum Parameter where
     fromEnum Randoms        = 15
     fromEnum ReplaceWords   = 16
     fromEnum ThreadTime     = 17
-    fromEnum UnknownParam   = 18
-    fromEnum _              = 18
+    fromEnum Timer          = 18
+    fromEnum UnknownParam   = 19
+    fromEnum _              = 19
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -123,6 +126,7 @@ readParam a | (map toLower a) == "rwords"          = ReplaceWords
 readParam a | (map toLower a) == "replacewords"    = ReplaceWords
 readParam a | (map toLower a) == "threadtime"      = ThreadTime
 readParam a | (map toLower a) == "ttime"           = ThreadTime
+readParam a | (map toLower a) == "timer"           = Timer
 readParam _                                        = UnknownParam
 
 type ChanNicks = Map.Map String [String]
@@ -167,7 +171,7 @@ start = do
     hSetBuffering sh NoBuffering
     (f, p) <- initFugly fdir wndir gfdir topic'
     let b = if null p then
-              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False True False topic' 50 False 30) f
+              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False True False topic' 50 False 30 0) f
               else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, dictfile=dfile}) f
     bot  <- newMVar b
     lock <- newMVar ()
@@ -193,7 +197,7 @@ run :: StateT Fstate IO b
 run = do
     st <- get
     Bot{sock=s} <- lift $ readMVar $ getBot st
-    _ <- lift $ forkIO $ timer st >> return ()
+    _ <- lift $ forkIO $ timerLoop st >> return ()
     forever $ do lift (hGetLine s >>= (\l -> do evalStateT (hPutStrLnLock stdout ("> debug: IRC msg: " ++ l)) st >> return l) >>= (\ll -> listenIRC st s ll))
     -- forever $ do lift (hGetLine s >>= (\ll -> listenIRC st s ll))
     where
@@ -244,35 +248,40 @@ decT c tId = do { v <- takeMVar c ; putMVar c (delete tId v) }
 decKillT :: MVar [ThreadId] -> ThreadId -> IO ()
 decKillT c tId = do { v <- takeMVar c ; killThread tId ; putMVar c (delete tId v) }
 
-timer :: Fstate -> IO ThreadId
-timer st = do
+timerLoop :: Fstate -> IO ThreadId
+timerLoop st = do
     let tc = getTCount st
     tId <- myThreadId
     _   <- incT tc tId
     forever $ do
       r <- Random.getStdRandom (Random.randomR (0, 999))
-      threadDelay $ 60000000 + (r * 30000)
       let b = getBot st
-      bot@Bot{sock=s, params=p@Parameter{nick=botnick, Main.topic=topic'}} <- readMVar b
+      Bot{params=p@Parameter{timer=t}} <- readMVar b
       _ <- return p
-      let cn = getChanNicks st
-      cn' <- readMVar cn
-      let chans = concat [[c] | (c, _) <- Map.toList cn']
-      let chan  = chans!!mod (r + 55) (length chans)
-      evalStateT (getChannelNicks s chan) st
-      threadDelay 1000000
-      let nicks = Map.lookup chan cn'
-      if isJust nicks then do
-        let n   = delete botnick $ fromJust nicks
-        let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~') $ n!!mod r (length n)
-        let msg = words (case mod r 5 of
+      let timer' = if (t < 5) then 30000000 else t * 1000000 + (t * r * 500)
+      threadDelay timer'
+      if t > 4 then do
+        bot@Bot{sock=s, params=pp@Parameter{nick=botnick, Main.topic=topic'}} <- readMVar b
+        _ <- return pp
+        let cn = getChanNicks st
+        cn' <- readMVar cn
+        let chans = concat [[c] | (c, _) <- Map.toList cn']
+        let chan  = chans!!mod (r + 55) (length chans)
+        evalStateT (getChannelNicks s chan) st
+        threadDelay 1000000
+        let nicks = Map.lookup chan cn'
+        if isJust nicks then do
+          let n   = delete botnick $ fromJust nicks
+          let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~') $ n!!mod r (length n)
+          let msg = words (case mod r 5 of
                              0 -> "It's time for another test."
                              1 -> "Does anybody here like " ++ topic' ++ "?"
                              2 -> topic' ++ " is interesting don't you think?"
                              3 -> "I've heard that " ++ n' ++ " likes " ++ topic' ++ "."
                              _ -> n' ++ " told me that " ++ topic' ++ " is boring.")
-        sentenceReply st bot chan n' msg
-        else sentenceReply st bot chan chan $ words "I'm all alone."
+          sentenceReply st bot chan n' msg
+          else sentenceReply st bot chan chan $ words "I'm all alone."
+        else forkIO $ return ()
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -349,13 +358,13 @@ readParamsFromList a = Parameter{nick="", owner="", fuglydir="", dictfile="", us
                                  slength=read (a!!4), plength=read (a!!5), learning=read (a!!6),
                                  strictlearn=read (a!!7), autoname=read (a!!8), allowpm=read (a!!9),
                                  Main.topic=(a!!10), randoms=read (a!!11), rwords=read (a!!12),
-                                 threadtime=read (a!!13)}
+                                 threadtime=read (a!!13), timer=read (a!!14)}
 
 paramsToList :: Parameter -> [String]
-paramsToList (Parameter _ _ _ _ uc rk mcm st sl pl l stl an apm t r rw tt) = [show uc, show rk, show mcm, show st,
-                                                                              show sl, show pl, show l, show stl,
-                                                                              show an, show apm, t, show r,
-                                                                              show rw, show tt]
+paramsToList (Parameter _ _ _ _ uc rk mcm st sl pl l stl an apm t r rw tt ti) = [show uc, show rk, show mcm, show st,
+                                                                                 show sl, show pl, show l, show stl,
+                                                                                 show an, show apm, t, show r,
+                                                                                 show rw, show tt, show ti]
 paramsToList _ = []
 
 changeParam :: Bot -> String -> String -> String -> String -> StateT Fstate IO Bot
@@ -387,6 +396,7 @@ changeParam bot@Bot{sock=s, params=p@Parameter{nick=botnick, owner=owner', fugly
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
       ReplaceWords   -> replyMsg' (readBool value)      "Replace words"       >>= (\x -> return bot{params=p{rwords=x}})
       ThreadTime     -> replyMsg' (readInt 0 360 value) "Thread time"         >>= (\x -> return bot{params=p{threadtime=x}})
+      Timer          -> replyMsg' (readInt 0 36000 value)  "Timer"            >>= (\x -> return bot{params=p{timer=x}})
       _              -> return bot
   where
     replyMsg' v msg = do replyMsg bot chan nick' (msg ++ " set to " ++ show v ++ ".") >> return v
@@ -564,7 +574,7 @@ execCmd b chan nick' (x:xs) = do
     execCmd' bot@Bot{sock=s, params=p@(Parameter botnick owner' fdir
                                        dfile usercmd' rkick maxcmsg
                                        stries' slen plen learn slearn
-                                       autoname' allowpm' topic' randoms' rwords' ttime),
+                                       autoname' allowpm' topic' randoms' rwords' ttime timer'),
                      fugly=f@(Fugly dict' pgf' wne' aspell' ban' match')} st
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" = if nick' == owner' then case length xs of
@@ -613,7 +623,8 @@ execCmd b chan nick' (x:xs) = do
                    ++ "  learning: " ++ show learn ++ "  strictlearn: " ++ show slearn
                    ++ "  autoname: " ++ show autoname' ++ "  allowpm: " ++ show allowpm'
                    ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms'
-                   ++ "  replacewords: " ++ show rwords' ++ "  threadtime: " ++ show ttime) >> return bot
+                   ++ "  replacewords: " ++ show rwords' ++ "  threadtime: " ++ show ttime
+                   ++ "  timer: " ++ show timer') >> return bot
           _ -> replyMsgT st bot chan nick' "Usage: !showparams" >> return bot
                              else return bot
       | x == "!setparam" = if nick' == owner' then case length xs of
