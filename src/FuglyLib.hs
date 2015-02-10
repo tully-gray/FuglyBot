@@ -997,9 +997,11 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
          3 -> "why would I want to " ++ if r < 50 then "do something like that" else unwords (drop 2 w)
          4 -> unwords (drop 2 w) ++ " is " ++ if r < 20 then "boring" else if r < 50 then "fun" else "certainly possible"
          _ -> [])
-      | length w > 3 && length w < 10 && r < 30 = do
-          mm <- asReplaceWords st fugly $ map (map toLower) w
-          return $ fHead [] $ filter (\x -> gfParseBool pgf' 3 x) $ map unwords (reverse $ tail $ permutations mm)
+      | length w > 3 && length w < 10 && r < 11 = do
+          let m' = fHead [] $ filter (\x -> gfParseBool pgf' 3 x) $ map unwords (reverse $ tail $ permutations w)
+          w' <- fixIt (sentenceB' st fugly rwords randoms 10 23 7 "default" (words m') ++ [gfRandom pgf' []]) [] 1 0
+          x' <- asReplaceWords st fugly $ map (map toLower) w'
+          return $ unwords x'
       | otherwise = return []
 
 sentenceB :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
@@ -1270,11 +1272,11 @@ preSentence Fugly{ban=ban', FuglyLib.match=match'} msg@(x:_) = do
         7  -> "why is "
         8  -> "maybe, though "
         9  -> "certainly, "
-        10 -> "certainly but "
+        10 -> "certainly, but "
         11 -> "never, "
         12 -> "no, but "
         13 -> "sure, however "
-        14 -> "perhaps you are right "
+        14 -> "perhaps you are right, "
         15 -> "maybe this "
         16 -> "of course "
         17 -> "sometimes it "
