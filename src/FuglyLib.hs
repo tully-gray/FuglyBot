@@ -1012,7 +1012,7 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
                   else if gfParseBool pgf' plen x && length (words x) > 2 && p /= POS Adj then return x
                        else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
     let s1h n a x = let out = if a then map toUpper x else if n then x else map toLower x in
-          if isJust $ Map.lookup out dict' then out else topic'
+          if isJust $ Map.lookup out dict' then out else []
     let s1i x = do
           a <- s1m x
           n <- s1n x
@@ -1029,7 +1029,7 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
           ww  <- s1b fugly slen 0 $ mapM s1i msg
           res <- preSentence fugly $ map (\m -> map toLower m) msg
           let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n a x] ++ w
-          wnReplaceWords fugly rwords randoms $ filter (not . null) $ take stries d
+          wnReplaceWords fugly rwords randoms $ take stries $ filter (not . null) d
     let s1d x = do
           w <- x
           if null w then return []
@@ -1044,7 +1044,7 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f n i msg' = do
       ww <- msg'
-      if null ww then return []
+      if null $ concat ww then return []
         else if i >= n then return $ nub ww else do
                www <- findNextWord f i randoms False topic' $ fLast [] ww
                s1b f n (i + 1) (return $ ww ++ www)
@@ -1265,9 +1265,9 @@ preSentence Fugly{ban=ban', FuglyLib.match=match'} msg@(x:_) = do
         6  -> "it is possible, and "
         7  -> "why is "
         8  -> "maybe, though "
-        9  -> "certainly, "
+        9  -> "it is certain, however "
         10 -> "certainly, but "
-        11 -> "never, "
+        11 -> "it is never the case that "
         12 -> "no, but "
         13 -> "sure, however "
         14 -> "perhaps you are right, "
