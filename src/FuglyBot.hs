@@ -866,10 +866,10 @@ execCmd b chan nick' (x:xs) = do
       --                    else replyMsgT st bot chan nick' "Usage: !commas <msg>" >> return bot
       -- | x == "!asreplace" = case length xs of
       --     0 -> replyMsgT st bot chan nick' "Usage: !asreplace <msg>" >> return bot
-      --     _ -> do ww <- asReplaceWords f xs ; replyMsgT st bot chan nick' $ unwords ww >> return bot
+      --     _ -> do ww <- asReplaceWords f xs ; replyMsgT st bot chan nick' (unwords ww) >> return bot
       -- | x == "!wnreplace" = case length xs of
       --     0 -> replyMsgT st bot chan nick' "Usage: !wnreplace <msg>" >> return bot
-      --     _ -> do ww <- wnReplaceWords f True randoms' xs ; replyMsgT st bot chan nick' $ unwords ww >> return bot
+      --     _ -> do ww <- wnReplaceWords f True randoms' xs ; replyMsgT st bot chan nick' (unwords ww) >> return bot
       -- | x == "!gfcats" = case length xs of
       --     0 -> return (unwords $ gfCategories pgf') >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
       --     _ -> replyMsgT st bot chan nick' "Usage: !gfcats" >> return bot
