@@ -692,7 +692,7 @@ endSentence msg
                     else msg
     | otherwise = (init msg) ++ ((last msg) ++ if elem (head msg) qWords then "?" else ".") : []
   where l = last $ last msg
-        r = mod (length $ concat msg) 4
+        r = mod (length $ concat msg) 6
 
 fHead :: a -> [a] -> a
 {-# INLINE fHead #-}
