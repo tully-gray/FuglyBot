@@ -1001,7 +1001,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
 sentenceB :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
              -> String -> Int -> [String] -> IO [String]
 sentenceB st fugly@Fugly{pgf=pgf'} rwords randoms stries slen plen topic' num msg =
-  fixIt (sentenceB' st fugly rwords randoms stries slen plen topic' msg ++ [gfRandom pgf' []]) [] num 0
+  fixIt (sentenceB' st fugly rwords randoms stries slen plen topic' msg ++ [gfRandom pgf' []]) [] num 0 0
 
 sentenceB' :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
               -> String -> [String] -> [IO String]
@@ -1064,13 +1064,13 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "name" else n
 
-fixIt :: [IO String] -> [String] -> Int -> Int -> IO [String]
-fixIt []     a _ _ = return a
-fixIt (x:xs) a n i = do
+fixIt :: [IO String] -> [String] -> Int -> Int -> Int -> IO [String]
+fixIt []     a _ _ _ = return a
+fixIt (x:xs) a n i j = do
     xx <- x
-    if i >= n then return a
-      else if null xx then fixIt xs a n i
-      else fixIt xs ([xx ++ " "] ++ a) n (i + 1)
+    if i >= n || j >= 10 then return a
+      else if null xx then fixIt xs a n i (j + 1)
+      else fixIt xs ([xx ++ " "] ++ a) n (i + 1) j
 
 insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
 insertCommas wne' i w = do
