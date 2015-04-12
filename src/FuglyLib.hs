@@ -305,7 +305,7 @@ loadDict fuglydir dfile = do
                     ff h ww nm
 
 qWords :: [String]
-qWords = ["am", "are", "can", "did", "do", "does", "if", "is", "want", "was", "were", "what", "when", "where", "who", "why", "will"]
+qWords = ["am", "are", "can", "could", "did", "do", "does", "if", "is", "should", "want", "was", "were", "what", "when", "where", "who", "why", "will"]
 
 badEndWords :: [String]
 badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", "do", "every", "for", "from", "gave", "go", "got", "had", "has", "he", "her", "he's", "his", "i", "i'd", "if", "i'll", "i'm", "in", "into", "is", "it", "its", "it's", "i've", "just", "make", "makes", "mr", "mrs", "my", "no", "of", "oh", "on", "or", "our", "person's", "she", "she's", "so", "than", "that", "that's", "the", "their", "there's", "they", "they're", "to", "us", "very", "was", "we", "were", "what", "when", "where", "which", "why", "with", "who", "whose", "yes", "you", "your", "you're", "you've"]
