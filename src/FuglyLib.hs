@@ -944,7 +944,7 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
                             else "Not a GF type."
 
 sentenceA :: MVar () -> Fugly -> Bool -> Int -> [String] -> IO [String]
-sentenceA _  _                     _      _      []   = return []
+sentenceA _  _                                     _      _      []   = return []
 sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
     r <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     m <- s1a r msg
@@ -968,17 +968,13 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
          5 -> "oh really"
          _ -> [])
       | length w > 2 && (map toLower $ head w) == "hey" = do
-          m' <- fixIt (sentenceB' st fugly rwords randoms 10 23 7 "default" (drop 2 w) ++ [gfRandom pgf' []]) [] 1 0
-          w' <- mapM (\x -> do ry <- rhymesWith st aspell' x
-                               if null ry then return []
-                                 else return $ ry!!(mod r (length ry))) m'
+          m' <- fixIt (sentenceB' st fugly rwords randoms 10 23 7 "default" (drop 2 w) ++ [gfRandom pgf' []]) [] 1 0 0
+          w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'
       | elem "rhyme" w || elem "rhymes" w || elem "sing" w || elem "song" w || r > 87 = do
-          m' <- fixIt (sentenceB' st fugly rwords randoms 5 5 5 "rhymes" w ++ [gfRandom pgf' []]) [] 1 0
-          w' <- mapM (\x -> do ry <- rhymesWith st aspell' x
-                               if null ry then return []
-                                 else return $ ry!!(mod r (length ry))) m'
+          m' <- fixIt (sentenceB' st fugly rwords randoms 5 5 5 "rhymes" w ++ [gfRandom pgf' []]) [] 1 0 0
+          w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'
       | length w > 3 && take 3 w == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want"] =
@@ -998,6 +994,9 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
          4 -> unwords (drop 2 w) ++ " is " ++ if r < 20 then "boring" else if r < 50 then "fun" else "certainly possible"
          _ -> [])
       | otherwise = return []
+    s1r rr mm = mapM (\x -> do ry <- rhymesWith st aspell' x
+                               if null ry then return []
+                                 else return $ ry!!(mod rr (length ry))) mm
 
 sentenceB :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
              -> String -> Int -> [String] -> IO [String]
