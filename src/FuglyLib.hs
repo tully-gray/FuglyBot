@@ -20,7 +20,6 @@ module FuglyLib
          dropTopic,
          dropTopicWords,
          ageWord,
-         ageWords,
          numWords,
          listWords,
          listWordFull,
@@ -518,25 +517,14 @@ dropTopicWords m t = del' (filter (\w -> [t] == (delete "default" $ wordGetTopic
       del' (x:xs) m' = del' xs (dropWord m' $ wordGetWord x)
 
 ageWord :: Dict -> String -> Int -> Dict
-ageWord m word' num = age m word' num 0
+ageWord m word' num = Map.map age m
     where
-      age m' w n i
-        | i >= n    = m'
-        | otherwise = age (ageWord' m' w) w n (i + 1)
-
-ageWord' :: Dict -> String -> Dict
-ageWord' m word' = Map.map age m
-    where
-      w = wordGetWord  $ fromJust $ Map.lookup word' m
-      c = wordGetCount $ fromJust $ Map.lookup word' m
-      age w' = w'{count=if w == word' then if c - 1 < 1 then 1 else c - 1 else c,
-                  before=incBefore' w' word' (-1), after=incAfter' w' word' (-1)}
-
-ageWords :: Dict -> Int -> Dict
-ageWords m num = Map.filter (\x -> wordGetCount x > 0) $ f m (listWords m) num
-    where
-      f m' []     _ = m'
-      f m' (x:xs) n = f (ageWord m' x n) xs n
+      age w = let
+        w' = wordGetWord  w
+        c  = wordGetCount w
+        in if w' == word' then w{count=if c - num < 1 then 1 else c - num,
+                                 before=incBefore' w word' (-num), after=incAfter' w word' (-num)}
+           else w{before=incBefore' w word' (-num), after=incAfter' w word' (-num)}
 
 incCount' :: Word -> Int -> Int
 incCount' w n = let c = wordGetCount w in if c + n < 1 then 1 else c + n

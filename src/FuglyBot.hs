@@ -759,16 +759,6 @@ execCmd b chan nick' (x:xs) = do
                     replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.") >> return bot
           _ -> replyMsgT st bot chan nick' "Usage: !ageword <word> <number>" >> return bot
                           else return bot
-      | x == "!agewords" = if nick' == owner' then case length xs of
-          1 -> do num <- catch (if (read (xs!!0) :: Int) > 50 then return 50 else return (read (xs!!0) :: Int))
-                              {-- This has to be caught here? --}
-                              (\e -> do let err = show (e :: SomeException)
-                                        evalStateT (hPutStrLnLock stderr ("Exception in agewords command: read: " ++ err)) st
-                                        return 0)
-                  replyMsgT st bot chan nick' ("Aged all words...")
-                  return bot{fugly=f{dict=ageWords dict' num}}
-          _ -> replyMsgT st bot chan nick' "Usage: !agewords <number>" >> return bot
-                           else return bot
       | x == "!banword" = if nick' == owner' then case length xs of
           2 -> if (xs!!0) == "add" then
                  if elem (xs!!1) ban' then
@@ -889,7 +879,7 @@ execCmd b chan nick' (x:xs) = do
       | otherwise  = if nick' == owner' then replyMsgT st bot chan nick'
           ("Commands: !word !wordlist !insertword !name !namelist !insertname !acronym !acronymlist !insertacronym "
           ++ "!dropword !banword !matchword !dropafter !banafter "
-          ++ "!ageword(s) !listtopics !droptopic !droptopicwords !internalize "
+          ++ "!ageword !listtopics !droptopic !droptopicwords !internalize "
           ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
           ++ "!setparam !showparams !nick !join !part !talk !raw !quit !readfile !load !save") >> return bot
                      else replyMsgT st bot chan nick'
