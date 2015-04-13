@@ -931,9 +931,9 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
       (generateRandomDepth (Random.mkStdGen num) pgf' c (Just num))
                             else "Not a GF type."
 
-sentenceA :: MVar () -> Fugly -> Bool -> Int -> [String] -> IO [String]
-sentenceA _  _                                     _      _      []   = return []
-sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
+sentenceA :: MVar () -> Fugly -> Bool -> Bool -> Int -> [String] -> IO [String]
+sentenceA _  _                                     _      _      _      []   = return []
+sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms msg = do
     r <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     m <- s1a r msg
     wnReplaceWords fugly rwords randoms $ toUpperSentence $ endSentence $ replace "i" "I" $ words m
@@ -956,12 +956,12 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
          5 -> "oh really"
          _ -> [])
       | length w > 2 && (map toLower $ head w) == "hey" = do
-          m' <- fixIt (sentenceB' st fugly rwords randoms 10 23 7 "default" (drop 2 w) ++ [gfRandom pgf' []]) [] 1 0 0
+          m' <- fixIt (sentenceB' st fugly rwords stopic randoms 10 23 7 "default" (drop 2 w) ++ [gfRandom pgf' []]) [] 1 0 0
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'
       | elem "rhyme" w || elem "rhymes" w || elem "sing" w || elem "song" w || r > 87 = do
-          m' <- fixIt (sentenceB' st fugly rwords randoms 5 5 5 "rhymes" w ++ [gfRandom pgf' []]) [] 1 0 0
+          m' <- fixIt (sentenceB' st fugly rwords stopic randoms 5 5 5 "rhymes" w ++ [gfRandom pgf' []]) [] 1 0 0
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'
@@ -986,16 +986,16 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords randoms msg = do
                                if null ry then return []
                                  else return $ ry!!(mod rr (length ry))) mm
 
-sentenceB :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
+sentenceB :: (MVar ()) -> Fugly -> Bool -> Bool -> Int -> Int -> Int -> Int
              -> String -> Int -> [String] -> IO [String]
-sentenceB st fugly@Fugly{pgf=pgf'} rwords randoms stries slen plen topic' num msg =
-  fixIt (sentenceB' st fugly rwords randoms stries slen plen topic' msg ++ [gfRandom pgf' []]) [] num 0 0
+sentenceB st fugly@Fugly{pgf=pgf'} rwords stopic randoms stries slen plen topic' num msg =
+  fixIt (sentenceB' st fugly rwords stopic randoms stries slen plen topic' msg ++ [gfRandom pgf' []]) [] num 0 0
 
-sentenceB' :: (MVar ()) -> Fugly -> Bool -> Int -> Int -> Int -> Int
+sentenceB' :: (MVar ()) -> Fugly -> Bool -> Bool -> Int -> Int -> Int -> Int
               -> String -> [String] -> [IO String]
-sentenceB' _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
+sentenceB' _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
 sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
-  rwords randoms stries slen plen topic' msg = do
+  rwords stopic randoms stries slen plen topic' msg = do
     let s1f p x = if null x then return []
                   else if gfParseBool pgf' plen x && length (words x) > 2 && p /= POS Adj then return x
                        else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
@@ -1008,12 +1008,12 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     let s1a x = do
           a <- s1m x
           n <- s1n x
-          z <- findNextWord fugly 0 randoms True topic' x
+          z <- findNextWord fugly 0 randoms True stopic topic' x
           let zz = if null z then [] else head z
-          y <- findNextWord fugly 1 randoms True topic' zz
+          y <- findNextWord fugly 1 randoms True stopic topic' zz
           let yy = if null y then [] else head y
           let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
-          w   <- s1b fugly slen c $ findNextWord fugly 1 randoms False topic' x
+          w   <- s1b fugly slen c $ findNextWord fugly 1 randoms False stopic topic' x
           ww  <- s1b fugly slen 0 $ mapM s1i msg
           res <- preSentence fugly $ map (\m -> map toLower m) msg
           let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n a x] ++ w
@@ -1034,7 +1034,7 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
       ww <- msg'
       if null $ concat ww then return []
         else if i >= n then return $ nub ww else do
-               www <- findNextWord f i randoms False topic' $ fLast [] ww
+               www <- findNextWord f i randoms False stopic topic' $ fLast [] ww
                s1b f n (i + 1) (return $ ww ++ www)
     s1c :: [String] -> String
     s1c [] = []
@@ -1162,9 +1162,9 @@ rhymesWith st aspell' word' = do
                        x Regex.=~ (end ++ "$") && levenshteinDistance defaultEditCosts l x < 4) asw
     return $ if null out then [word'] else out
 
-findNextWord :: Fugly -> Int -> Int -> Bool -> String -> String -> IO [String]
-findNextWord _                 _ _       _    _      []    = return []
-findNextWord Fugly{dict=dict'} i randoms prev topic' word' = do
+findNextWord :: Fugly -> Int -> Int -> Bool -> Bool -> String -> String -> IO [String]
+findNextWord _                 _ _       _    _      _      []    = return []
+findNextWord Fugly{dict=dict'} i randoms prev stopic topic' word' = do
     let ln = if isJust w then length neigh else 0
     let lm = if isJust w then length neighmax else 0
     let ll = if isJust w then length neighleast else 0
@@ -1172,28 +1172,28 @@ findNextWord Fugly{dict=dict'} i randoms prev topic' word' = do
     mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
     lr <- Random.getStdRandom (Random.randomR (0, ll - 1))
     rr <- Random.getStdRandom (Random.randomR (0, 99))
-    let f1 = if isJust w && length neigh > 0 then neighleast!!lr else []
-    let f2 = if isJust w && length neigh > 0 then case mod i 3 of
-          0 -> neigh!!nr
-          1 -> neighleast!!lr
-          2 -> neighleast!!lr
+    let f1 = if isJust w && ll > 0 then neighleast!!lr else []
+    let f2 = if isJust w then case mod i 3 of
+          0 -> if ln > 0 then neigh!!nr else []
+          1 -> if ll > 0 then neighleast!!lr else []
+          2 -> if ll > 0 then neighleast!!lr else []
           _ -> []
              else []
-    let f3 = if isJust w && length neigh > 0 then case mod i 5 of
-          0 -> neighleast!!lr
-          1 -> neigh!!nr
-          2 -> neighmax!!mr
-          3 -> neigh!!nr
-          4 -> neigh!!nr
+    let f3 = if isJust w then case mod i 5 of
+          0 -> if ll > 0 then neighleast!!lr else []
+          1 -> if ln > 0 then neigh!!nr else []
+          2 -> if lm > 0 then neighmax!!mr else []
+          3 -> if ln > 0 then neigh!!nr else []
+          4 -> if ln > 0 then neigh!!nr else []
           _ -> []
              else []
-    let f4 = if isJust w && length neigh > 0 then case mod i 3 of
-          0 -> neighmax!!mr
-          1 -> neigh!!nr
-          2 -> neighmax!!mr
+    let f4 = if isJust w then case mod i 3 of
+          0 -> if lm > 0 then neighmax!!mr else []
+          1 -> if ln > 0 then neigh!!nr else []
+          2 -> if lm > 0 then neighmax!!mr else []
           _ -> []
              else []
-    let f5 = if isJust w && length neigh > 0 then neighmax!!mr else []
+    let f5 = if isJust w && lm > 0 then neighmax!!mr else []
     let out = if randoms > 89 then words f1 else
                 if rr < randoms - 25 then words f2 else
                   if rr < randoms + 35 then words f3 else
@@ -1209,9 +1209,9 @@ findNextWord Fugly{dict=dict'} i randoms prev topic' word' = do
       neighmax_topic   = listNeighTopic dict' topic' neighmax_all
       neighleast_all   = listNeighLeast $ wordGet' (fromJust w)
       neighleast_topic = listNeighTopic dict' topic' neighleast_all
-      neigh      = if null neigh_topic then neigh_all else neigh_topic
-      neighmax   = if null neighmax_topic then neighmax_all else neighmax_topic
-      neighleast = if null neighleast_topic then neighleast_all else neighleast_topic
+      neigh      = if stopic then neigh_topic else if null neigh_topic then neigh_all else neigh_topic
+      neighmax   = if stopic then neighmax_topic else if null neighmax_topic then neighmax_all else neighmax_topic
+      neighleast = if stopic then neighleast_topic else if null neighleast_topic then neighleast_all else neighleast_topic
 
 findRelated :: WordNetEnv -> String -> IO String
 findRelated wne' word' = do

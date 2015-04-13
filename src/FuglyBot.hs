@@ -26,7 +26,7 @@ data Bot = Bot {
     }
 
 data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | ThreadTime | MaxChanMsg
-               | SentenceTries | SentenceLength | ParseLength | Learning | StrictLearn
+               | SentenceTries | SentenceLength | ParseLength | Learning | StrictLearn | StrictTopic
                | Autoname | AllowPM | Topic | Randoms | ReplaceWords | Timer | UnknownParam
                | Parameter {
                  nick        :: String,
@@ -41,6 +41,7 @@ data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | ThreadTim
                  plength     :: Int,
                  learning    :: Bool,
                  strictlearn :: Bool,
+                 stricttopic :: Bool,
                  autoname    :: Bool,
                  allowpm     :: Bool,
                  topic       :: String,
@@ -66,14 +67,15 @@ instance Enum Parameter where
     toEnum 9  = ParseLength
     toEnum 10 = Learning
     toEnum 11 = StrictLearn
-    toEnum 12 = Autoname
-    toEnum 13 = AllowPM
-    toEnum 14 = Topic
-    toEnum 15 = Randoms
-    toEnum 16 = ReplaceWords
-    toEnum 17 = ThreadTime
-    toEnum 18 = Timer
-    toEnum 19 = UnknownParam
+    toEnum 12 = StrictTopic
+    toEnum 13 = Autoname
+    toEnum 14 = AllowPM
+    toEnum 15 = Topic
+    toEnum 16 = Randoms
+    toEnum 17 = ReplaceWords
+    toEnum 18 = ThreadTime
+    toEnum 19 = Timer
+    toEnum 20 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
@@ -86,15 +88,16 @@ instance Enum Parameter where
     fromEnum ParseLength    = 9
     fromEnum Learning       = 10
     fromEnum StrictLearn    = 11
-    fromEnum Autoname       = 12
-    fromEnum AllowPM        = 13
-    fromEnum Topic          = 14
-    fromEnum Randoms        = 15
-    fromEnum ReplaceWords   = 16
-    fromEnum ThreadTime     = 17
-    fromEnum Timer          = 18
-    fromEnum UnknownParam   = 19
-    fromEnum _              = 19
+    fromEnum StrictTopic    = 12
+    fromEnum Autoname       = 13
+    fromEnum AllowPM        = 14
+    fromEnum Topic          = 15
+    fromEnum Randoms        = 16
+    fromEnum ReplaceWords   = 17
+    fromEnum ThreadTime     = 18
+    fromEnum Timer          = 19
+    fromEnum UnknownParam   = 20
+    fromEnum _              = 20
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -118,6 +121,8 @@ readParam a | (map toLower a) == "parselength"     = ParseLength
 readParam a | (map toLower a) == "learning"        = Learning
 readParam a | (map toLower a) == "strictlearn"     = StrictLearn
 readParam a | (map toLower a) == "slearn"          = StrictLearn
+readParam a | (map toLower a) == "stricttopic"     = StrictTopic
+readParam a | (map toLower a) == "stopic"          = StrictTopic
 readParam a | (map toLower a) == "autoname"        = Autoname
 readParam a | (map toLower a) == "allowpm"         = AllowPM
 readParam a | (map toLower a) == "topic"           = Topic
@@ -171,7 +176,7 @@ start = do
     hSetBuffering sh NoBuffering
     (f, p) <- initFugly fdir wndir gfdir topic'
     let b = if null p then
-              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False True False topic' 50 False 30 0) f
+              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False False True False topic' 50 False 30 0) f
               else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, dictfile=dfile}) f
     bot  <- newMVar b
     lock <- newMVar ()
@@ -357,15 +362,15 @@ readParamsFromList :: [String] -> Parameter
 readParamsFromList a = Parameter{nick="", owner="", fuglydir="", dictfile="", usercmd=read (a!!0),
                                  rejoinkick=read (a!!1), maxchanmsg=read (a!!2), stries=read (a!!3),
                                  slength=read (a!!4), plength=read (a!!5), learning=read (a!!6),
-                                 strictlearn=read (a!!7), autoname=read (a!!8), allowpm=read (a!!9),
-                                 Main.topic=(a!!10), randoms=read (a!!11), rwords=read (a!!12),
-                                 threadtime=read (a!!13), timer=read (a!!14)}
+                                 strictlearn=read (a!!7), stricttopic=read (a!!8), autoname=read (a!!9),
+                                 allowpm=read (a!!10), Main.topic=(a!!11), randoms=read (a!!12),
+                                 rwords=read (a!!13), threadtime=read (a!!14), timer=read (a!!15)}
 
 paramsToList :: Parameter -> [String]
-paramsToList (Parameter _ _ _ _ uc rk mcm st sl pl l stl an apm t r rw tt ti) = [show uc, show rk, show mcm, show st,
-                                                                                 show sl, show pl, show l, show stl,
-                                                                                 show an, show apm, t, show r,
-                                                                                 show rw, show tt, show ti]
+paramsToList (Parameter _ _ _ _ uc rk mcm st sl pl l stl stt an apm t r rw tt ti) = [show uc, show rk, show mcm, show st,
+                                                                                     show sl, show pl, show l, show stl,
+                                                                                     show stt, show an, show apm, t, show r,
+                                                                                     show rw, show tt, show ti]
 paramsToList _ = []
 
 changeParam :: Bot -> String -> String -> String -> String -> StateT Fstate IO Bot
@@ -384,6 +389,7 @@ changeParam bot@Bot{sock=s, params=p@Parameter{nick=botnick, owner=owner', fugly
       ParseLength    -> replyMsg' (readInt 0 256 value) "Parse length"        >>= (\x -> return bot{params=p{plength=x}})
       Learning       -> replyMsg' (readBool value)     "Learning"             >>= (\x -> return bot{params=p{learning=x}})
       StrictLearn    -> replyMsg' (readBool value)     "Strict learn"         >>= (\x -> return bot{params=p{strictlearn=x}})
+      StrictTopic    -> replyMsg' (readBool value)     "Strict topic"         >>= (\x -> return bot{params=p{stricttopic=x}})
       Autoname       -> replyMsg' (readBool value)     "Autoname"             >>= (\x -> return bot{params=p{autoname=x}})
       AllowPM        -> replyMsg' (readBool value)     "Allow PM"             >>= (\x -> return bot{params=p{allowpm=x}})
       DictFile       -> do (d, b, m, pl) <- lift $ catchJust (\e -> if isDoesNotExistErrorType (ioeGetErrorType e) then
@@ -535,7 +541,8 @@ reply bot _ _ _ = return bot
 sentenceReply :: Fstate -> Bot -> String -> String -> [String] -> IO ThreadId
 sentenceReply _ _ _ _ [] = forkIO $ return ()
 sentenceReply st@(_, lock, tc, _) Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plength=plen,
-                                                                 Main.topic=top, randoms=rand, rwords=rw},
+                                                                 Main.topic=top, randoms=rand, rwords=rw,
+                                                                 stricttopic=stopic},
                                       fugly=fugly'} chan nick' m = forkIO (do
     tId  <- myThreadId
     tc'  <- incT tc tId
@@ -547,8 +554,8 @@ sentenceReply st@(_, lock, tc, _) Bot{sock=h, params=p@Parameter{stries=str, sle
       let num = if num' - 4 < 1 || str < 4 then 1 else num' - 4
       bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
       let plen' = if tc' < 1 then plen else 0
-      x <- sentenceA lock fugly' rw rand m
-      y <- sentenceB lock fugly' rw rand str slen plen' top num mm
+      x <- sentenceA lock fugly' rw stopic rand m
+      y <- sentenceB lock fugly' rw stopic rand str slen plen' top num mm
       let ww = unwords $ if null x then y else x
       evalStateT (do if null ww then return ()
                        else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
@@ -574,7 +581,7 @@ execCmd b chan nick' (x:xs) = do
     execCmd' :: Bot -> Fstate -> IO Bot
     execCmd' bot@Bot{sock=s, params=p@(Parameter botnick owner' fdir
                                        dfile usercmd' rkick maxcmsg
-                                       stries' slen plen learn slearn
+                                       stries' slen plen learn slearn stopic
                                        autoname' allowpm' topic' randoms' rwords' ttime timer'),
                      fugly=f@(Fugly dict' pgf' wne' aspell' ban' match')} st
       | usercmd' == False && nick' /= owner' = return bot
@@ -622,6 +629,7 @@ execCmd b chan nick' (x:xs) = do
                    ++ "  sentencetries: " ++ show stries' ++ "  sentencelength: "
                    ++ show slen ++ "  parselength: " ++ show plen ++ "  dictfile: " ++ dfile
                    ++ "  learning: " ++ show learn ++ "  strictlearn: " ++ show slearn
+                   ++ "  stricttopic: " ++ show stopic
                    ++ "  autoname: " ++ show autoname' ++ "  allowpm: " ++ show allowpm'
                    ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms'
                    ++ "  replacewords: " ++ show rwords' ++ "  threadtime: " ++ show ttime
@@ -928,10 +936,10 @@ internalize st b n msg = internalize' st b n 0 msg
     internalize' :: Fstate -> Bot -> Int -> Int -> String -> IO Bot
     internalize' _ bot _ _ [] = return bot
     internalize' st' bot@Bot{params=p@Parameter{autoname=aname, Main.topic=topic', stries=tries, slength=slen,
-                                                plength=plen, rwords=rw, randoms=rands}, fugly=f} num i imsg = do
+                                                plength=plen, rwords=rw, stricttopic=stopic, randoms=rands}, fugly=f} num i imsg = do
       _   <- return p
       mm  <- chooseWord $ words imsg
-      sen <- getSentence $ sentenceB' (getLock st') f rw rands tries slen plen topic' mm
+      sen <- getSentence $ sentenceB' (getLock st') f rw stopic rands tries slen plen topic' mm
       nd  <- insertWords (getLock st') f aname topic' $ words sen
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot
