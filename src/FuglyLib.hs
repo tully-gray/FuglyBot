@@ -1009,14 +1009,13 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
           a <- s1m x
           n <- s1n x
           z <- findNextWord fugly 0 randoms True stopic topic' x
-          let zz = if null z then [] else head z
+          let zz = fHead [] z
           y <- findNextWord fugly 1 randoms True stopic topic' zz
-          let yy = if null y then [] else head y
+          let yy = fHead [] y
           let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
           w   <- s1b fugly slen c $ findNextWord fugly 1 randoms False stopic topic' x
           ww  <- s1b fugly slen 0 $ mapM s1i msg
-          res <- preSentence fugly $ map (\m -> map toLower m) msg
-          let d = if length msg < 4 then ww else (words res) ++ [yy] ++ [zz] ++ [s1h n a x] ++ w
+          let d = if length msg < 4 then ww else [yy] ++ [zz] ++ [s1h n a x] ++ w
           wnReplaceWords fugly rwords randoms $ take stries $ filter (not . null) d
     let s1d x = do
           w <- x
@@ -1238,82 +1237,6 @@ findRelated wne' word' = do
                   return (anto'!!r)
               else return word'
     if null out then return word' else return out
-
-preSentence :: Fugly -> [String] -> IO String
-preSentence _                                      []        = return []
-preSentence Fugly{ban=ban', FuglyLib.match=match'} msg@(x:_) = do
-    r <- Random.getStdRandom (Random.randomR (0, 60)) :: IO Int
-    if elem x qWords then
-      return (case mod r 25 of
-        1  -> "yes, and "
-        2  -> "no way "
-        3  -> "no, the "
-        4  -> "yes, but "
-        5  -> "perhaps the "
-        6  -> "it is possible, and "
-        7  -> "why is "
-        8  -> "maybe, though "
-        9  -> "it is certain, however "
-        10 -> "certainly, but "
-        11 -> "it is never the case that "
-        12 -> "no, but "
-        13 -> "sure, however "
-        14 -> "perhaps you are right, "
-        15 -> "maybe this "
-        16 -> "of course "
-        17 -> "sometimes it "
-        18 -> "only when the "
-        19 -> "it is weird that "
-        20 -> "exactly, "
-        _  -> [])
-      else if (msg \\ ban') /= msg then
-          return (case r of
-            1  -> "that is disgusting, "
-            2  -> "you are disgusting and "
-            3  -> "foul language and "
-            4  -> "you are disturbing me, "
-            5  -> "maybe you should not "
-            6  -> "please do not "
-            7  -> "that is "
-            8  -> "bad thoughts and "
-            9  -> "do not say such "
-            10 -> "do not "
-            11 -> "stop that, "
-            12 -> "ban this "
-            13 -> "stop swearing about "
-            14 -> "oh really "
-            15 -> "don't be rude, "
-            16 -> "that's filthy and "
-            17 -> "shameful behavior never "
-            18 -> "it's disgraceful "
-            19 -> "please be nice, "
-            _  -> [])
-      else if (msg \\ match') /= msg then
-             return (case r of
-               1  -> "great stuff, "
-               2  -> "I like that, "
-               3  -> "keep going, "
-               4  -> "please continue, "
-               5  -> "very enlightening, please "
-               6  -> "fascinating, I "
-               7  -> "this is intriguing, "
-               8  -> "simply wonderful "
-               9  -> "yes indeed, "
-               10 -> "if you like "
-               11 -> "yeah it's nice "
-               12 -> "undoubtedly, "
-               13 -> "it is wonderful and "
-               14 -> "so you like some "
-               15 -> "I also like "
-               16 -> "everybody loves "
-               17 -> "this is great news, "
-               18 -> "it's rather special "
-               19 -> "absolutely, "
-               20 -> "hey fabulous "
-               21 -> "somewhat yes, but"
-               22 -> "people agree that "
-               _  -> [])
-           else return []
 
 hPutStrLock :: Handle -> String -> StateT (MVar ()) IO ()
 hPutStrLock s m = do
