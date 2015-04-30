@@ -550,12 +550,11 @@ sentenceReply st@(_, lock, tc, _) Bot{sock=h, params=p@Parameter{stries=str, sle
     if tc' < 3 then do
       num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
       _    <- return p
-      mm   <- chooseWord m
       let num = if num' - 4 < 1 || str < 4 then 1 else num' - 4
       bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
       let plen' = if tc' < 1 then plen else 0
-      x <- sentenceA lock fugly' rw stopic rand m
-      y <- sentenceB lock fugly' rw stopic rand str slen plen' top num mm
+      x <- sentenceA lock fugly' rw stopic rand str m
+      y <- sentenceB lock fugly' rw stopic rand str slen plen' top num m
       let ww = unwords $ if null x then y else x
       evalStateT (do if null ww then return ()
                        else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
@@ -938,8 +937,7 @@ internalize st b n msg = internalize' st b n 0 msg
     internalize' st' bot@Bot{params=p@Parameter{autoname=aname, Main.topic=topic', stries=tries, slength=slen,
                                                 plength=plen, rwords=rw, stricttopic=stopic, randoms=rands}, fugly=f} num i imsg = do
       _   <- return p
-      mm  <- chooseWord $ words imsg
-      sen <- getSentence $ sentenceB' (getLock st') f rw stopic rands tries slen plen topic' mm
+      sen <- getSentence $ sentenceB' (getLock st') f rw stopic rands tries slen plen topic' $ words imsg
       nd  <- insertWords (getLock st') f aname topic' $ words sen
       r <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot

@@ -47,7 +47,6 @@ module FuglyLib
          sentenceB,
          sentenceB',
          insertCommas,
-         chooseWord,
          findRelated,
          joinWords,
          toUpperSentence,
@@ -931,9 +930,9 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
       (generateRandomDepth (Random.mkStdGen num) pgf' c (Just num))
                             else "Not a GF type."
 
-sentenceA :: MVar () -> Fugly -> Bool -> Bool -> Int -> [String] -> IO [String]
-sentenceA _  _                                     _      _      _      []   = return []
-sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms msg = do
+sentenceA :: MVar () -> Fugly -> Bool -> Bool -> Int -> Int -> [String] -> IO [String]
+sentenceA _  _                                     _      _      _       _     []   = return []
+sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries msg = do
     r <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     m <- s1a r msg
     wnReplaceWords fugly rwords randoms $ toUpperSentence $ endSentence $ replace "i" "I" $ words m
@@ -956,12 +955,12 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms msg = d
          5 -> "oh really"
          _ -> [])
       | length w > 2 && (map toLower $ head w) == "hey" = do
-          m' <- fixIt (sentenceB' st fugly rwords stopic randoms 10 23 7 "default" (drop 2 w) ++ [gfRandom pgf' []]) [] 1 0 0
+          m' <- fixIt (sentenceB' st fugly rwords stopic randoms 10 23 7 "default" (drop 2 w) ++ [gfRandom pgf' []]) [] 1 0 0 stries
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'
       | elem "rhyme" w || elem "rhymes" w || elem "sing" w || elem "song" w || r > 87 = do
-          m' <- fixIt (sentenceB' st fugly rwords stopic randoms 5 5 5 "rhymes" w ++ [gfRandom pgf' []]) [] 1 0 0
+          m' <- fixIt (sentenceB' st fugly rwords stopic randoms 5 5 5 "rhymes" w ++ [gfRandom pgf' []]) [] 1 0 0 stries
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'
@@ -988,8 +987,10 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms msg = d
 
 sentenceB :: (MVar ()) -> Fugly -> Bool -> Bool -> Int -> Int -> Int -> Int
              -> String -> Int -> [String] -> IO [String]
-sentenceB st fugly@Fugly{pgf=pgf'} rwords stopic randoms stries slen plen topic' num msg =
-  fixIt (sentenceB' st fugly rwords stopic randoms stries slen plen topic' msg ++ [gfRandom pgf' []]) [] num 0 0
+sentenceB st fugly@Fugly{pgf=pgf'} rwords stopic randoms stries slen plen topic' num msg = do
+  m <- chooseWord msg
+  let mm = if length msg < 4 || mod (length $ concat msg) 3 == 0 then msg else m
+  fixIt (sentenceB' st fugly rwords stopic randoms stries slen plen topic' mm ++ [gfRandom pgf' []]) [] num 0 0 stries
 
 sentenceB' :: (MVar ()) -> Fugly -> Bool -> Bool -> Int -> Int -> Int -> Int
               -> String -> [String] -> [IO String]
@@ -1051,13 +1052,13 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "name" else n
 
-fixIt :: [IO String] -> [String] -> Int -> Int -> Int -> IO [String]
-fixIt []     a _ _ _ = return a
-fixIt (x:xs) a n i j = do
+fixIt :: [IO String] -> [String] -> Int -> Int -> Int -> Int -> IO [String]
+fixIt []     a _ _ _ _ = return a
+fixIt (x:xs) a n i j s = do
     xx <- x
-    if i >= n || j >= 10 then return a
-      else if null xx then fixIt xs a n i (j + 1)
-      else fixIt xs ([xx ++ " "] ++ a) n (i + 1) j
+    if i >= n || j > s * n + 5 then return a
+      else if null xx then fixIt xs a n i (j + 1) s
+      else fixIt xs ([xx ++ " "] ++ a) n (i + 1) j s
 
 insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
 insertCommas wne' i w = do
