@@ -188,7 +188,15 @@ start = do
     _ <- forkIO (do threadDelay 20000000
                     if not $ null passwd then evalStateT (replyMsg b "nickserv" [] ("IDENTIFY " ++ passwd)) fstate else return ()
                     evalStateT (joinChannel sh "JOIN" channels) fstate)
+    pId <- forkIO $ pingLoop lock sh
+    _ <- incT tc pId
     return fstate
+  where
+    pingLoop l sh = forever $ do
+      lock <- takeMVar l
+      hPutStrLn sh "PING :foo\r"
+      putMVar l lock
+      threadDelay 60000000
 
 stop :: Fstate -> IO ()
 stop (bot, lock, tc, _) = do
