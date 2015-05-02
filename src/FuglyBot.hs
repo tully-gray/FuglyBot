@@ -820,7 +820,7 @@ execCmd b chan nick' (x:xs) = do
               tId <- sentenceReply st bot (xs!!0) (xs!!1) (drop 2 xs)
               if ttime > 0 then
                 forkIO (do threadDelay $ ttime * 1000000
-                           evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId)) st
+                           evalStateT (hPutStrLnLock stderr ("> debug: killed thread (!talk): " ++ show tId)) st
                            decKillT tc tId) >> return bot
                 else return bot
             else replyMsgT st bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
