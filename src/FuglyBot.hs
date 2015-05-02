@@ -526,14 +526,14 @@ reply bot@Bot{params=p@Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
                             return $ Just (sentenceReply st bot chan chan fmsg)
                           else return Nothing
                         else return $ Just (sentenceReply st bot chan nick' fmsg))
-    if isJust tId then do
+    _ <- if isJust tId then do
       tId' <- lift $ fromJust tId
       if ttime > 0 then
         lift $ forkIO (do threadDelay $ ttime * 1000000
                           evalStateT (hPutStrLnLock stderr ("> debug: killed thread: " ++ show tId')) st
-                          decKillT tc tId') >> return ()
-        else return ()
-      else return ()
+                          decKillT tc tId') >> return bot
+        else return bot
+      else return bot
     if ((nick' == o && null chan) || parse) && l then do
       nd <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
