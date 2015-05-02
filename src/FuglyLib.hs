@@ -1078,7 +1078,7 @@ insertCommas wne' i w = do
         return (x : xs')
            else if (elem y match') && r < 4 then do
              xs' <- insertCommas wne' 0 $ return xs
-             return ((x ++ if r < 2 then ";" else ",") : xs')
+             return ((x ++ if r < 1 then ";" else ",") : xs')
                 else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 && y /= "or" && y /= "and" then do
                   xs' <- insertCommas wne' 0 $ return xs
                   return ((x ++ if r < 2 then ", or" else ", and") : xs')
