@@ -620,12 +620,12 @@ execCmd b chan nick' (x:xs) = do
           1 -> evalStateT ((\x' -> write s "NICK" $ cleanStringWhite isAscii x') (xs!!0)) st >> return bot
           _ -> replyMsgT st bot chan nick' "Usage: !nick <nick>" >> return bot
                        else return bot
-      | x == "!readfile" = if nick' == owner' then case length xs of
-          1 -> catch (insertFromFile (getLock st) bot (xs!!0)) (\e -> do let err = show (e :: SomeException)
-                                                                         evalStateT (hPutStrLnLock stderr ("Exception in insertFromFile: " ++ err)) st
-                                                                         return bot)
-          _ -> replyMsgT st bot chan nick' "Usage: !readfile <file>" >> return bot
-                           else return bot
+      -- | x == "!readfile" = if nick' == owner' then case length xs of
+      --     1 -> catch (insertFromFile (getLock st) bot (xs!!0)) (\e -> do let err = show (e :: SomeException)
+      --                                                                    evalStateT (hPutStrLnLock stderr ("Exception in insertFromFile: " ++ err)) st
+      --                                                                    return bot)
+      --     _ -> replyMsgT st bot chan nick' "Usage: !readfile <file>" >> return bot
+      --                      else return bot
       | x == "!internalize" = if nick' == owner' then
           if length xs > 1 then do replyMsgT st bot chan nick' ("Internalizing...")
                                    internalize st bot (read (xs!!0)) $ unwords $ tail xs
@@ -928,15 +928,15 @@ replyMsg _ _ _ _ = return ()
 replyMsgT :: Fstate -> Bot -> String -> String -> String -> IO ()
 replyMsgT st bot chan nick' msg = evalStateT (replyMsg bot chan nick' msg) st
 
-insertFromFile :: (MVar ()) -> Bot -> FilePath -> IO Bot
-insertFromFile _ b [] = return b
-insertFromFile st bot@Bot{params=p@Parameter{autoname=a, Main.topic=t}, fugly=f} file = do
-    _    <- return p
-    ff   <- readFile file
-    fmsg <- asReplaceWords st f $ map cleanString $ words ff
-    n    <- insertWords st f a t fmsg
-    return bot{fugly=f{dict=n}}
-insertFromFile _ b _ = return b
+-- insertFromFile :: (MVar ()) -> Bot -> FilePath -> IO Bot
+-- insertFromFile _ b [] = return b
+-- insertFromFile st bot@Bot{params=p@Parameter{autoname=a, Main.topic=t}, fugly=f} file = do
+--     _    <- return p
+--     ff   <- readFile file
+--     fmsg <- asReplaceWords st f $ map cleanString $ words ff
+--     n    <- insertWords st f a t fmsg
+--     return bot{fugly=f{dict=n}}
+-- insertFromFile _ b _ = return b
 
 internalize :: Fstate -> Bot -> Int -> String -> IO Bot
 internalize _  b 0 _   = return b
