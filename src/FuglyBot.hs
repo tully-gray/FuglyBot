@@ -212,8 +212,6 @@ run = do
     Bot{sock=s} <- lift $ readMVar $ getBot st
     tId <- lift $ forkIO $ timerLoop st >> return ()
     _ <- lift $ incT (getTCount st) tId
-    -- mId <- lift myThreadId
-    -- _ <- lift $ incT (getTCount st) mId
     forever $ do lift (hGetLine s >>= (\l -> do evalStateT (hPutStrLnLock stdout ("> debug: IRC msg: " ++ l)) st >> return l) >>= (\ll -> listenIRC st s ll))
     -- forever $ do lift (hGetLine s >>= (\ll -> listenIRC st s ll))
     where
