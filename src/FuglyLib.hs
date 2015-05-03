@@ -1017,7 +1017,7 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
           w   <- s1b fugly slen c $ findNextWord fugly 1 randoms False stopic topic' x
           ww  <- s1b fugly slen 0 $ mapM s1i msg
           let d = if length msg < 4 then ww else [yy] ++ [zz] ++ [s1h n a x] ++ w
-          wnReplaceWords fugly rwords randoms $ take stries $ filter (not . null) d
+          wnReplaceWords fugly rwords randoms $ filter (not . null) $ take (stries * slen) d
     let s1d x = do
           w <- x
           if null w then return []
