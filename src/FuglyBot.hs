@@ -539,13 +539,14 @@ sentenceReply st@(_, lock, tc, _) Bot{sock=h, params=p@Parameter{stries=str, sle
     tId  <- myThreadId
     tc'  <- incT tc tId
     _    <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
-    if tc' < 3 then do
+    if tc' < 7 then do
+      if tc' > 3 then threadDelay (1000000 * tc') else return ()
       num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
       _    <- return p
-      let num = if num' - 4 < 1 || str < 4 then 1 else num' - 4
+      let num = if num' - 4 < 1 || str < 4 || length m < 7 then 1 else num' - 4
       bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
-      let plen' = if tc' < 1 then plen else 0
-      x <- sentenceA lock fugly' rw stopic rand str m
+      let plen' = if tc' < 5 then plen else 0
+      x <- sentenceA lock fugly' rw stopic rand str slen m
       y <- sentenceB lock fugly' rw stopic rand str slen plen' top num m
       let ww = unwords $ if null x then y else x
       evalStateT (do if null ww then return ()
