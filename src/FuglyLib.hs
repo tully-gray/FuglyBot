@@ -997,9 +997,6 @@ sentenceB' :: (MVar ()) -> Fugly -> Bool -> Bool -> Int -> Int -> Int -> Int
 sentenceB' _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
 sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
   rwords stopic randoms stries slen plen topic' msg = do
-    let s1f p x = if null x then return []
-                  else if gfParseBool pgf' plen x && length (words x) > 2 && p /= POS Adj then return x
-                       else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ x)) st >> return []
     let s1h n a x = let out = if a then map toUpper x else if n then x else map toLower x in
           if isJust $ Map.lookup out dict' then out else []
     let s1i x = do
@@ -1027,7 +1024,7 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
           if null w then return []
             else return ([s1c w] ++ tail w)
     let s1g = map (\x -> do y <- insertCommas wne' 0 x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
-    map (\x -> do y <- x ; p <- wnPartPOS wne' $ cleanString $ fLast [] $ words y ; s1f p y) s1g
+    s1f 0 s1t s1g
   where
     s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
     s1b f n i msg' = do
@@ -1051,6 +1048,15 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
       n <- asIsName st aspell' w
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "name" else n
+    s1t :: Int -> IO String -> IO String
+    s1t i x = do
+      y <- x
+      p <- wnPartPOS wne' $ cleanString $ fLast [] $ words y
+      if null y then return []
+        else if (i > 5 || gfParseBool pgf' plen y) && length (words y) > 2 && p /= POS Adj then return y
+             else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ y)) st >> return []
+    s1f _ _ []     = []
+    s1f i f (x:xs) = f i x : s1f (i + 1) f xs
 
 fixIt :: (MVar ()) -> [IO String] -> [String] -> Int -> Int -> Int -> Int -> IO [String]
 fixIt _  []     a _ _ _ _ = return a
