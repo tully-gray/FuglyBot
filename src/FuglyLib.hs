@@ -1052,8 +1052,9 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     s1t i x = do
       y <- x
       p <- wnPartPOS wne' $ cleanString $ fLast [] $ words y
+      let plen' = if ((realToFrac i) :: Float) > (((realToFrac stries) :: Float) / 2) then 0 else plen
       if null y then return []
-        else if (i > 5 || gfParseBool pgf' plen y) && length (words y) > 2 && p /= POS Adj then return y
+        else if gfParseBool pgf' plen' y && length (words y) > 2 && p /= POS Adj then return y
              else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ y)) st >> return []
     s1f _ _ []     = []
     s1f i f (x:xs) = f i x : s1f (i + 1) f xs
