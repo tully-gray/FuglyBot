@@ -561,12 +561,8 @@ sentenceReply st@(_, lock, tc, _) Bot{sock=h, params=p@Parameter{stries=str, sle
       y <- sentenceB lock fugly' rw stopic rand str slen plen' top num m
       let ww = unwords $ if null x then y else x
       evalStateT (do if null ww then return ()
-                       else if null nick' then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
-                                               hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
-                            else if nick' == chan || bloop == 0 then hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ ww) ++ "\r") >>
-                                                                     hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ ww))
-                                 else hPutStrLnLock h ("PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww) ++ "\r") >>
-                                      hPutStrLnLock stdout ("> PRIVMSG " ++ (chan ++ " :" ++ nick' ++ ": " ++ ww))) st
+                       else if null nick' || nick' == chan || bloop == 0 then write h "PRIVMSG" $ chan ++ " :" ++ ww
+                            else write h "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ ww) st
       else return ()
     decT tc tId)
 sentenceReply _ _ _ _ _ = forkIO $ return ()
