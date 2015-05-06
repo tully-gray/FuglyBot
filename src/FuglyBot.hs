@@ -501,7 +501,7 @@ processLine line = do
 
 reply :: Bot -> String -> String -> [String] -> StateT Fstate IO Bot
 reply bot _ _ [] = return bot
-reply bot@Bot{params=p@Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
+reply bot@Bot{params=p@Parameter{nick=bn, owner=o, learning=l, plength=plen, strictlearn=sl,
                                  autoname=an, allowpm=apm, Main.topic=top},
               fugly=f@Fugly{pgf=pgf', FuglyLib.match=match'}} chan nick' msg = do
     st@(_, lock, _, _) <- get :: StateT Fstate IO Fstate
@@ -512,7 +512,7 @@ reply bot@Bot{params=p@Parameter{nick=bn, owner=o, learning=l, strictlearn=sl,
                    ',' -> tail msg
                    _   -> msg
     let fmsg = map cleanString mmsg
-    let parse = if sl then gfParseBool pgf' 7 $ unwords fmsg else True
+    let parse = if sl then gfParseBool pgf' plen $ unwords fmsg else True
     let matchon = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
     lift $ (if null chan then
                    if apm then
