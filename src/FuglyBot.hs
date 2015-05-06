@@ -286,18 +286,41 @@ timerLoop st = do
                              2 -> topic' ++ " is interesting don't you think?"
                              3 -> "I've heard that " ++ m' ++ " likes " ++ topic' ++ "."
                              _ -> m' ++ " told me that " ++ topic' ++ " is boring.")
-          let action = case mod r 5 of
-                             0 -> "waves at " ++ n' ++ "."
-                             1 -> "greets " ++ n' ++ " and " ++ m' ++ "."
-                             2 -> "is bored."
-                             3 -> "looks at " ++ m' ++ "."
-                             _ -> "yawns."
-          if r < 700 then
+          action <- ircAction n' m' False
+          if r < 400 then
             forkIO (evalStateT (write s "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
             else
-              sentenceReply st bot chan n' msg
+              sentenceReply st bot chan (if r < 650 then n' else chan) msg
           else sentenceReply st bot chan chan $ words "I'm all alone."
         else forkIO $ return ()
+
+ircAction :: [Char] -> [Char] -> Bool -> IO String
+ircAction []    _     _     = return "panics."
+ircAction nick1 nick2 greet = do
+    r <- Random.getStdRandom (Random.randomR (0, 999)) :: IO Int
+    let altnick = if null nick2 then "" else " and " ++ nick2
+    return (if greet then case mod r 5 of
+                0 -> "waves to " ++ nick1 ++ "."
+                1 -> "greets " ++ nick1 ++ "."
+                2 -> "says hello to " ++ nick1 ++ "."
+                3 -> "welcomes " ++ nick1 ++ " to the channel."
+                _ -> "waves."
+            else case mod r 15 of
+                0 -> "is bored."
+                1 -> "looks at " ++ nick1 ++ altnick ++ "."
+                2 -> "waves to " ++ nick1 ++ altnick ++ "."
+                3 -> "ponders."
+                4 -> "thinks deeply."
+                5 -> "ignores " ++ nick1 ++ "."
+                6 -> "gets another coffee."
+                7 -> "yawns at " ++ nick1 ++ "."
+                8 -> "thinks " ++ nick1 ++ " must be new here."
+                9 -> "panics."
+                10 -> "assimilates " ++ nick1 ++ altnick ++ "."
+                11 -> "thinks about stuff."
+                12 -> "considers sleeping."
+                13 -> "wonders why " ++ nick1 ++ " never talks."
+                _ -> "yawns.")
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -496,25 +519,26 @@ processLine line = do
                                           else if (head $ head $ tail msg) == '!'
                                                then do nb <- execCmd bot chan who (tail msg)
                                                        lift $ putMVar b nb >> return ()
-                                               else do nb <- reply bot chan who (tail msg)
+                                               else do nb <- reply bot False chan who (tail msg)
                                                        lift $ putMVar b nb >> return ()
-                   else do nb <- reply bot chan [] msg ; lift $ putMVar b nb >> return ()
+                   else do nb <- reply bot True chan who msg ; lift $ putMVar b nb >> return ()
   where
     msg  = getMsg line
     who  = getNick line
     chan = getChannel line
     prvcmd bot = if (length $ head msg) > 0 then
                    if (head $ head msg) == '!' then execCmd bot who who msg
-                   else reply bot [] who msg
-                 else reply bot [] who msg
+                   else reply bot False [] who msg
+                 else reply bot False [] who msg
 
-reply :: Bot -> String -> String -> [String] -> StateT Fstate IO Bot
-reply bot _ _ [] = return bot
+reply :: Bot -> Bool -> String -> String -> [String] -> StateT Fstate IO Bot
+reply bot _ _ _ [] = return bot
 reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=plen, strictlearn=sl,
                                          autoname=an, allowpm=apm, Main.topic=top},
-              fugly=f@Fugly{pgf=pgf', FuglyLib.match=match'}} chan nick' msg = do
+              fugly=f@Fugly{pgf=pgf', FuglyLib.match=match'}} chanmsg chan nick' msg = do
     st@(_, lock, _, _) <- get :: StateT Fstate IO Fstate
     _   <- return p
+    let r = mod (length $ concat msg) 5
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
                    ':' -> tail msg
@@ -523,23 +547,24 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
     let fmsg = map cleanString mmsg
     let parse = if sl then gfParseBool pgf' plen $ unwords fmsg else True
     let matchon = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
-    let action = head msg == "\SOHACTION"
+    let isaction = head msg == "\SOHACTION"
+    action <- lift $ ircAction nick' [] False
     lift $ (if null chan then
-                   if apm && not action then
+                   if apm && not isaction then
                      sentenceReply st bot nick' [] fmsg >> return ()
                    else return ()
-                 else if null nick' then
-                        if action then evalStateT (write h "PRIVMSG" (chan ++ " :\SOHACTION " ++ "waves." ++ "\SOH")) st
-                          else if map toLower (unwords msg) =~ matchon then
-                                 sentenceReply st bot chan chan fmsg >> return ()
-                               else return ()
+                 else if chanmsg then
+                        if map toLower (unwords msg) =~ matchon then
+                          if isaction || r == 0 then evalStateT (write h "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st
+                            else sentenceReply st bot chan chan fmsg >> return ()
+                        else return ()
                       else sentenceReply st bot chan nick' fmsg >> return ())
-    if ((nick' == o && null chan) || parse) && l && not action then do
+    if ((nick' == o && null chan) || parse) && l && not isaction then do
       nd <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd}} else
       return bot
-reply bot _ _ _ = return bot
+reply bot _ _ _ _ = return bot
 
 sentenceReply :: Fstate -> Bot -> String -> String -> [String] -> IO ThreadId
 sentenceReply _ _ _ _ [] = forkIO $ return ()
