@@ -286,7 +286,16 @@ timerLoop st = do
                              2 -> topic' ++ " is interesting don't you think?"
                              3 -> "I've heard that " ++ m' ++ " likes " ++ topic' ++ "."
                              _ -> m' ++ " told me that " ++ topic' ++ " is boring.")
-          sentenceReply st bot chan n' msg
+          let action = case mod r 5 of
+                             0 -> "waves at " ++ n' ++ "."
+                             1 -> "greets " ++ n' ++ " and " ++ m' ++ "."
+                             2 -> "is bored."
+                             3 -> "looks at " ++ m' ++ "."
+                             _ -> "yawns."
+          if r < 700 then
+            forkIO (evalStateT (write s "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
+            else
+              sentenceReply st bot chan n' msg
           else sentenceReply st bot chan chan $ words "I'm all alone."
         else forkIO $ return ()
 
