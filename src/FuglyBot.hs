@@ -501,8 +501,8 @@ processLine line = do
 
 reply :: Bot -> String -> String -> [String] -> StateT Fstate IO Bot
 reply bot _ _ [] = return bot
-reply bot@Bot{params=p@Parameter{nick=bn, owner=o, learning=l, plength=plen, strictlearn=sl,
-                                 autoname=an, allowpm=apm, Main.topic=top},
+reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=plen, strictlearn=sl,
+                                         autoname=an, allowpm=apm, Main.topic=top},
               fugly=f@Fugly{pgf=pgf', FuglyLib.match=match'}} chan nick' msg = do
     st@(_, lock, _, _) <- get :: StateT Fstate IO Fstate
     _   <- return p
@@ -514,16 +514,18 @@ reply bot@Bot{params=p@Parameter{nick=bn, owner=o, learning=l, plength=plen, str
     let fmsg = map cleanString mmsg
     let parse = if sl then gfParseBool pgf' plen $ unwords fmsg else True
     let matchon = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
+    let action = head msg == "\SOHACTION"
     lift $ (if null chan then
-                   if apm then
+                   if apm && not action then
                      sentenceReply st bot nick' [] fmsg >> return ()
                    else return ()
                  else if null nick' then
-                        if map toLower (unwords msg) =~ matchon then
-                          sentenceReply st bot chan chan fmsg >> return ()
-                        else return ()
+                        if action then evalStateT (write h "PRIVMSG" (chan ++ " :\SOHACTION " ++ "waves." ++ "\SOH")) st
+                          else if map toLower (unwords msg) =~ matchon then
+                                 sentenceReply st bot chan chan fmsg >> return ()
+                               else return ()
                       else sentenceReply st bot chan nick' fmsg >> return ())
-    if ((nick' == o && null chan) || parse) && l then do
+    if ((nick' == o && null chan) || parse) && l && not action then do
       nd <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd}} else
