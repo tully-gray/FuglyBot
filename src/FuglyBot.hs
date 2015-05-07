@@ -471,8 +471,8 @@ timerLoop st = do
         let nicks = Map.lookup chan cn'
         if isJust nicks then do
           let n   = delete botnick $ fromJust nicks
-          let m'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~') $ n!!mod (r + 23) (length n)
-          let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~') $ n!!mod r (length n)
+          let m'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod (r + 23) (length n)
+          let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod r (length n)
           let msg = words (case mod r 5 of
                              0 -> "It's time for another test."
                              1 -> "Does anybody here like " ++ topic' ++ "?"
