@@ -933,9 +933,9 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
       (generateRandomDepth (Random.mkStdGen num) pgf' c (Just num))
                             else "Not a GF type."
 
-sentenceA :: MVar () -> Fugly -> Bool -> Bool -> Int -> Int -> Int -> [String] -> IO [String]
-sentenceA _  _                                     _      _      _       _      _   []   = return []
-sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries slen msg = do
+sentenceA :: MVar () -> Fugly -> Bool -> Bool -> Int -> Int -> Int -> String -> [String] -> IO [String]
+sentenceA _  _                                     _      _      _       _      _    _     []   = return []
+sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries slen topic' msg = do
     r <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     m <- s1a r msg
     wnReplaceWords fugly rwords randoms $ toUpperSentence $ endSentence $ replace "i" "I" $ words m
@@ -949,21 +949,31 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries 
          2 -> "is this just a test"
          3 -> "test it yourself"
          _ -> [])
-      | (map toLower $ head w) == "lol" = return (case mod r 10 of
+      | (map toLower $ unwords w) Regex.=~ "lol|haha|hehe|rofl|lmao" = return (case mod r 10 of
          0 -> "very funny"
          1 -> "hilarious, I'm sure"
          2 -> "what's so funny"
          3 -> "it's not funny"
          4 -> "please don't laugh"
          5 -> "oh really"
+         6 -> "I'm glad you think this is funny"
+         7 -> "seriously"
+         _ -> [])
+      | (map toLower $ head w) Regex.=~ "hello|greetings|hi|welcome" = return (case mod r 8 of
+         0 -> "hello my friend"
+         1 -> "hi there"
+         2 -> "thanks"
+         3 -> "hey there pal"
+         4 -> "good morning"
+         5 -> "hey what's going on"
          _ -> [])
       | length w > 2 && (map toLower $ head w) == "hey" = do
-          m' <- fixIt st (sentenceB' st fugly rwords stopic randoms 10 23 7 "default" (drop 2 w) ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
+          m' <- fixIt st (sentenceB' st fugly rwords stopic randoms 10 23 7 topic' (drop 2 w) ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'
-      | elem "rhyme" w || elem "rhymes" w || elem "sing" w || elem "song" w || r > 87 = do
-          m' <- fixIt st (sentenceB' st fugly rwords stopic randoms 5 5 5 "rhymes" w ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
+      | (map toLower $ unwords w) Regex.=~ "rhyme|rhymes|sing.*|song|songs" || r > 87 = do
+          m' <- fixIt st (sentenceB' st fugly rwords stopic randoms 5 5 5 topic' w ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'

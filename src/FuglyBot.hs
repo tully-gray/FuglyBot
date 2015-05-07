@@ -637,7 +637,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str,
       if tc' > 4 then threadDelay (1000000 * tc') else return ()
       _    <- return p
       let num = if r - 4 < 1 || str < 4 || length m < 7 then 1 else r - 4
-      x <- sentenceA lock fugly' rw stopic rand str slen m
+      x <- sentenceA lock fugly' rw stopic rand str slen top m
       y <- sentenceB lock fugly' rw stopic rand str slen plen top num m
       let ww = unwords $ if null x then y else x
       evalStateT (do if null ww then return ()
