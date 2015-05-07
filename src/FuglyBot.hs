@@ -292,6 +292,14 @@ cmdLine = do
     maximum' [] = 1000
     maximum' a  = maximum a
 
+getLoad :: IO [String]
+getLoad = do
+    h <- openFile "/proc/loadavg" ReadMode
+    hSetBuffering h LineBuffering
+    l <- hGetLine h
+    hClose h
+    return $ words l
+
 changeNick :: [String] -> StateT Fstate IO Bot
 changeNick [] = do
     b   <- gets getBot
@@ -600,27 +608,35 @@ reply bot _ _ _ _ = return bot
 
 sentenceReply :: Fstate -> Bot -> String -> String -> [String] -> IO ThreadId
 sentenceReply _ _ _ _ [] = forkIO $ return ()
-sentenceReply st@(_, lock, tc, _) Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plength=plen,
-                                                                 Main.topic=top, randoms=rand, rwords=rw,
-                                                                 stricttopic=stopic},
-                                      fugly=fugly'} chan nick' m = forkIO (do
+sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plength=plen,
+                                                                     Main.topic=top, randoms=rand, rwords=rw,
+                                                                     stricttopic=stopic},
+                                          fugly=fugly'} chan nick' m = forkIO (do
     tId  <- myThreadId
     tc'  <- incT tc tId
     _    <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
-    if tc' < 7 then do
-      if tc' > 3 then threadDelay (1000000 * tc') else return ()
-      num' <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
+    r    <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
+    action <- ircAction nick' [] False
+    load   <- getLoad
+    if tc' < 10 && (read $ fHead [] load :: Float) < 1.5 then do
+      if tc' > 4 then threadDelay (1000000 * tc') else return ()
       _    <- return p
-      let num = if num' - 4 < 1 || str < 4 || length m < 7 then 1 else num' - 4
+      let num = if r - 4 < 1 || str < 4 || length m < 7 then 1 else r - 4
       bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
-      let plen' = if tc' < 5 then plen else 0
       x <- sentenceA lock fugly' rw stopic rand str slen m
-      y <- sentenceB lock fugly' rw stopic rand str slen plen' top num m
+      y <- sentenceB lock fugly' rw stopic rand str slen plen top num m
       let ww = unwords $ if null x then y else x
       evalStateT (do if null ww then return ()
                        else if null nick' || nick' == chan || bloop == 0 then write h "PRIVMSG" $ chan ++ " :" ++ ww
                             else write h "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ ww) st
-      else return ()
+      else replyMsgT st bot chan [] $ case r of
+        1 -> nick' ++ ": I don't know if you're making any sense."
+        2 -> nick' ++ ": I can't chat now, sorry."
+        3 -> nick' ++ ": Let's discuss this later."
+        4 -> "\SOHACTION " ++ action ++ "\SOH"
+        5 -> "\SOHACTION looks confused.\SOH"
+        6 -> "\SOHACTION feels like ignoring " ++ nick' ++ ".\SOH"
+        _ -> "All this chat is making me thirsty."
     decT tc tId)
 sentenceReply _ _ _ _ _ = forkIO $ return ()
 
