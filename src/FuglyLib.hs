@@ -315,14 +315,17 @@ insertWords :: (MVar ()) -> Fugly -> Bool -> String -> [String] -> IO Dict
 insertWords _  Fugly{dict=d}  _ _    []   = return d
 insertWords st fugly autoname topic' [x]  = insertWord st fugly autoname topic' x [] [] []
 insertWords st fugly@Fugly{dict=dict', ban=ban'} autoname topic' msg =
+  let mx = fHead [] mmsg
+      my = if len > 1 then mmsg!!1 else [] in
   case (len) of
     0 -> return dict'
+    1 -> return dict'
     2 -> do ff <- insertWord st fugly autoname topic' mx [] my []
             insertWord st fugly{dict=ff} autoname topic' my mx [] []
     _ -> insertWords' st fugly autoname topic' 0 len mmsg
   where
-    mmsg@(mx:my:_) = filter (\x -> not $ elem x ban') msg
-    len = length mmsg
+    mmsg = filter (\x -> not $ elem x ban') msg :: [String]
+    len  = length mmsg
     insertWords' _ (Fugly{dict=d}) _ _ _ _ [] = return d
     insertWords' st' f@(Fugly{dict=d}) a t i l m
       | i == 0     = do ff <- insertWord st' f a t (m!!i) [] (m!!(i+1)) []
