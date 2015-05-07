@@ -556,7 +556,7 @@ greeting line = do
     lift $ putMVar b bot >> return ()
   where
     who  = getNick line
-    chan = drop 1 $ getChannel line
+    chan = dropWhile (\x -> x == ':') $ getChannel line
 
 processLine :: [String] -> StateT Fstate IO ()
 processLine [] = return ()
