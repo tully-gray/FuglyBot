@@ -229,6 +229,8 @@ run = do
                 else swapMVar cn (Map.insert chan cnicks cn') >> return ()
               else if (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == bn then do
                 (do nb <- evalStateT (changeNick lll) st ; swapMVar b nb) >> return ()
+                else if (length ll > 2) && (fHead [] lll) == "JOIN" then do
+                  evalStateT (greeting $ words l) st >> return ()
                    else do
                      (catch (evalStateT (processLine $ words l) st >> return ())
                       (\e -> do let err = show (e :: SomeException)
@@ -253,74 +255,6 @@ incT c tId = do { v <- takeMVar c ; putMVar c (nub $ tId : v) ; return $ length 
 
 decT :: MVar [ThreadId] -> ThreadId -> IO ()
 decT c tId = do { v <- takeMVar c ; putMVar c (delete tId v) }
-
-timerLoop :: Fstate -> IO ThreadId
-timerLoop st = do
-    let tc = getTCount st
-    tId <- myThreadId
-    _   <- incT tc tId
-    forever $ do
-      r <- Random.getStdRandom (Random.randomR (0, 999))
-      let b = getBot st
-      Bot{params=p@Parameter{timer=t}} <- readMVar b
-      _ <- return p
-      let timer' = if (t < 5) then 30000000 else t * 1000000 + (t * r * 500)
-      threadDelay timer'
-      if t > 4 then do
-        bot@Bot{sock=s, params=pp@Parameter{nick=botnick, Main.topic=topic'}} <- readMVar b
-        _ <- return pp
-        let cn = getChanNicks st
-        cn' <- readMVar cn
-        let chans = concat [[c] | (c, _) <- Map.toList cn']
-        let chan  = chans!!mod (r + 55) (length chans)
-        evalStateT (getChannelNicks s chan) st
-        threadDelay 1000000
-        let nicks = Map.lookup chan cn'
-        if isJust nicks then do
-          let n   = delete botnick $ fromJust nicks
-          let m'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~') $ n!!mod (r + 23) (length n)
-          let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~') $ n!!mod r (length n)
-          let msg = words (case mod r 5 of
-                             0 -> "It's time for another test."
-                             1 -> "Does anybody here like " ++ topic' ++ "?"
-                             2 -> topic' ++ " is interesting don't you think?"
-                             3 -> "I've heard that " ++ m' ++ " likes " ++ topic' ++ "."
-                             _ -> m' ++ " told me that " ++ topic' ++ " is boring.")
-          action <- ircAction n' m' False
-          if r < 400 then
-            forkIO (evalStateT (write s "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
-            else
-              sentenceReply st bot chan (if r < 650 then n' else chan) msg
-          else sentenceReply st bot chan chan $ words "I'm all alone."
-        else forkIO $ return ()
-
-ircAction :: [Char] -> [Char] -> Bool -> IO String
-ircAction []    _     _     = return "panics."
-ircAction nick1 nick2 greet = do
-    r <- Random.getStdRandom (Random.randomR (0, 999)) :: IO Int
-    let altnick = if null nick2 then "" else " and " ++ nick2
-    return (if greet then case mod r 5 of
-                0 -> "waves to " ++ nick1 ++ "."
-                1 -> "greets " ++ nick1 ++ "."
-                2 -> "says hello to " ++ nick1 ++ "."
-                3 -> "welcomes " ++ nick1 ++ " to the channel."
-                _ -> "waves."
-            else case mod r 15 of
-                0 -> "is bored."
-                1 -> "looks at " ++ nick1 ++ altnick ++ "."
-                2 -> "waves to " ++ nick1 ++ altnick ++ "."
-                3 -> "ponders."
-                4 -> "thinks deeply."
-                5 -> "ignores " ++ nick1 ++ "."
-                6 -> "gets another coffee."
-                7 -> "yawns at " ++ nick1 ++ "."
-                8 -> "thinks " ++ nick1 ++ " must be new here."
-                9 -> "panics."
-                10 -> "assimilates " ++ nick1 ++ altnick ++ "."
-                11 -> "thinks about stuff."
-                12 -> "considers sleeping."
-                13 -> "wonders why " ++ nick1 ++ " never talks."
-                _ -> "yawns.")
 
 cmdLine :: IO [String]
 cmdLine = do
@@ -504,6 +438,104 @@ rejoinChannel h chan rk = do
       st <- get
       lift $ forkIO (threadDelay (rk' * 1000000) >>
                      evalStateT (hPutStrLnLock h' ("JOIN " ++ chan' ++ "\r")) st)
+
+timerLoop :: Fstate -> IO ThreadId
+timerLoop st = do
+    let tc = getTCount st
+    tId <- myThreadId
+    _   <- incT tc tId
+    forever $ do
+      r <- Random.getStdRandom (Random.randomR (0, 999))
+      let b = getBot st
+      Bot{params=p@Parameter{timer=t}} <- readMVar b
+      _ <- return p
+      let timer' = if (t < 5) then 30000000 else t * 1000000 + (t * r * 500)
+      threadDelay timer'
+      if t > 4 then do
+        bot@Bot{sock=s, params=pp@Parameter{nick=botnick, Main.topic=topic'}} <- readMVar b
+        _ <- return pp
+        let cn = getChanNicks st
+        cn' <- readMVar cn
+        let chans = concat [[c] | (c, _) <- Map.toList cn']
+        let chan  = chans!!mod (r + 55) (length chans)
+        evalStateT (getChannelNicks s chan) st
+        threadDelay 1000000
+        let nicks = Map.lookup chan cn'
+        if isJust nicks then do
+          let n   = delete botnick $ fromJust nicks
+          let m'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~') $ n!!mod (r + 23) (length n)
+          let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~') $ n!!mod r (length n)
+          let msg = words (case mod r 5 of
+                             0 -> "It's time for another test."
+                             1 -> "Does anybody here like " ++ topic' ++ "?"
+                             2 -> topic' ++ " is interesting don't you think?"
+                             3 -> "I've heard that " ++ m' ++ " likes " ++ topic' ++ "."
+                             _ -> m' ++ " told me that " ++ topic' ++ " is boring.")
+          action <- ircAction n' m' False
+          if r < 400 then
+            forkIO (evalStateT (write s "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
+            else
+              sentenceReply st bot chan (if r < 650 then n' else chan) msg
+          else sentenceReply st bot chan chan $ words "I'm all alone."
+        else forkIO $ return ()
+
+ircAction :: [Char] -> [Char] -> Bool -> IO String
+ircAction []    _     _     = return "panics."
+ircAction nick1 nick2 greet = do
+    r <- Random.getStdRandom (Random.randomR (0, 999)) :: IO Int
+    let altnick = if null nick2 then "" else " and " ++ nick2
+    return (if greet then case mod r 5 of
+                0 -> "waves to " ++ nick1 ++ "."
+                1 -> "greets " ++ nick1 ++ "."
+                2 -> "says hello to " ++ nick1 ++ "."
+                3 -> "welcomes " ++ nick1 ++ " to the channel."
+                _ -> "waves."
+            else case mod r 20 of
+                0 -> "is bored."
+                1 -> "looks at " ++ nick1 ++ altnick ++ "."
+                2 -> "waves to " ++ nick1 ++ altnick ++ "."
+                3 -> "ponders."
+                4 -> "thinks deeply."
+                5 -> "ignores " ++ nick1 ++ "."
+                6 -> "gets another coffee."
+                7 -> "yawns at " ++ nick1 ++ "."
+                8 -> "thinks " ++ nick1 ++ " must be new here."
+                9 -> "panics."
+                10 -> "assimilates " ++ nick1 ++ altnick ++ "."
+                11 -> "thinks about stuff."
+                12 -> "considers sleeping."
+                13 -> "wonders why " ++ nick1 ++ " never talks."
+                14 -> "thinks " ++ nick1 ++ " should take a bath."
+                15 -> "stares at " ++ nick1 ++ "."
+                16 -> "claps slowly."
+                17 -> "laughs."
+                18 -> "laughs at " ++ nick1 ++ "."
+                _ -> "yawns.")
+
+greeting :: [String] -> StateT Fstate IO ()
+greeting []   = return ()
+greeting line = do
+    b <- gets getBot
+    bot@Bot{sock=s, params=p@Parameter{nick=n}} <- lift $ takeMVar b
+    _ <- return p
+    r <- lift $ Random.getStdRandom (Random.randomR (0, 8)) :: StateT Fstate IO Int
+    lift $ threadDelay (600000 * r + 1500000)
+    action <- lift $ ircAction who [] True
+    if who == n then
+      case mod r 3 of
+        0 -> replyMsg bot chan [] "Hello world."
+        1 -> replyMsg bot chan [] "Good morning!"
+        _ -> replyMsg bot chan [] "Hello friends."
+      else
+      case r of
+        0 -> replyMsg bot chan [] ("Hello " ++ who ++ ".")
+        1 -> replyMsg bot chan [] ("Welcome to the channel, " ++ who ++ ".")
+        2 -> replyMsg bot chan who "Greetings."
+        _ -> write s "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")
+    lift $ putMVar b bot >> return ()
+  where
+    who  = getNick line
+    chan = drop 1 $ getChannel line
 
 processLine :: [String] -> StateT Fstate IO ()
 processLine [] = return ()
