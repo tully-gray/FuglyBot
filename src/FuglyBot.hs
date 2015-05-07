@@ -498,7 +498,7 @@ ircAction nick1 nick2 greet = do
                 2 -> "says hello to " ++ nick1 ++ "."
                 3 -> "welcomes " ++ nick1 ++ " to the channel."
                 _ -> "waves."
-            else case mod r 20 of
+            else case mod r 25 of
                 0 -> "is bored."
                 1 -> "looks at " ++ nick1 ++ altnick ++ "."
                 2 -> "waves to " ++ nick1 ++ altnick ++ "."
@@ -518,6 +518,11 @@ ircAction nick1 nick2 greet = do
                 16 -> "claps slowly."
                 17 -> "laughs."
                 18 -> "laughs at " ++ nick1 ++ "."
+                19 -> "jumps around."
+                20 -> "looks around cautiously."
+                21 -> "waves."
+                22 -> "rudely gestures at " ++ nick1 ++ "."
+                23 -> "is feeling random today."
                 _ -> "yawns.")
 
 greeting :: [String] -> StateT Fstate IO ()
@@ -526,19 +531,27 @@ greeting line = do
     b <- gets getBot
     bot@Bot{sock=s, params=p@Parameter{nick=n}} <- lift $ takeMVar b
     _ <- return p
-    r <- lift $ Random.getStdRandom (Random.randomR (0, 8)) :: StateT Fstate IO Int
-    lift $ threadDelay (600000 * r + 1500000)
+    r <- lift $ Random.getStdRandom (Random.randomR (0, 50)) :: StateT Fstate IO Int
+    lift $ threadDelay (600000 * (mod r 8) + 2000000)
     action <- lift $ ircAction who [] True
     if who == n then
-      case mod r 3 of
+      case mod r 9 of
         0 -> replyMsg bot chan [] "Hello world."
         1 -> replyMsg bot chan [] "Good morning!"
-        _ -> replyMsg bot chan [] "Hello friends."
+        2 -> replyMsg bot chan [] "Hello friends."
+        3 -> replyMsg bot chan [] "Hey guys and gals."
+        4 -> replyMsg bot chan [] "Good morning gang."
+        5 -> write s "PRIVMSG" (chan ++ " :\SOHACTION looks around cautiously.\SOH")
+        6 -> write s "PRIVMSG" (chan ++ " :\SOHACTION is here!\SOH")
+        7 -> write s "PRIVMSG" (chan ++ " :\SOHACTION wants to chat.\SOH")
+        8 -> write s "PRIVMSG" (chan ++ " :\SOHACTION wonders if this is the right channel.\SOH")
+        _ -> return ()
       else
-      case r of
+      case mod r 8 of
         0 -> replyMsg bot chan [] ("Hello " ++ who ++ ".")
         1 -> replyMsg bot chan [] ("Welcome to the channel, " ++ who ++ ".")
         2 -> replyMsg bot chan who "Greetings."
+        3 -> replyMsg bot chan who "Hello."
         _ -> write s "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")
     lift $ putMVar b bot >> return ()
   where
@@ -616,26 +629,29 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str,
     tc'  <- incT tc tId
     _    <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
     r    <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
-    action <- ircAction nick' [] False
+    rr   <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
+    let n' = if nick' == chan then "somebody" else nick'
+    action <- ircAction n' [] False
     load   <- getLoad
     if tc' < 10 && (read $ fHead [] load :: Float) < 1.5 then do
       if tc' > 4 then threadDelay (1000000 * tc') else return ()
       _    <- return p
       let num = if r - 4 < 1 || str < 4 || length m < 7 then 1 else r - 4
-      bloop <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
       x <- sentenceA lock fugly' rw stopic rand str slen m
       y <- sentenceB lock fugly' rw stopic rand str slen plen top num m
       let ww = unwords $ if null x then y else x
       evalStateT (do if null ww then return ()
-                       else if null nick' || nick' == chan || bloop == 0 then write h "PRIVMSG" $ chan ++ " :" ++ ww
+                       else if null nick' || nick' == chan || rr == 0 then write h "PRIVMSG" $ chan ++ " :" ++ ww
                             else write h "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ ww) st
-      else replyMsgT st bot chan [] $ case r of
+      else replyMsgT st bot chan [] $ case r + rr of
         1 -> nick' ++ ": I don't know if you're making any sense."
         2 -> nick' ++ ": I can't chat now, sorry."
         3 -> nick' ++ ": Let's discuss this later."
-        4 -> "\SOHACTION " ++ action ++ "\SOH"
-        5 -> "\SOHACTION looks confused.\SOH"
-        6 -> "\SOHACTION feels like ignoring " ++ nick' ++ ".\SOH"
+        4 -> nick' ++ ": I'll get back to you on that."
+        5 -> "\SOHACTION " ++ action ++ "\SOH"
+        6 -> "\SOHACTION looks confused.\SOH"
+        7 -> "\SOHACTION is AFK for a bit.\SOH"
+        8 -> "\SOHACTION feels like ignoring " ++ nick' ++ ".\SOH"
         _ -> "All this chat is making me thirsty."
     decT tc tId)
 sentenceReply _ _ _ _ _ = forkIO $ return ()
