@@ -492,13 +492,18 @@ ircAction []    _     _     = return "panics."
 ircAction nick1 nick2 greet = do
     r <- Random.getStdRandom (Random.randomR (0, 999)) :: IO Int
     let altnick = if null nick2 then "" else " and " ++ nick2
-    return (if greet then case mod r 5 of
+    return (if greet then case mod r 10 of
                 0 -> "waves to " ++ nick1 ++ "."
                 1 -> "greets " ++ nick1 ++ "."
                 2 -> "says hello to " ++ nick1 ++ "."
                 3 -> "welcomes " ++ nick1 ++ " to the channel."
+                4 -> "takes " ++ nick1 ++ "'s bags and ushers " ++ nick1 ++ " into the foyer."
+                5 -> "hands " ++ nick1 ++ " a martini and a cigar."
+                6 -> "gets his Geiger counter and scans " ++ nick1 ++ " before allowing entry."
+                7 -> "welcomes " ++ nick1 ++ " enthusiastically."
+                8 -> "looks at " ++ nick1 ++ " with suspicion."
                 _ -> "waves."
-            else case mod r 25 of
+            else case mod r 30 of
                 0 -> "is bored."
                 1 -> "looks at " ++ nick1 ++ altnick ++ "."
                 2 -> "waves to " ++ nick1 ++ altnick ++ "."
@@ -523,6 +528,8 @@ ircAction nick1 nick2 greet = do
                 21 -> "waves."
                 22 -> "rudely gestures at " ++ nick1 ++ "."
                 23 -> "is feeling random today."
+                24 -> "feels somewhat maladjusted."
+                25 -> "squirms uncomfortably."
                 _ -> "yawns.")
 
 greeting :: [String] -> StateT Fstate IO ()
