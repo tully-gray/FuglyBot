@@ -943,12 +943,17 @@ sentenceA :: MVar () -> Fugly -> Bool -> Bool -> Int -> Int -> Int -> String -> 
 sentenceA _  _                                     _      _      _       _      _    _     []   = return []
 sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries slen topic' msg = do
     r <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
-    m <- s1a r msg
+    m <- s1a r (length msg) msg
     wnReplaceWords fugly rwords randoms $ toUpperSentence $ endSentence $ replace "i" "I" $ words m
   where
-    s1a :: Int -> [String] -> IO String
-    s1a _ [] = return []
-    s1a r w
+    s1a :: Int -> Int -> [String] -> IO String
+    s1a _ _ [] = return []
+    s1a r l w
+      | l < 3 = return (case mod r 5 of
+         0 -> "is that so"
+         1 -> "ah okay"
+         2 -> "that's fascinating"
+         _ -> [])
       | (map toLower $ head w) == "test" = return (case mod r 10 of
          0 -> "what are we testing"
          1 -> "but I don't want to test"
@@ -973,7 +978,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries 
          4 -> "good morning"
          5 -> "hey what's going on"
          _ -> [])
-      | length w > 2 && (map toLower $ head w) == "hey" = do
+      | l > 2 && (map toLower $ head w) == "hey" = do
           m' <- fixIt st (sentenceB' st fugly rwords stopic randoms 10 23 7 topic' (drop 2 w) ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
@@ -983,16 +988,16 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries 
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'
-      | length w > 3 && take 3 w == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want"] =
+      | l > 3 && (s1l $ take 3 w) == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want"] =
         let s1b rr ww = ww!!2 Regex.=~ "like|hate|love|have|want" ++ " " ++
                         if rr < 20 then "it" else if rr < 40 then "that" else unwords (drop 3 ww) in
-          return (case mod r 7 of
+          return (case mod r 4 of
             0 -> "I don't " ++ s1b r w
             1 -> "yeah, I " ++ s1b r w
             2 -> "sometimes I " ++ s1b r w
             3 -> unwords (drop 3 w) ++ " is " ++ if r < 50 then "not" else "" ++ " something I " ++ w!!2 Regex.=~ "like|hate|love|have|want"
             _ -> [])
-      | length w > 2 && take 2 w == ["can", "you"] = return (case mod r 7 of
+      | l > 2 && (s1l $ take 2 w) == ["can", "you"] = return (case mod r 5 of
          0 -> "no I can't " ++ if r < 35 then "" else unwords (drop 2 w)
          1 -> "sure, I can " ++ if r < 40 then "do that" else unwords (drop 2 w)
          2 -> "it depends"
@@ -1000,6 +1005,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries 
          4 -> unwords (drop 2 w) ++ " is " ++ if r < 20 then "boring" else if r < 50 then "fun" else "certainly possible"
          _ -> [])
       | otherwise = return []
+    s1l = map (\x -> map toLower x)
     s1r rr mm = mapM (\x -> do ry <- rhymesWith st aspell' x
                                if null ry then return []
                                  else return $ ry!!(mod rr (length ry))) mm
