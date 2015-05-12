@@ -3,5 +3,6 @@
 *.hi
 build.log
 dist
+fuglybot.prof
 TODO.txt
 gf/testing
