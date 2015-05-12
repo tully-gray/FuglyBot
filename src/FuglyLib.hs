@@ -352,7 +352,7 @@ insertWord st fugly@Fugly{dict=dict', aspell=aspell', ban=ban'} autoname topic' 
                 else insertAcroRaw' st fugly wa (acroword word') (bi nb acb) (ai na aca) topic' []
           else if n && autoname then
                   if elem (upperword word') ban' then return dict'
-                  else insertNameRaw' st fugly False wn (upperword word') (bi nb acb) (ai na aca) topic'
+                  else insertNameRaw' st fugly False wn word' (bi nb acb) (ai na aca) topic'
             else if isJust ww then insertWordRaw' st fugly False ww (lowerword word') (bi nb acb) (ai na aca) topic' pos'
               else insertWordRaw' st fugly False w (lowerword word') (bi nb acb) (ai na aca) topic' pos'
   where
@@ -363,45 +363,36 @@ insertWord st fugly@Fugly{dict=dict', aspell=aspell', ban=ban'} autoname topic' 
     wa  = Map.lookup (acroword  word') dict'
     wn  = Map.lookup (upperword word') dict'
     ww  = Map.lookup (lowerword word') dict'
-    -- a   = Map.lookup after'    dict'
     b   = Map.lookup before'   dict'
     ba' = Map.lookup (acroword  before') dict'
     bn' = Map.lookup (upperword before') dict'
     bw' = Map.lookup (lowerword before') dict'
-    ai an aa = if isJust w then if elem after' (wordGetBanAfter $ fromJust w) then []
-                                else after'
+    ai an aa = if isJust w && elem after' (wordGetBanAfter $ fromJust w) then []
                else if (length after' < 3) && (not $ elem (map toLower after') sWords) then []
                     else if aa && autoname then
                            if elem (acroword after') ban' then []
-                           else if isJust wa then if elem (acroword after') (wordGetBanAfter $ fromJust wa) then []
-                                                  else acroword after'
+                           else if isJust wa && elem (acroword after') (wordGetBanAfter $ fromJust wa) then []
                                 else acroword after'
                          else if an && autoname then
                                 if elem (upperword after') ban' then []
-                                else if isJust wn then if elem (upperword after') (wordGetBanAfter $ fromJust wn) then []
-                                                       else upperword after'
-                                else upperword after'
-                              else if isJust ww then if elem (lowerword after') (wordGetBanAfter $ fromJust ww) then []
-                                                     else lowerword after'
+                                else if isJust wn && elem (upperword after') (wordGetBanAfter $ fromJust wn) then []
+                                     else upperword after'
+                              else if isJust ww && elem (lowerword after') (wordGetBanAfter $ fromJust ww) then []
                                    else lowerword after'
-    bi bn ba = if isJust b then if elem word' (wordGetBanAfter $ fromJust b) then []
-                                else before'
+    bi bn ba = if isJust b && elem word' (wordGetBanAfter $ fromJust b) then []
                else if (length before' < 3) && (not $ elem (map toLower before') sWords) then []
                     else if ba && autoname then
                            if elem (acroword before') ban' then []
-                           else if isJust ba' then if elem (acroword word') (wordGetBanAfter $ fromJust ba') then []
-                                                   else acroword before'
+                           else if isJust ba' && elem (acroword word') (wordGetBanAfter $ fromJust ba') then []
                                 else acroword before'
                          else if bn && autoname then
                                 if elem (upperword before') ban' then []
-                                else if isJust bn' then if elem (upperword word') (wordGetBanAfter $ fromJust bn') then []
-                                                        else upperword before'
+                                else if isJust bn' && elem (upperword word') (wordGetBanAfter $ fromJust bn') then []
                                      else upperword before'
-                              else if isJust bw' then if elem (lowerword word') (wordGetBanAfter $ fromJust bw') then []
-                                                      else lowerword before'
+                              else if isJust bw' && elem (lowerword word') (wordGetBanAfter $ fromJust bw') then []
                                    else lowerword before'
     f st' bn an ba aa Word{}    = insertWordRaw' st' fugly False w  word'             (bi bn ba) (ai an aa) topic' pos'
-    f st' bn an ba aa Name{}    = insertNameRaw' st' fugly False wn (upperword word') (bi bn ba) (ai an aa) topic'
+    f st' bn an ba aa Name{}    = insertNameRaw' st' fugly True  w  word'             (bi bn ba) (ai an aa) topic'
     f st' bn an ba aa Acronym{} = insertAcroRaw' st' fugly       wa (acroword word')  (bi bn ba) (ai an aa) topic' []
 
 insertWordRaw :: (MVar ()) -> Fugly -> Bool -> String -> String -> String -> String -> String -> IO Dict
