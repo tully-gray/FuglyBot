@@ -470,7 +470,7 @@ timerLoop st = do
         threadDelay 1000000
         let nicks = Map.lookup chan cn'
         load <- getLoad
-        if isJust nicks then do
+        if isJust nicks && (read $ fHead [] load :: Float) < 1.0 then do
           let n   = delete botnick $ fromJust nicks
           let m'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod (r + 23) (length n)
           let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod r (length n)
@@ -485,7 +485,7 @@ timerLoop st = do
             forkIO (evalStateT (write s "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
             else
               sentenceReply st bot load chan (if r < 650 then n' else chan) msg
-          else sentenceReply st bot load chan chan $ words "I'm all alone."
+          else forkIO $ return ()
         else forkIO $ return ()
 
 ircAction :: [Char] -> [Char] -> Bool -> IO String
