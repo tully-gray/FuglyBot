@@ -474,17 +474,19 @@ timerLoop st = do
           let n   = delete botnick $ fromJust nicks
           let m'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod (r + 23) (length n)
           let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod r (length n)
-          let msg = words (case mod r 5 of
-                             0 -> "It's time for another test."
-                             1 -> "Does anybody here like " ++ topic' ++ "?"
-                             2 -> topic' ++ " is interesting don't you think?"
-                             3 -> "I've heard that " ++ m' ++ " likes " ++ topic' ++ "."
-                             _ -> m' ++ " told me that " ++ topic' ++ " is boring.")
+          let msg = case mod r 5 of
+                0 -> "It's quiet in here."
+                1 -> "Does anybody here like " ++ topic' ++ "?"
+                2 -> "Well, " ++ topic' ++ " is interesting, don't you think?"
+                3 -> "I've heard that " ++ m' ++ " likes " ++ topic' ++ "."
+                _ -> m' ++ " told me that " ++ topic' ++ " is boring."
           action <- ircAction n' m' False
-          if r < 400 then
+          let who = if mod (r + 11) 3 == 0 then n' else chan in if r < 300 then
             forkIO (evalStateT (write s "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
-            else
-              sentenceReply st bot load chan (if r < 650 then n' else chan) msg
+            else if r < 750 then
+              sentenceReply st bot load chan who $ words msg
+                 else
+                   forkIO $ replyMsgT st bot chan who msg
           else forkIO $ return ()
         else forkIO $ return ()
 
@@ -642,12 +644,12 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str,
     _    <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
     r    <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
     rr   <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
+    _    <- return p
     let n' = if nick' == chan then "somebody" else nick'
     let nn = if nick' == chan then [] else nick' ++ ": "
     action <- ircAction n' [] False
     if tc' < 10 && (read $ fHead [] load :: Float) < 1.5 then do
       if tc' > 4 then threadDelay (1000000 * tc') else return ()
-      _    <- return p
       let num = if r - 4 < 1 || str < 4 || length m < 7 then 1 else r - 4
       x <- sentenceA lock fugly' rw stopic rand str slen top m
       y <- sentenceB lock fugly' rw stopic rand str slen plen top num m
@@ -655,7 +657,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str,
       evalStateT (do if null ww then return ()
                        else if null nick' || nick' == chan || rr == 0 then write h "PRIVMSG" $ chan ++ " :" ++ ww
                             else write h "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ ww) st
-      else replyMsgT st bot chan [] $ case r + rr of
+      else replyMsgT st bot chan [] $ case mod (r * rr * 3) 13 of
         1 -> nn ++ "I don't know if you're making any sense."
         2 -> nn ++ "I can't chat now, sorry."
         3 -> nn ++ "Let's discuss this later."
@@ -664,7 +666,8 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str,
         6 -> "\SOHACTION looks confused.\SOH"
         7 -> "\SOHACTION is AFK for a bit.\SOH"
         8 -> "\SOHACTION feels like ignoring " ++ nick' ++ ".\SOH"
-        _ -> "All this chat is making me thirsty."
+        9 -> "All this chat is making me thirsty."
+        _ -> []
     decT tc tId)
 sentenceReply _ _ _ _ _ _ = forkIO $ return ()
 
@@ -992,6 +995,7 @@ execCmd b chan nick' (x:xs) = do
     execCmd' bot _ = return bot
 
 replyMsg :: Bot -> String -> String -> String -> StateT Fstate IO ()
+replyMsg _                                                   _    _     [] = return ()
 replyMsg bot@Bot{sock=s, params=p@Parameter{maxchanmsg=mcm}} chan nick' msg
     | null nick' = if length msg > mcm then do
       _ <- return p
@@ -1012,6 +1016,7 @@ replyMsg bot@Bot{sock=s, params=p@Parameter{maxchanmsg=mcm}} chan nick' msg
 replyMsg _ _ _ _ = return ()
 
 replyMsgT :: Fstate -> Bot -> String -> String -> String -> IO ()
+replyMsgT _  _   _    _     []  = return ()
 replyMsgT st bot chan nick' msg = evalStateT (replyMsg bot chan nick' msg) st
 
 -- insertFromFile :: (MVar ()) -> Bot -> FilePath -> IO Bot
