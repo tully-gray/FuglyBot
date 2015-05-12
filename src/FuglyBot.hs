@@ -638,6 +638,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str,
     r    <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
     rr   <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
     let n' = if nick' == chan then "somebody" else nick'
+    let nn = if nick' == chan then [] else nick' ++ ": "
     action <- ircAction n' [] False
     load   <- getLoad
     if tc' < 10 && (read $ fHead [] load :: Float) < 1.5 then do
@@ -651,10 +652,10 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str,
                        else if null nick' || nick' == chan || rr == 0 then write h "PRIVMSG" $ chan ++ " :" ++ ww
                             else write h "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ ww) st
       else replyMsgT st bot chan [] $ case r + rr of
-        1 -> nick' ++ ": I don't know if you're making any sense."
-        2 -> nick' ++ ": I can't chat now, sorry."
-        3 -> nick' ++ ": Let's discuss this later."
-        4 -> nick' ++ ": I'll get back to you on that."
+        1 -> nn ++ "I don't know if you're making any sense."
+        2 -> nn ++ "I can't chat now, sorry."
+        3 -> nn ++ "Let's discuss this later."
+        4 -> nn ++ "I'll get back to you on that."
         5 -> "\SOHACTION " ++ action ++ "\SOH"
         6 -> "\SOHACTION looks confused.\SOH"
         7 -> "\SOHACTION is AFK for a bit.\SOH"
