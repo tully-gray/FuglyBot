@@ -25,7 +25,7 @@ Library
         NLP.WordNet.Prims
         NLP.WordNet.Types
     -- Extra-libraries: jemalloc
-    GHC-Options: -rtsopts=all -O2 -threaded -Wall
+    GHC-Options: -rtsopts=all -O2 -threaded -Wall -fno-prof-count-entries
 
 Executable fuglybot
     Main-is:         FuglyBot.hs
@@ -34,4 +34,4 @@ Executable fuglybot
                      regex-posix, socks, transformers
     Hs-source-dirs:  src
     -- Extra-libraries: jemalloc
-    GHC-Options: -rtsopts=all -O2 -threaded -Wall
+    GHC-Options: -rtsopts=all -O2 -threaded -Wall -fno-prof-count-entries
