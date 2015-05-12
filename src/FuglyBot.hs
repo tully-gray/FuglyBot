@@ -469,6 +469,7 @@ timerLoop st = do
         evalStateT (getChannelNicks s chan) st
         threadDelay 1000000
         let nicks = Map.lookup chan cn'
+        load <- getLoad
         if isJust nicks then do
           let n   = delete botnick $ fromJust nicks
           let m'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod (r + 23) (length n)
@@ -483,8 +484,8 @@ timerLoop st = do
           if r < 400 then
             forkIO (evalStateT (write s "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
             else
-              sentenceReply st bot chan (if r < 650 then n' else chan) msg
-          else sentenceReply st bot chan chan $ words "I'm all alone."
+              sentenceReply st bot load chan (if r < 650 then n' else chan) msg
+          else sentenceReply st bot load chan chan $ words "I'm all alone."
         else forkIO $ return ()
 
 ircAction :: [Char] -> [Char] -> Bool -> IO String
@@ -605,20 +606,24 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                    ',' -> tail msg
                    _   -> msg
     let fmsg = map cleanString mmsg
-    let parse = if sl then gfParseBool pgf' plen $ unwords fmsg else True
+    load <- lift getLoad
+    let parse = if sl then
+                   if (read $ fHead [] load :: Float) < 1.5 then gfParseBool pgf' plen $ unwords fmsg
+                   else False
+                else True
     let matchon = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
     let isaction = head msg == "\SOHACTION"
     action <- lift $ ircAction nick' [] False
     lift $ (if null chan then
                    if apm && not isaction then
-                     sentenceReply st bot nick' [] fmsg >> return ()
+                     sentenceReply st bot load nick' [] fmsg >> return ()
                    else return ()
                  else if chanmsg then
                         if map toLower (unwords msg) =~ matchon then
                           if isaction || r == 0 then evalStateT (write h "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st
-                            else sentenceReply st bot chan chan fmsg >> return ()
+                            else sentenceReply st bot load chan chan fmsg >> return ()
                         else return ()
-                      else sentenceReply st bot chan nick' fmsg >> return ())
+                      else sentenceReply st bot load chan nick' fmsg >> return ())
     if ((nick' == o && null chan) || parse) && l && not isaction then do
       nd <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
@@ -626,12 +631,12 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
       return bot
 reply bot _ _ _ _ = return bot
 
-sentenceReply :: Fstate -> Bot -> String -> String -> [String] -> IO ThreadId
-sentenceReply _ _ _ _ [] = forkIO $ return ()
+sentenceReply :: Fstate -> Bot -> [String] -> String -> String -> [String] -> IO ThreadId
+sentenceReply _ _ _ _ _ [] = forkIO $ return ()
 sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str, slength=slen, plength=plen,
                                                                      Main.topic=top, randoms=rand, rwords=rw,
                                                                      stricttopic=stopic},
-                                          fugly=fugly'} chan nick' m = forkIO (do
+                                          fugly=fugly'} load chan nick' m = forkIO (do
     tId  <- myThreadId
     tc'  <- incT tc tId
     _    <- evalStateT (hPutStrLnLock stderr ("> debug: thread count: " ++ show tc')) st
@@ -640,7 +645,6 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str,
     let n' = if nick' == chan then "somebody" else nick'
     let nn = if nick' == chan then [] else nick' ++ ": "
     action <- ircAction n' [] False
-    load   <- getLoad
     if tc' < 10 && (read $ fHead [] load :: Float) < 1.5 then do
       if tc' > 4 then threadDelay (1000000 * tc') else return ()
       _    <- return p
@@ -662,7 +666,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str,
         8 -> "\SOHACTION feels like ignoring " ++ nick' ++ ".\SOH"
         _ -> "All this chat is making me thirsty."
     decT tc tId)
-sentenceReply _ _ _ _ _ = forkIO $ return ()
+sentenceReply _ _ _ _ _ _ = forkIO $ return ()
 
 execCmd :: Bot -> String -> String -> [String] -> StateT Fstate IO Bot
 execCmd b _ _ [] = lift $ return b
@@ -905,7 +909,8 @@ execCmd b chan nick' (x:xs) = do
       | x == "!talk" = do
           if nick' == owner' then
             if length xs > 2 then do
-              sentenceReply st bot (xs!!0) (xs!!1) (drop 2 xs) >> return bot
+              load <- getLoad
+              sentenceReply st bot load (xs!!0) (xs!!1) (drop 2 xs) >> return bot
             else replyMsgT st bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
             else return bot
       | x == "!raw" = if nick' == owner' then
