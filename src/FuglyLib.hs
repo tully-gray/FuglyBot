@@ -941,7 +941,7 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
 
 sentenceA :: MVar () -> Fugly -> Bool -> Bool -> Int -> Int -> Int -> String -> [String] -> IO [String]
 sentenceA _  _                                     _      _      _       _      _    _     []   = return []
-sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries slen topic' msg = do
+sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'} rwords stopic randoms stries slen topic' msg = do
     r <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     m <- s1a r (length msg) msg
     wnReplaceWords fugly rwords randoms $ toUpperSentence $ endSentence $ replace "i" "I" $ words m
@@ -954,11 +954,15 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries 
          1 -> "ah okay"
          2 -> "that's fascinating"
          _ -> [])
-      | (map toLower $ head w) == "test" = return (case mod r 10 of
+      | s2l w == "test" = return (case mod r 10 of
          0 -> "what are we testing"
          1 -> "but I don't want to test"
          2 -> "is this just a test"
          3 -> "test it yourself"
+         _ -> [])
+      | l < 8 && r < 60 && (map toLower $ unwords w) Regex.=~ "really" = return (case mod r 3 of
+         0 -> let n = if r < 40 then "no, " else [] in n ++ "not really"
+         1 -> "yes really"
          _ -> [])
       | (map toLower $ unwords w) Regex.=~ "lol|haha|hehe|rofl|lmao" = return (case mod r 10 of
          0 -> "very funny"
@@ -970,7 +974,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries 
          6 -> "I'm glad you think this is funny"
          7 -> "seriously"
          _ -> [])
-      | (map toLower $ head w) Regex.=~ "hello|greetings|hi|welcome" = return (case mod r 8 of
+      | s2l w Regex.=~ "hello|greetings|hi|welcome" = return (case mod r 8 of
          0 -> "hello my friend"
          1 -> "hi there"
          2 -> "thanks"
@@ -978,7 +982,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries 
          4 -> "good morning"
          5 -> "hey what's going on"
          _ -> [])
-      | l > 2 && (map toLower $ head w) == "hey" = do
+      | l > 2 && s2l w == "hey" = do
           m' <- fixIt st (sentenceB' st fugly rwords stopic randoms 10 23 7 topic' (drop 2 w) ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
@@ -991,21 +995,39 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell'} rwords stopic randoms stries 
       | l > 3 && (s1l $ take 3 w) == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want"] =
         let s1b rr ww = ww!!2 Regex.=~ "like|hate|love|have|want" ++ " " ++
                         if rr < 20 then "it" else if rr < 40 then "that" else unwords (drop 3 ww) in
-          return (case mod r 4 of
+          return (case mod r 6 of
             0 -> "I don't " ++ s1b r w
             1 -> "yeah, I " ++ s1b r w
             2 -> "sometimes I " ++ s1b r w
             3 -> unwords (drop 3 w) ++ " is " ++ if r < 50 then "not" else "" ++ " something I " ++ w!!2 Regex.=~ "like|hate|love|have|want"
             _ -> [])
-      | l > 2 && (s1l $ take 2 w) == ["can", "you"] = return (case mod r 5 of
+      | l > 2 && (s1l $ take 2 w) == ["can", "you"] = return (case mod r 7 of
          0 -> "no I can't " ++ if r < 35 then "" else unwords (drop 2 w)
          1 -> "sure, I can " ++ if r < 40 then "do that" else unwords (drop 2 w)
          2 -> "it depends"
          3 -> "why would I want to " ++ if r < 50 then "do something like that" else unwords (drop 2 w)
          4 -> unwords (drop 2 w) ++ " is " ++ if r < 20 then "boring" else if r < 50 then "fun" else "certainly possible"
          _ -> [])
+      | elem (s2l w) qWords = do
+         ww <- filterWordPOS wne' (POS Noun) w
+         let ww'  = filter (\x -> length x > 2) ww
+         let n'   = if null ww' then "thing" else ww'!!(mod r $ length ww')
+         let noun = if last n' == 's' then init n' else n'
+         return (case mod r 14 of
+           0 -> "yes, the " ++ noun ++ " is okay."
+           1 -> "no, not really"
+           2 -> "maybe, but I don't really like " ++ noun ++ "s"
+           3 -> "I'm not really sure"
+           4 -> "let me get back to you on that"
+           5 -> "I think the " ++ noun ++ " is hungry"
+           6 -> "only sometimes"
+           7 -> noun ++ "s are boring"
+           8 -> "I think so, yeah"
+           9 -> "let's discuss this later"
+           _ -> [])
       | otherwise = return []
     s1l = map (\x -> map toLower x)
+    s2l x = map toLower $ head x
     s1r rr mm = mapM (\x -> do ry <- rhymesWith st aspell' x
                                if null ry then return []
                                  else return $ ry!!(mod rr (length ry))) mm
@@ -1138,6 +1160,16 @@ chooseWord msg = do
       r <- Random.getStdRandom (Random.randomR (0, 1)) :: IO Int
       if r == 0 then c2 xs (m ++ [x])
         else c2 ([x] ++ tail xs) (m ++ [head xs])
+
+filterWordPOS :: WordNetEnv -> EPOS -> [String] -> IO [String]
+filterWordPOS _    _    []  = return []
+filterWordPOS wne' pos' msg = fpos [] msg
+  where
+    fpos a []     = return a
+    fpos a (x:xs) = do
+      p <- wnPartPOS wne' x
+      if p == pos' then fpos (x : a) xs
+        else fpos a xs
 
 wnReplaceWords :: Fugly -> Bool -> Int -> [String] -> IO [String]
 wnReplaceWords _                               _     _       []  = return []
