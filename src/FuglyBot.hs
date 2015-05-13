@@ -470,7 +470,7 @@ timerLoop st = do
         threadDelay 1000000
         let nicks = Map.lookup chan cn'
         load <- getLoad
-        if isJust nicks && (read $ fHead [] load :: Float) < 1.0 then do
+        if isJust nicks && (read $ fHead [] load :: Float) < 1.5 then do
           let n   = delete botnick $ fromJust nicks
           let m'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod (r + 23) (length n)
           let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod r (length n)
@@ -659,7 +659,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str,
     let n' = if nick' == chan then "somebody" else nick'
     let nn = if nick' == chan || null nick' then [] else nick' ++ ": "
     action <- ircAction n' [] False
-    if tc' < 10 && (read $ fHead [] load :: Float) < 1.5 then do
+    if tc' < 10 && (read $ fHead [] load :: Float) < 2.3 then do
       if tc' > 4 then threadDelay (1000000 * tc') else return ()
       let num = if r - 4 < 1 || str < 4 || length m < 7 then 1 else r - 4
       x <- sentenceA lock fugly' rw stopic rand str slen top m
