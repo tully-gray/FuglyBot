@@ -474,22 +474,29 @@ timerLoop st = do
           let n   = delete botnick $ fromJust nicks
           let m'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod (r + 23) (length n)
           let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod r (length n)
-          let msg = case mod r 16 of
+          let msg = case mod r 23 of
                 0 -> "It's quiet in here."
                 1 -> "Does anybody here like " ++ topic' ++ "?"
                 2 -> "Well, " ++ topic' ++ " is interesting, don't you think?"
                 3 -> "I've heard that " ++ m' ++ " likes " ++ topic' ++ "."
-                4 -> "I suspect that " ++ n' ++ " or " ++ m' ++ " might know something about that."
+                4 -> "I suspect that " ++ m' ++ " might know something about that."
                 5 -> "It's all the same to me."
                 6 -> "Who can really say with any surety?"
                 7 -> "What do people chat about in here, primarily?"
-                8 -> "Has anybody really been as far as to decide to want to look more like " ++ n' ++ "?"
+                8 -> "Has anybody really been as far as to decide to want to look more like " ++ m' ++ "?"
                 9 -> "The internet is all about cat videos."
                 10 -> "Maybe if I just don't mention it..."
                 11 -> "Things are clearly spiraling out of control!"
                 12 -> "Don't you people read the news?"
                 13 -> "Don't believe the hype."
                 14 -> "These grapes look delicious."
+                15 -> "I wonder what " ++ m' ++ " thinks about that?"
+                16 -> "Does " ++ m' ++ " ever discuss " ++ topic' ++ "?"
+                17 -> "Oh gosh, not this again."
+                18 -> "Seriously dudes..."
+                19 -> "It's getting late..."
+                20 -> "Hmm.."
+                21 -> "Yes indeed."
                 _ -> m' ++ " told me that " ++ topic' ++ " is boring."
           action <- ircAction n' m' False
           let who = if mod (r + 11) 3 == 0 then n' else chan in if r < 300 then
