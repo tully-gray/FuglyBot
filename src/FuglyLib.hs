@@ -1111,7 +1111,7 @@ fixIt _  []     a _ _ _ _ = return a
 fixIt st (x:xs) a n i j s = do
     xx <- x
     _ <- evalStateT (hPutStrLnLock stderr ("> debug: fixIt try: " ++ show j)) st
-    if i >= n || j > (s + 3) * n then return a
+    if i >= n || j > s * n then return a
       else if null xx then fixIt st xs a n i (j + 1) s
       else fixIt st xs ([xx ++ " "] ++ a) n (i + 1) j s
 
