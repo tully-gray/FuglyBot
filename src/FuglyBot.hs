@@ -657,7 +657,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h, params=p@Parameter{stries=str,
     rr   <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
     _    <- return p
     let n' = if nick' == chan then "somebody" else nick'
-    let nn = if nick' == chan then [] else nick' ++ ": "
+    let nn = if nick' == chan || null nick' then [] else nick' ++ ": "
     action <- ircAction n' [] False
     if tc' < 10 && (read $ fHead [] load :: Float) < 1.5 then do
       if tc' > 4 then threadDelay (1000000 * tc') else return ()
