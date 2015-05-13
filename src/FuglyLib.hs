@@ -1074,7 +1074,8 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
             else return (init w ++ (cleanString (last w) ++ if elem (map toLower $ head w) qWords then "?" else ".") : [])
     let s1e x = do
           w <- x
-          if null w then return []
+          n <- s1n $ fHead [] w
+          if null w || n then return []
             else return ([s1c w] ++ tail w)
     let s1g = map (\x -> do y <- insertCommas wne' 0 x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
     s1f 0 s1t s1g
