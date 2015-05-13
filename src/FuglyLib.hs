@@ -90,7 +90,7 @@ type Dict = Map.Map String Word
 
 data Fugly = Fugly {
               dict    :: Dict,
-              pgf     :: PGF,
+              pgf     :: Maybe PGF,
               wne     :: WordNetEnv,
               aspell  :: Aspell.SpellChecker,
               ban     :: [String],
@@ -176,7 +176,8 @@ initFugly fuglydir wndir gfdir dfile = do
                                      (\e -> do let err = show (e :: SomeException)
                                                hPutStrLn stderr ("Exception in initFugly: " ++ err)
                                                return (Map.empty, [], [], []))
-    pgf' <- readPGF (gfdir ++ "/ParseEng.pgf")
+    pgf' <- if gfdir == "nogf" then return Nothing else do pg <- readPGF (gfdir ++ "/ParseEng.pgf")
+                                                           return $ Just pg
     wne' <- NLP.WordNet.initializeWordNetWithOptions
             (return wndir :: Maybe FilePath)
             (Just (\e f -> hPutStrLn stderr (e ++ show (f :: SomeException))))
@@ -873,24 +874,25 @@ asSuggest aspell' word' = do
            else if word' == head ww then do putMVar l lock ; return []
                 else do putMVar l lock ; return $ unwords ww
 
-gfLin :: PGF -> String -> String
-gfLin _    []     = []
+gfLin :: Maybe PGF -> String -> String
+gfLin _    []   = []
 gfLin pgf' msg
-    | isJust expr = linearize pgf' (head $ languages pgf') $ fromJust $ expr
-    | otherwise   = []
+    | isJust pgf' && isJust expr = linearize (fromJust pgf') (head $ languages $ fromJust pgf') (fromJust expr)
+    | otherwise = []
   where
     expr = readExpr msg
 
-gfParseBool :: PGF -> Int -> String -> Bool
-gfParseBool _    _   []                 = False
+gfParseBool :: Maybe PGF -> Int -> String -> Bool
 gfParseBool pgf' len msg
     | elem (map toLower lw) badEndWords = False
     | elem '\'' (map toLower lw)        = False
+    | not $ isJust pgf'                 = True
     | len == 0       = True
-    | length w > len = (gfParseBool' pgf' $ take len w) && (gfParseBool pgf' len (unwords $ drop len w))
-    | otherwise      = gfParseBool' pgf' w
+    | length w > len = (gfParseBool' ipgf' $ take len w) && (gfParseBool pgf' len (unwords $ drop len w))
+    | otherwise      = gfParseBool' ipgf' w
   where
-    w = words msg
+    ipgf' = fromJust pgf'
+    w  = words msg
     lw = strip '?' $ strip '.' $ last w
 
 gfParseBool' :: PGF -> [String] -> Bool
@@ -902,8 +904,10 @@ gfParseBool' pgf' msg
     m = unwords msg
     lang = head $ languages pgf'
 
-gfParseShow :: PGF -> String -> [String]
-gfParseShow pgf' msg = lin pgf' lang (parse_ pgf' lang (startCat pgf') Nothing msg)
+gfParseShow :: Maybe PGF -> String -> [String]
+gfParseShow pgf' msg = if isJust pgf' then let ipgf' = fromJust pgf' in
+                         lin ipgf' lang (parse_ ipgf' lang (startCat ipgf') Nothing msg)
+                         else return "No PGF file..."
   where
     lin p l (ParseOk tl, _)      = map (lin' p l) tl
     lin _ _ (ParseFailed a, b)   = ["parse failed at " ++ show a ++
@@ -911,16 +915,18 @@ gfParseShow pgf' msg = lin pgf' lang (parse_ pgf' lang (startCat pgf') Nothing m
     lin _ _ (ParseIncomplete, b) = ["parse incomplete: " ++ showBracketedString b]
     lin _ _ _                    = ["No parse!"]
     lin' p l t                   = "parse: " ++ showBracketedString (head $ bracketedLinearize p l t)
-    lang = head $ languages pgf'
+    lang = head $ languages $ fromJust pgf'
 
 gfCategories :: PGF -> [String]
 gfCategories pgf' = map showCId (categories pgf')
 
-gfRandom :: PGF -> String -> IO String
+gfRandom :: Maybe PGF -> String -> IO String
 gfRandom pgf' [] = do
-    r <- gfRandom' pgf'
-    let rr = filter (\x -> x Regex.=~ "NP") $ words r
-    gfRandom pgf' (if rr == (\\) rr (words r) then r else [])
+    if isJust pgf' then do
+      r <- gfRandom' $ fromJust pgf'
+      let rr = filter (\x -> x Regex.=~ "NP") $ words r
+      gfRandom pgf' (if rr == (\\) rr (words r) then r else [])
+      else return []
 gfRandom _ msg' = return msg'
 
 gfRandom' :: PGF -> IO String
