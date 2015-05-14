@@ -474,8 +474,9 @@ timerLoop st = do
       if t > 4 then do
         bot@Bot{sock=s, params=pp@Parameter{nick=botnick, Main.topic=topic', debug=d}, fugly=f@Fugly{defs=defs'}} <- readMVar b
         _ <- return (pp, f)
-        let norm = [de | (type', de) <- defs', type' == Normal]
-        let cn   = getChanNicks st
+        let norm     = [de | (type', de) <- defs', type' == Normal]
+        let len_norm = length norm
+        let cn       = getChanNicks st
         cn' <- readMVar cn
         let chans = concat [[c] | (c, _) <- Map.toList cn']
         let chan  = chans!!mod (r + 55) (length chans)
@@ -487,7 +488,7 @@ timerLoop st = do
           let n   = delete botnick $ fromJust nicks
           let m'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod (r + 23) (length n)
           let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod r (length n)
-          let msg = case mod r $ 23 + length norm of
+          let msg = case mod r $ 23 + len_norm of
                 0 -> "It's quiet in here."
                 1 -> "Does anybody here like " ++ topic' ++ "?"
                 2 -> "Well, " ++ topic' ++ " is interesting, don't you think?"
@@ -511,7 +512,7 @@ timerLoop st = do
                 20 -> "Hmm..."
                 21 -> "Yes indeed."
                 22 -> m' ++ " told me that " ++ topic' ++ " is boring."
-                _  -> norm!!(mod r $ length norm)
+                _  -> if len_norm == 0 then [] else norm!!mod r len_norm
           action <- ircAction False n' m' defs'
           let who = if mod (r + 11) 3 == 0 then n' else chan in if r < 300 then
             forkIO (evalStateT (write s d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
@@ -526,10 +527,12 @@ ircAction :: Bool -> [Char] -> [Char] -> [Default] -> IO String
 ircAction _     []    _     _     = return "panics."
 ircAction greet nick1 nick2 defs' = do
     r <- Random.getStdRandom (Random.randomR (0, 999)) :: IO Int
-    let action  = [de | (type', de) <- defs', type' == Action]
-    let gaction = [de | (type', de) <- defs', type' == GreetAction]
+    let action      = [de | (type', de) <- defs', type' == Action]
+    let len_action  = length action
+    let gaction     = [de | (type', de) <- defs', type' == GreetAction]
+    let len_gaction = length gaction
     let altnick = if null nick2 then "" else " and " ++ nick2
-    return (if greet then case mod r $ 10 + length gaction of
+    return (if greet then case mod r $ 10 + len_gaction of
                 0 -> "waves to " ++ nick1 ++ "."
                 1 -> "greets " ++ nick1 ++ "."
                 2 -> "says hello to " ++ nick1 ++ "."
@@ -540,8 +543,8 @@ ircAction greet nick1 nick2 defs' = do
                 7 -> "welcomes " ++ nick1 ++ " enthusiastically."
                 8 -> "looks at " ++ nick1 ++ " with suspicion."
                 9 -> "waves."
-                _ -> gaction!!(mod r $ length gaction)
-            else case mod r $ 30 + length action of
+                _ -> if len_gaction == 0 then [] else gaction!!mod r len_gaction
+            else case mod r $ 30 + len_action of
                 0 -> "is bored."
                 1 -> "looks at " ++ nick1 ++ altnick ++ "."
                 2 -> "waves to " ++ nick1 ++ altnick ++ "."
@@ -569,7 +572,7 @@ ircAction greet nick1 nick2 defs' = do
                 24 -> "feels somewhat maladjusted."
                 25 -> "squirms uncomfortably."
                 26 -> "yawns."
-                _  -> action!!(mod r $ length action))
+                _  -> if len_action == 0 then [] else action!!mod r len_action)
 
 greeting :: [String] -> StateT Fstate IO ()
 greeting []   = return ()
@@ -580,10 +583,12 @@ greeting line = do
     r <- lift $ Random.getStdRandom (Random.randomR (0, 999)) :: StateT Fstate IO Int
     lift $ threadDelay (600000 * (mod r 8) + 2000000)
     action <- lift $ ircAction True who [] defs'
-    let enter = [de | (t, de) <- defs', t == Enter]
-    let greet = [de | (t, de) <- defs', t == Greeting]
+    let enter     = [de | (t, de) <- defs', t == Enter]
+    let len_enter = length enter
+    let greet     = [de | (t, de) <- defs', t == Greeting]
+    let len_greet = length greet
     if who == n then
-      case mod r $ 9 + length enter of
+      case mod r $ 9 + len_enter of
         0 -> replyMsg bot chan [] "Hello world."
         1 -> replyMsg bot chan [] "Good morning!"
         2 -> replyMsg bot chan [] "Hello friends."
@@ -593,13 +598,13 @@ greeting line = do
         6 -> replyMsg bot chan [] "\SOHACTION is here!\SOH"
         7 -> replyMsg bot chan [] "\SOHACTION wants to chat.\SOH"
         8 -> replyMsg bot chan [] "\SOHACTION wonders if this is the right channel.\SOH"
-        _ -> replyMsg bot chan [] $ enter!!(mod r $ length enter)
-      else if r < 600 then case mod r $ 4 + length greet of
+        _ -> replyMsg bot chan [] $ if len_enter == 0 then [] else enter!!mod r len_enter
+      else if r < 600 then case mod r $ 4 + len_greet of
           0 -> replyMsg bot chan [] ("Hello " ++ who ++ ".")
           1 -> replyMsg bot chan [] ("Welcome to the channel, " ++ who ++ ".")
           2 -> replyMsg bot chan who "Greetings."
           3 -> replyMsg bot chan who "Hello."
-          _ -> replyMsg bot chan who $ greet!!(mod r $ length greet)
+          _ -> replyMsg bot chan who $ if len_greet == 0 then [] else greet!!mod r len_greet
            else
              write s d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")
     lift $ putMVar b bot >> return ()
