@@ -56,6 +56,8 @@ module FuglyLib
          fLast,
          fTail,
          Word (..),
+         DType (..),
+         Default,
          Fugly (..)
        )
        where
@@ -86,10 +88,12 @@ import           PGF
 
 import           Text.EditDistance              as EditDistance
 
-type Dict = Map.Map String Word
+type Dict    = Map.Map String Word
+type Default = (DType, String)
 
 data Fugly = Fugly {
               dict    :: Dict,
+              defs    :: [Default],
               pgf     :: Maybe PGF,
               wne     :: WordNetEnv,
               aspell  :: Aspell.SpellChecker,
@@ -167,15 +171,17 @@ instance Word_ Word where
   wordGetwc (Name n c _ _ _ _)        = (c, n)
   wordGetwc (Acronym a c _ _ _ _ _)   = (c, a)
 
+data DType = Normal | Action | GreetAction | Greeting | Enter deriving (Eq, Read, Show)
+
 emptyWord :: Word
 emptyWord = Word [] 0 Map.empty Map.empty [] [] [] UnknownEPos
 
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO (Fugly, [String])
 initFugly fuglydir wndir gfdir dfile = do
-    (dict', ban', match', params') <- catch (loadDict fuglydir dfile)
-                                     (\e -> do let err = show (e :: SomeException)
-                                               hPutStrLn stderr ("Exception in initFugly: " ++ err)
-                                               return (Map.empty, [], [], []))
+    (dict', defs', ban', match', params') <- catch (loadDict fuglydir dfile)
+                                             (\e -> do let err = show (e :: SomeException)
+                                                       hPutStrLn stderr ("Exception in initFugly: " ++ err)
+                                                       return (Map.empty, [], [], [], []))
     pgf' <- if gfdir == "nogf" then return Nothing else do pg <- readPGF (gfdir ++ "/ParseEng.pgf")
                                                            return $ Just pg
     wne' <- NLP.WordNet.initializeWordNetWithOptions
@@ -185,7 +191,7 @@ initFugly fuglydir wndir gfdir dfile = do
                                          Aspell.Options.IgnoreCase False, Aspell.Options.Size Aspell.Options.Large,
                                          Aspell.Options.SuggestMode Aspell.Options.Normal, Aspell.Options.Ignore 2]
     let aspell' = head $ rights [a]
-    return ((Fugly dict' pgf' wne' aspell' ban' match'), params')
+    return ((Fugly dict' defs' pgf' wne' aspell' ban' match'), params')
 
 stopFugly :: (MVar ()) -> FilePath -> Fugly -> String -> [String] -> IO ()
 stopFugly st fuglydir fugly@Fugly{wne=wne'} dfile params = do
@@ -196,7 +202,7 @@ stopFugly st fuglydir fugly@Fugly{wne=wne'} dfile params = do
     closeWordNet wne'
 
 saveDict :: (MVar ()) -> Fugly -> FilePath -> String -> [String] -> IO ()
-saveDict st Fugly{dict=dict', ban=ban', match=match'} fuglydir dfile params = do
+saveDict st Fugly{dict=dict', defs=defs', ban=ban', match=match'} fuglydir dfile params = do
     let d = Map.toList dict'
     if null d then evalStateT (hPutStrLnLock stderr "> Empty dict!") st
       else do
@@ -204,6 +210,8 @@ saveDict st Fugly{dict=dict', ban=ban', match=match'} fuglydir dfile params = do
         hSetBuffering h LineBuffering
         evalStateT (hPutStrLnLock stdout "Saving dict file...") st
         saveDict' h d
+        evalStateT (hPutStrLnLock h ">END<") st
+        _ <- evalStateT (mapM (\(t, m) -> hPutStrLnLock h (show t ++ " " ++ m)) defs') st
         evalStateT (hPutStrLnLock h ">END<") st
         evalStateT (hPutStrLnLock h $ unwords $ sort ban') st
         evalStateT (hPutStrLnLock h $ unwords $ sort match') st
@@ -247,20 +255,21 @@ saveDict st Fugly{dict=dict', ban=ban', match=match'} fuglydir dfile params = do
                              ("definition: " ++ d ++ "\n"),
                              ("end: \n")]
 
-loadDict :: FilePath -> String -> IO (Dict, [String], [String], [String])
+loadDict :: FilePath -> String -> IO (Dict, [Default], [String], [String], [String])
 loadDict fuglydir dfile = do
     h <- openFile (fuglydir ++ "/" ++ dfile ++ "-dict.txt") ReadMode
     eof <- hIsEOF h
     if eof then
-      return (Map.empty, [], [], [])
+      return (Map.empty, [], [], [], [])
       else do
       hSetBuffering h LineBuffering
       hPutStrLn stdout "Loading dict file..."
       dict'   <- ff h emptyWord [([], emptyWord)]
+      defs'   <- fd [] h
       ban'    <- hGetLine h
       match'  <- hGetLine h
       params' <- hGetLine h
-      let out = (Map.fromList $ tail dict', words ban', words match', words params')
+      let out = (Map.fromList $ tail dict', defs', words ban', words match', words params')
       hClose h
       return out
   where
@@ -271,6 +280,16 @@ loadDict fuglydir dfile = do
     getNeigh' (x:y:xs) [] = getNeigh' xs [(x, read y :: Int)]
     getNeigh' (x:y:xs)  l = getNeigh' xs (l ++ (x, read y :: Int) : [])
     getNeigh' _         l = l
+    fd :: [Default] -> Handle -> IO [Default]
+    fd a h = do
+      l <- hGetLine h
+      if l == ">END<" then
+        return a
+        else
+        fd (a ++ [fd' $ words l]) h
+      where
+        fd' :: [String] -> Default
+        fd' l = ((read $ head l) :: DType, unwords $ tail l)
     ff :: Handle -> Word -> [(String, Word)] -> IO [(String, Word)]
     ff h word' nm = do
       l <- hGetLine h
@@ -926,7 +945,7 @@ gfRandom pgf' [] = do
       r <- gfRandom' $ fromJust pgf'
       let rr = filter (\x -> x Regex.=~ "NP") $ words r
       gfRandom pgf' (if rr == (\\) rr (words r) then r else [])
-      else return []
+      else return "I'm not really sure what to make of that."
 gfRandom _ msg' = return msg'
 
 gfRandom' :: PGF -> IO String
