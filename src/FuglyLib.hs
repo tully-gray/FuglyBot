@@ -945,9 +945,11 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
       (generateRandomDepth (Random.mkStdGen num) pgf' c (Just num))
                             else "Not a GF type."
 
-sentenceA :: MVar () -> Fugly -> Bool -> Bool -> Int -> Int -> Int -> String -> [String] -> IO [String]
-sentenceA _  _                                     _      _      _       _      _    _     []   = return []
-sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'} rwords stopic randoms stries slen topic' msg = do
+sentenceA :: MVar () -> Fugly -> Bool -> Bool -> Bool -> Int -> Int
+             -> Int -> String -> [String] -> IO [String]
+sentenceA _ _ _ _ _ _ _ _ _ [] = return []
+sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
+  debug rwords stopic randoms stries slen topic' msg = do
     r <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     m <- s1a r (length msg) msg
     wnReplaceWords fugly rwords randoms $ toUpperSentence $ endSentence $ replace "i" "I" $ words m
@@ -989,12 +991,14 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'} rwords stopic rando
          5 -> "hey what's going on"
          _ -> [])
       | l > 2 && s2l w == "hey" = do
-          m' <- fixIt st (sentenceB' st fugly rwords stopic randoms 10 23 7 topic' (drop 2 w) ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
+          m' <- fixIt st debug (sentenceB' st fugly debug rwords stopic randoms 10 23 7 topic' (drop 2 w)
+                                ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'
       | (map toLower $ unwords w) Regex.=~ "rhyme|rhymes|sing.*|song|songs" || r > 87 = do
-          m' <- fixIt st (sentenceB' st fugly rwords stopic randoms 5 5 5 topic' w ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
+          m' <- fixIt st debug (sentenceB' st fugly debug rwords stopic randoms 5 5 5 topic' w
+                                ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'
@@ -1038,18 +1042,19 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'} rwords stopic rando
                                if null ry then return []
                                  else return $ ry!!(mod rr (length ry))) mm
 
-sentenceB :: (MVar ()) -> Fugly -> Bool -> Bool -> Int -> Int -> Int -> Int
-             -> String -> Int -> [String] -> IO [String]
-sentenceB st fugly@Fugly{pgf=pgf'} rwords stopic randoms stries slen plen topic' num msg = do
+sentenceB :: (MVar ()) -> Fugly -> Bool -> Bool -> Bool -> Int -> Int -> Int
+              -> Int-> String -> Int -> [String] -> IO [String]
+sentenceB st fugly@Fugly{pgf=pgf'} debug rwords stopic randoms stries slen plen topic' num msg = do
   m <- chooseWord msg
   let mm = if length msg < 4 || mod (length $ concat msg) 3 == 0 then msg else m
-  fixIt st (sentenceB' st fugly rwords stopic randoms stries slen plen topic' mm ++ [gfRandom pgf' []]) [] num 0 0 (stries * slen)
+  fixIt st debug (sentenceB' st fugly debug rwords stopic randoms stries slen plen topic' mm ++
+                  [gfRandom pgf' []]) [] num 0 0 (stries * slen)
 
-sentenceB' :: (MVar ()) -> Fugly -> Bool -> Bool -> Int -> Int -> Int -> Int
-              -> String -> [String] -> [IO String]
-sentenceB' _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
+sentenceB' :: (MVar ()) -> Fugly -> Bool -> Bool -> Bool -> Int -> Int -> Int
+               -> Int-> String -> [String] -> [IO String]
+sentenceB' _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
 sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
-  rwords stopic randoms stries slen plen topic' msg = do
+  debug rwords stopic randoms stries slen plen topic' msg = do
     let s1h n a x = let out = if a then map toUpper x else if n then x else map toLower x in
           if isJust $ Map.lookup out dict' then out else []
     let s1i x = do
@@ -1109,18 +1114,20 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
       let plen' = if ((realToFrac i) :: Float) > (((realToFrac stries) :: Float) / 2) then 0 else plen
       if null y then return []
         else if gfParseBool pgf' plen' y && length (words y) > 2 && p /= POS Adj then return y
-             else evalStateT (hPutStrLnLock stderr ("> debug: sentence try: " ++ y)) st >> return []
+             else if debug then evalStateT (hPutStrLnLock stdout ("> debug: sentence try: " ++ y)) st >> return []
+                  else return []
     s1f _ _ []     = []
     s1f i f (x:xs) = f i x : s1f (i + 1) f xs
 
-fixIt :: (MVar ()) -> [IO String] -> [String] -> Int -> Int -> Int -> Int -> IO [String]
-fixIt _  []     a _ _ _ _ = return a
-fixIt st (x:xs) a n i j s = do
+fixIt :: (MVar ()) -> Bool -> [IO String] -> [String] -> Int -> Int
+         -> Int -> Int -> IO [String]
+fixIt _  _ []     a _ _ _ _ = return a
+fixIt st d (x:xs) a n i j s = do
     xx <- x
-    _ <- evalStateT (hPutStrLnLock stderr ("> debug: fixIt try: " ++ show j)) st
+    _  <- if d then evalStateT (hPutStrLnLock stdout ("> debug: fixIt try: " ++ show j)) st else return ()
     if i >= n || j > s * n then return a
-      else if null xx then fixIt st xs a n i (j + 1) s
-      else fixIt st xs ([xx ++ " "] ++ a) n (i + 1) j s
+      else if null xx then fixIt st d xs a n i (j + 1) s
+      else fixIt st d xs ([xx ++ " "] ++ a) n (i + 1) j s
 
 insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
 insertCommas wne' i w = do
