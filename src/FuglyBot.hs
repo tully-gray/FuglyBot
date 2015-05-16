@@ -501,9 +501,9 @@ timerLoop st = do
                 9 -> "Yes indeed."
                 _  -> if len_norm == 0 then "Hmm..." else fixAction m' topic' $ norm!!mod r len_norm
           action <- ircAction False n' m' topic' defs'
-          let who = if mod (r + 11) 3 == 0 then n' else chan in if r < 300 then
+          let who = if mod (r + 11) 3 == 0 then n' else chan in if r < 120 then
             forkIO (evalStateT (write s d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
-            else if r < 750 then
+            else if r < 770 then
               sentenceReply st bot load chan who $ words msg
                  else
                    forkIO $ replyMsgT st bot chan who msg
@@ -626,7 +626,7 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                    else return ()
                  else if chanmsg then
                         if map toLower (unwords msg) =~ matchon then
-                          if isaction || r == 0 then
+                          if isaction && r == 0 then
                              evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st
                             else sentenceReply st bot load chan chan fmsg >> return ()
                         else return ()
@@ -655,7 +655,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
     let nn = if nick' == chan || null nick' then [] else nick' ++ ": "
     action <- ircAction False n' [] top defs'
     if tc' < 10 && (read $ fHead [] load :: Float) < 2.3 then do
-      threadDelay (1200000 + 1500000 * tc')
+      threadDelay (1200000 + 2500000 * tc' + 8000000 * rr)
       let num = if r - 4 < 1 || str < 4 || length m < 7 then 1 else r - 4
       x <- sentenceA lock fugly' d rw stopic rand str slen top m
       y <- sentenceB lock fugly' d rw stopic rand str slen plen top num m
