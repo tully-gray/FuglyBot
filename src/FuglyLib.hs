@@ -977,11 +977,6 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
     s1a :: Int -> Int -> [String] -> IO String
     s1a _ _ [] = return []
     s1a r l w
-      | l < 3 = return (case mod r 5 of
-         0 -> "is that so"
-         1 -> "ah okay"
-         2 -> "that's fascinating"
-         _ -> [])
       | s2l w == "test" = return (case mod r 10 of
          0 -> "what are we testing"
          1 -> "but I don't want to test"
@@ -1077,10 +1072,6 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
   debug rwords stopic randoms stries slen plen topic' msg = do
     let s1h n a x = let out = if a then map toUpper x else if n then x else map toLower x in
           if isJust $ Map.lookup out dict' then out else []
-    let s1i x = do
-          a <- s1m x
-          n <- s1n x
-          return $ s1h n a x
     let s1a x = do
           a <- s1m x
           n <- s1n x
@@ -1090,8 +1081,7 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
           let yy = fHead [] y
           let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
           w   <- s1b fugly slen c $ findNextWord fugly 1 randoms False stopic topic' x
-          ww  <- s1b fugly slen 0 $ mapM s1i msg
-          let d = if length msg < 4 then ww else [yy] ++ [zz] ++ [s1h n a x] ++ w
+          let d = [yy] ++ [zz] ++ [s1h n a x] ++ w
           wnReplaceWords fugly rwords randoms $ filter (not . null) $ take (stries * slen) d
     let s1d x = do
           w <- x
