@@ -488,32 +488,19 @@ timerLoop st = do
           let n   = delete botnick $ fromJust nicks
           let m'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod (r + 23) (length n)
           let n'  = cleanStringBlack (\x -> x == '@' || x == '&' || x == '~' || x == '+') $ n!!mod r (length n)
-          let msg = case mod r $ 23 + len_norm of
+          let msg = case mod r $ 12 + len_norm of
                 0 -> "It's quiet in here."
                 1 -> "Does anybody here like " ++ topic' ++ "?"
                 2 -> "Well, " ++ topic' ++ " is interesting, don't you think?"
                 3 -> "I've heard that " ++ m' ++ " likes " ++ topic' ++ "."
                 4 -> "I suspect that " ++ m' ++ " might know something about that."
                 5 -> "It's all the same to me."
-                6 -> "Who can really say with any surety?"
-                7 -> "What do people chat about in here, primarily?"
-                8 -> "Has anybody really been as far as to decide to want to look more like " ++ m' ++ "?"
-                9 -> "The internet is all about cat videos."
-                10 -> "Maybe if I just don't mention it..."
-                11 -> "Things are clearly spiraling out of control!"
-                12 -> "Don't you people read the news?"
-                13 -> "Don't believe the hype."
-                14 -> "These grapes look delicious."
-                15 -> "I wonder what " ++ m' ++ " thinks about that?"
-                16 -> "Does " ++ m' ++ " ever discuss " ++ topic' ++ "?"
-                17 -> "Oh gosh, not this again."
-                18 -> "Seriously dudes..."
-                19 -> "It's getting late..."
-                20 -> "Hmm..."
-                21 -> "Yes indeed."
-                22 -> m' ++ " told me that " ++ topic' ++ " is boring."
-                _  -> if len_norm == 0 then [] else norm!!mod r len_norm
-          action <- ircAction False n' m' defs'
+                6 -> "I wonder what " ++ m' ++ " thinks about that?"
+                7 -> "It's getting late..."
+                8 -> "Hmm..."
+                9 -> "Yes indeed."
+                _  -> if len_norm == 0 then "Hmm..." else fixAction m' topic' $ norm!!mod r len_norm
+          action <- ircAction False n' m' topic' defs'
           let who = if mod (r + 11) 3 == 0 then n' else chan in if r < 300 then
             forkIO (evalStateT (write s d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
             else if r < 750 then
@@ -523,88 +510,61 @@ timerLoop st = do
           else forkIO $ return ()
         else forkIO $ return ()
 
-ircAction :: Bool -> [Char] -> [Char] -> [Default] -> IO String
-ircAction _     []    _     _     = return "panics."
-ircAction greet nick1 nick2 defs' = do
+ircAction :: Bool -> String -> String -> String -> [Default] -> IO String
+ircAction _     []    _     _      _     = return "panics."
+ircAction greet nick1 nick2 topic' defs' = do
     r <- Random.getStdRandom (Random.randomR (0, 999)) :: IO Int
     let action      = [de | (type', de) <- defs', type' == Action]
     let len_action  = length action
     let gaction     = [de | (type', de) <- defs', type' == GreetAction]
     let len_gaction = length gaction
     let altnick = if null nick2 then "" else " and " ++ nick2
-    return (if greet then case mod r $ 10 + len_gaction of
+    return (if greet then case mod r $ 6 + len_gaction of
                 0 -> "waves to " ++ nick1 ++ "."
                 1 -> "greets " ++ nick1 ++ "."
                 2 -> "says hello to " ++ nick1 ++ "."
                 3 -> "welcomes " ++ nick1 ++ " to the channel."
-                4 -> "takes " ++ nick1 ++ "'s bags and ushers " ++ nick1 ++ " into the foyer."
-                5 -> "hands " ++ nick1 ++ " a martini and a cigar."
-                6 -> "gets the Geiger counter and scans " ++ nick1 ++ " before allowing entry."
-                7 -> "welcomes " ++ nick1 ++ " enthusiastically."
-                8 -> "looks at " ++ nick1 ++ " with suspicion."
-                9 -> "waves."
-                _ -> if len_gaction == 0 then [] else gaction!!mod r len_gaction
-            else case mod r $ 30 + len_action of
+                _ -> if len_gaction == 0 then "waves." else fixAction nick1 topic' $ gaction!!mod r len_gaction
+            else case mod r $ 7 + len_action of
                 0 -> "is bored."
                 1 -> "looks at " ++ nick1 ++ altnick ++ "."
                 2 -> "waves to " ++ nick1 ++ altnick ++ "."
                 3 -> "ponders."
                 4 -> "thinks deeply."
-                5 -> "ignores " ++ nick1 ++ "."
-                6 -> "gets another coffee."
-                7 -> "yawns at " ++ nick1 ++ "."
-                8 -> "thinks " ++ nick1 ++ " must be new here."
-                9 -> "panics."
-                10 -> "assimilates " ++ nick1 ++ altnick ++ "."
-                11 -> "thinks about stuff."
-                12 -> "considers sleeping."
-                13 -> "wonders why " ++ nick1 ++ " never talks."
-                14 -> "thinks " ++ nick1 ++ " should take a bath."
-                15 -> "stares at " ++ nick1 ++ "."
-                16 -> "claps slowly."
-                17 -> "laughs."
-                18 -> "laughs at " ++ nick1 ++ "."
-                19 -> "jumps around."
-                20 -> "looks around cautiously."
-                21 -> "waves."
-                22 -> "rudely gestures at " ++ nick1 ++ "."
-                23 -> "is feeling random today."
-                24 -> "feels somewhat maladjusted."
-                25 -> "squirms uncomfortably."
-                26 -> "yawns."
-                _  -> if len_action == 0 then [] else action!!mod r len_action)
+                _  -> if len_action == 0 then "yawns." else fixAction nick1 topic' $ action!!mod r len_action)
+
+fixAction :: String -> String -> String -> String
+fixAction _  _ [] = []
+fixAction [] t m  = unwords $ replace "#topic" t $ replace "#nick" "somebody" $ words m
+fixAction n [] m  = unwords $ replace "#topic" "stuff" $ replace "#nick" n $ words m
+fixAction n  t m  = unwords $ replace "#topic" t $ replace "#nick" n $ words m
 
 greeting :: [String] -> StateT Fstate IO ()
 greeting []   = return ()
 greeting line = do
     b <- gets getBot
-    bot@Bot{sock=s, params=p@Parameter{nick=n, debug=d}, fugly=f@Fugly{defs=defs'}} <- lift $ takeMVar b
+    bot@Bot{sock=s, params=p@Parameter{nick=n, debug=d, Main.topic=top}, fugly=f@Fugly{defs=defs'}} <- lift $ takeMVar b
     _ <- return (p, f)
     r <- lift $ Random.getStdRandom (Random.randomR (0, 999)) :: StateT Fstate IO Int
     lift $ threadDelay (600000 * (mod r 8) + 2000000)
-    action <- lift $ ircAction True who [] defs'
+    action <- lift $ ircAction True who [] top defs'
     let enter     = [de | (t, de) <- defs', t == Enter]
     let len_enter = length enter
     let greet     = [de | (t, de) <- defs', t == Greeting]
     let len_greet = length greet
     if who == n then
-      case mod r $ 9 + len_enter of
+      case mod r $ 6 + len_enter of
         0 -> replyMsg bot chan [] "Hello world."
         1 -> replyMsg bot chan [] "Good morning!"
         2 -> replyMsg bot chan [] "Hello friends."
-        3 -> replyMsg bot chan [] "Hey guys and gals."
-        4 -> replyMsg bot chan [] "Good morning gang."
-        5 -> replyMsg bot chan [] "\SOHACTION looks around cautiously.\SOH"
-        6 -> replyMsg bot chan [] "\SOHACTION is here!\SOH"
-        7 -> replyMsg bot chan [] "\SOHACTION wants to chat.\SOH"
-        8 -> replyMsg bot chan [] "\SOHACTION wonders if this is the right channel.\SOH"
-        _ -> replyMsg bot chan [] $ if len_enter == 0 then [] else enter!!mod r len_enter
-      else if r < 600 then case mod r $ 4 + len_greet of
+        3 -> replyMsg bot chan [] "\SOHACTION wonders if this is the right channel.\SOH"
+        _ -> replyMsg bot chan [] $ if len_enter == 0 then "Hello world." else fixAction [] top $ enter!!mod r len_enter
+      else if r < 600 then case mod r $ 6 + len_greet of
           0 -> replyMsg bot chan [] ("Hello " ++ who ++ ".")
           1 -> replyMsg bot chan [] ("Welcome to the channel, " ++ who ++ ".")
           2 -> replyMsg bot chan who "Greetings."
           3 -> replyMsg bot chan who "Hello."
-          _ -> replyMsg bot chan who $ if len_greet == 0 then [] else greet!!mod r len_greet
+          _ -> replyMsg bot chan who $ if len_greet == 0 then "Hello." else fixAction who top $ greet!!mod r len_greet
            else
              write s d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")
     lift $ putMVar b bot >> return ()
@@ -659,7 +619,7 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                 else True
     let matchon = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
     let isaction = head msg == "\SOHACTION"
-    action <- lift $ ircAction False nick' [] defs'
+    action <- lift $ ircAction False nick' [] top defs'
     lift $ (if null chan then
                    if apm && not isaction then
                      sentenceReply st bot load nick' [] fmsg >> return ()
@@ -693,7 +653,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
     _    <- return p
     let n' = if nick' == chan then "somebody" else nick'
     let nn = if nick' == chan || null nick' then [] else nick' ++ ": "
-    action <- ircAction False n' [] defs'
+    action <- ircAction False n' [] top defs'
     if tc' < 10 && (read $ fHead [] load :: Float) < 2.3 then do
       if tc' > 4 then threadDelay (1000000 * tc') else return ()
       let num = if r - 4 < 1 || str < 4 || length m < 7 then 1 else r - 4
@@ -840,14 +800,14 @@ execCmd b chan nick' (x:xs) = do
                                                           show ((read $ head xs) :: DType) ++ " " ++ (unwords $ tail xs) ++ ".") >>
                                                         return bot{fugly=f{defs=defs' ++ [(read $ head xs, unwords $ tail xs)]}}
                                   else
-                                    replyMsgT st bot chan nick' "Usage: !insertdefault <Normal | Action | GreetAction | Greeting | Enter> <default>" >> return bot
+                                    replyMsgT st bot chan nick' "Usage: !insertdefault <Normal|Action|GreetAction|Greeting|Enter> <default>" >> return bot
                                 else return bot
       | x == "!dropdefault" = if nick' == owner' then
                                 if length xs > 1 then replyMsgT st bot chan nick' ("Dropped default " ++
                                                         show ((read $ head xs) :: DType) ++ " " ++ (unwords $ tail xs) ++ ".") >>
                                                       return bot{fugly=f{defs=filter (\(t, d) -> not (t == read (head xs) && d == unwords (tail xs))) defs'}}
                                 else
-                                  replyMsgT st bot chan nick' "Usage: !dropdefault <Normal | Action | GreetAction | Greeting | Enter> <default>" >> return bot
+                                  replyMsgT st bot chan nick' "Usage: !dropdefault <Normal|Action|GreetAction|Greeting|Enter> <default>" >> return bot
                               else return bot
       | x == "!dropword" = if nick' == owner' then case length xs of
           1 -> if isJust $ Map.lookup (xs!!0) dict' then

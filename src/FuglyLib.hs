@@ -26,6 +26,7 @@ module FuglyLib
          listWordsCountSort,
          listTopics,
          wordIs,
+         replace,
          cleanStringWhite,
          cleanStringBlack,
          cleanString,
