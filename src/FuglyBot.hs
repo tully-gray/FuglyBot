@@ -655,7 +655,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
     let nn = if nick' == chan || null nick' then [] else nick' ++ ": "
     action <- ircAction False n' [] top defs'
     if tc' < 10 && (read $ fHead [] load :: Float) < 2.3 then do
-      if tc' > 4 then threadDelay (1000000 * tc') else return ()
+      threadDelay (1200000 + 1500000 * tc')
       let num = if r - 4 < 1 || str < 4 || length m < 7 then 1 else r - 4
       x <- sentenceA lock fugly' d rw stopic rand str slen top m
       y <- sentenceB lock fugly' d rw stopic rand str slen plen top num m
