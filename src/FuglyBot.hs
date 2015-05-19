@@ -542,9 +542,9 @@ ircAction greet nick1 nick2 topic' defs' = do
 
 fixAction :: String -> String -> String -> String
 fixAction _  _ [] = []
-fixAction [] t m  = unwords $ replace "#topic" t $ replace "#nick" "somebody" $ words m
-fixAction n [] m  = unwords $ replace "#topic" "stuff" $ replace "#nick" n $ words m
-fixAction n  t m  = unwords $ replace "#topic" t $ replace "#nick" n $ words m
+fixAction [] t m  = dePlenk $ unwords $ replace "#topic" t $ replace "#nick" "somebody" $ words m
+fixAction n [] m  = dePlenk $ unwords $ replace "#topic" "stuff" $ replace "#nick" n $ words m
+fixAction n  t m  = dePlenk $ unwords $ replace "#topic" t $ replace "#nick" n $ words m
 
 greeting :: [String] -> StateT Fstate IO ()
 greeting []   = return ()
