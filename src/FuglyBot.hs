@@ -27,8 +27,8 @@ data Bot = Bot {
 
 data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | MaxChanMsg | Debug
                | SentenceTries | SentenceLength | ParseLength | Learning | StrictLearn | StrictTopic
-               | Autoname | AllowPM | Topic | Randoms | ReplaceWords | Timer | UnknownParam
-               | Parameter {
+               | Autoname | AllowPM | Topic | Randoms | ReplaceWords | Timer | Delay
+               | UnknownParam | Parameter {
                  nick        :: String,
                  owner       :: String,
                  fuglydir    :: FilePath,
@@ -48,7 +48,8 @@ data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | MaxChanMs
                  topic       :: String,
                  randoms     :: Int,
                  rwords      :: Bool,
-                 timer       :: Int
+                 timer       :: Int,
+                 delay       :: Int
                  }
                deriving (Eq, Ord, Show)
 
@@ -75,7 +76,8 @@ instance Enum Parameter where
     toEnum 17 = Randoms
     toEnum 18 = ReplaceWords
     toEnum 19 = Timer
-    toEnum 20 = UnknownParam
+    toEnum 20 = Delay
+    toEnum 21 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
@@ -96,8 +98,9 @@ instance Enum Parameter where
     fromEnum Randoms        = 17
     fromEnum ReplaceWords   = 18
     fromEnum Timer          = 19
-    fromEnum UnknownParam   = 20
-    fromEnum _              = 20
+    fromEnum Delay          = 20
+    fromEnum UnknownParam   = 21
+    fromEnum _              = 21
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -131,6 +134,7 @@ readParam a | (map toLower a) == "randoms"         = Randoms
 readParam a | (map toLower a) == "rwords"          = ReplaceWords
 readParam a | (map toLower a) == "replacewords"    = ReplaceWords
 readParam a | (map toLower a) == "timer"           = Timer
+readParam a | (map toLower a) == "delay"           = Delay
 readParam _                                        = UnknownParam
 
 type ChanNicks = Map.Map String [String]
@@ -175,7 +179,7 @@ start = do
     hSetBuffering sh NoBuffering
     (f, p) <- initFugly fdir wndir gfdir topic'
     let b = if null p then
-              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False False True False False topic' 50 False 0) f
+              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False False True False False topic' 50 False 0 2) f
               else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, dictfile=dfile}) f
     bot  <- newMVar b
     lock <- newMVar ()
@@ -350,13 +354,15 @@ readParamsFromList a = Parameter{nick="", owner="", fuglydir="", dictfile="", us
                                  slength=read (a!!4), plength=read (a!!5), learning=read (a!!6),
                                  strictlearn=read (a!!7), stricttopic=read (a!!8), autoname=read (a!!9),
                                  allowpm=read (a!!10), debug=read (a!!11), Main.topic=(a!!12),
-                                 randoms=read (a!!13), rwords=read (a!!14), timer=read (a!!15)}
+                                 randoms=read (a!!13), rwords=read (a!!14), timer=read (a!!15),
+                                 delay=read (a!!16)}
 
 paramsToList :: Parameter -> [String]
-paramsToList (Parameter _ _ _ _ uc rk mcm st sl pl l stl stt an apm d t r rw ti) = [show uc, show rk, show mcm, show st,
-                                                                                    show sl, show pl, show l, show stl,
-                                                                                    show stt, show an, show apm, show d,
-                                                                                    t, show r, show rw, show ti]
+paramsToList (Parameter _ _ _ _ uc rk mcm st sl pl l stl stt an apm d t r rw ti dl) =
+  [show uc, show rk, show mcm, show st,
+   show sl, show pl, show l, show stl,
+   show stt, show an, show apm, show d,
+   t, show r, show rw, show ti, show dl]
 paramsToList _ = []
 
 changeParam :: Bot -> String -> String -> String -> String -> StateT Fstate IO Bot
@@ -390,6 +396,7 @@ changeParam bot@Bot{sock=s, params=p@Parameter{nick=botnick, owner=owner', fugly
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
       ReplaceWords   -> replyMsg' (readBool value)      "Replace words"       >>= (\x -> return bot{params=p{rwords=x}})
       Timer          -> replyMsg' (readInt 0 36000 value)  "Timer"            >>= (\x -> return bot{params=p{timer=x}})
+      Delay          -> replyMsg' (readInt 0 120 value)    "Delay"            >>= (\x -> return bot{params=p{delay=x}})
       _              -> return bot
   where
     replyMsg' v msg = do replyMsg bot chan nick' (msg ++ " set to " ++ show v ++ ".") >> return v
@@ -643,7 +650,7 @@ sentenceReply _ _ _ _ _ [] = forkIO $ return ()
 sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
                 params=p@Parameter{stries=str, slength=slen, plength=plen,
                                    Main.topic=top, randoms=rand, rwords=rw,
-                                   stricttopic=stopic, debug=d},
+                                   stricttopic=stopic, debug=d, delay=dl},
                 fugly=fugly'@Fugly{defs=defs'}} load chan nick' m = forkIO (do
     tId  <- myThreadId
     tc'  <- incT tc tId
@@ -655,7 +662,8 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
     let nn = if nick' == chan || null nick' then [] else nick' ++ ": "
     action <- ircAction False n' [] top defs'
     if tc' < 10 && (read $ fHead [] load :: Float) < 2.3 then do
-      threadDelay (1200000 + 2500000 * tc' + 8000000 * rr)
+      let d1 = dl * 1000000
+      threadDelay (d1 + d1 * rr * 10)
       let num = if r - 4 < 1 || str < 4 || length m < 7 then 1 else r - 4
       x <- sentenceA lock fugly' d rw stopic rand str slen top m
       y <- sentenceB lock fugly' d rw stopic rand str slen plen top num m
@@ -693,7 +701,7 @@ execCmd b chan nick' (x:xs) = do
                                        dfile usercmd' rkick maxcmsg
                                        stries' slen plen learn slearn stopic
                                        autoname' allowpm' debug' topic' randoms'
-                                       rwords' timer'),
+                                       rwords' timer' delay'),
                      fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match')} st
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" = if nick' == owner' then case length xs of
@@ -744,7 +752,7 @@ execCmd b chan nick' (x:xs) = do
                    ++ "  autoname: " ++ show autoname' ++ "  allowpm: " ++ show allowpm'
                    ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms'
                    ++ "  replacewords: " ++ show rwords'
-                   ++ "  timer: " ++ show timer') >> return bot
+                   ++ "  timer: " ++ show timer' ++ "  delay: " ++ show delay') >> return bot
           _ -> replyMsgT st bot chan nick' "Usage: !showparams" >> return bot
                              else return bot
       | x == "!setparam" = if nick' == owner' then case length xs of
