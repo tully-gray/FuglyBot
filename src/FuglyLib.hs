@@ -1032,7 +1032,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
          3 -> "why would I want to " ++ if r < 50 then "do something like that" else unwords (drop 2 w)
          4 -> unwords (drop 2 w) ++ " is " ++ if r < 20 then "boring" else if r < 50 then "fun" else "certainly possible"
          _ -> [])
-      | r > 35 && elem (s2l w) qWords = do
+      | l > 2 && r > 25 && elem (s2l w) qWords || r > 65 && (map toLower $ unwords w) Regex.=~ intercalate "|" qWords = do
          ww <- filterWordPOS wne' (POS Noun) w
          let ww'  = filter (\x -> length x > 2 && (not $ elem x qWords)) ww
          let n'   = if null ww' then "thing" else ww'!!(mod r $ length ww')
@@ -1046,7 +1046,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
            5 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 5 5 topic' ["sometimes"]) [] 1 0 0 25 ; return $ unwords mm }
            6 -> return ("But " ++ noun ++ "s are boring.")
            7 -> do { mm <- fixIt st debug (return "Yes." : sentenceB' st fugly debug True rwords stopic 10 5 4 4 topic' [noun]) [] 2 0 0 20 ; return $ unwords mm }
-           8 -> return ("Let's discuss " ++ noun ++ " later.")
+           8 -> return ("Let's discuss " ++ noun ++ "s later.")
            _ -> return []
       | otherwise = return []
     s1l = map (\x -> map toLower x)
