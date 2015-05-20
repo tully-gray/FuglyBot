@@ -577,13 +577,15 @@ greeting line = do
         1 -> replyMsg bot chan [] "Good morning!"
         2 -> replyMsg bot chan [] "Hello friends."
         3 -> replyMsg bot chan [] "\SOHACTION wonders if this is the right channel.\SOH"
-        _ -> replyMsg bot chan [] $ if len_enter == 0 then "Hello world." else fixAction [] top $ enter!!mod r len_enter
+        _ -> replyMsg bot chan [] $ if len_enter == 0 then "Hello world." else
+                                      fixAction [] top $ enter!!mod r len_enter
       else if r < 600 then case mod r $ 6 + len_greet of
           0 -> replyMsg bot chan [] ("Hello " ++ who ++ ".")
           1 -> replyMsg bot chan [] ("Welcome to the channel, " ++ who ++ ".")
           2 -> replyMsg bot chan who "Greetings."
           3 -> replyMsg bot chan who "Hello."
-          _ -> replyMsg bot chan who $ if len_greet == 0 then "Hello." else fixAction who top $ greet!!mod r len_greet
+          _ -> replyMsg bot chan (if elem "#nick" line then [] else who) $
+               if len_greet == 0 then "Hello." else fixAction who top $ greet!!mod r len_greet
            else
              write s d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")
     lift $ putMVar b bot >> return ()
