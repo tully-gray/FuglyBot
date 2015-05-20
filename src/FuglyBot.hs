@@ -237,7 +237,9 @@ run = do
         let b  = getBot st
         bot@Bot{params=p@Parameter{nick=bn, owner=o, debug=d, greetings=g}} <- readMVar b
         let cn = getChanNicks st
+        r   <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
         cn' <- readMVar cn
+        let rr  = mod (r + length l + length (Map.toList cn') + 50) 100
         let ll  = words l
         let lll = take 2 $ drop 1 ll
         let lm  = unwords (drop 1 ll)
@@ -252,10 +254,10 @@ run = do
                 else swapMVar cn (Map.insert chan cnicks cn') >> return ()
               else if (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == bn then do
                 (do nb <- evalStateT (changeNick lll) st ; swapMVar b nb) >> return ()
-                else if (length ll > 2) && (fHead [] lll) == "JOIN" && mod (length l * 17 + length ll * 11 + 50) 100 < g then do
+                else if (length ll > 2) && (fHead [] lll) == "JOIN" && rr < g then do
                   evalStateT (greeting $ words l) st >> return ()
                    else do
-                     (catch (evalStateT (processLine $ words l) st >> return ())
+                     (catch (evalStateT (processLine rr $ words l) st >> return ())
                       (\e -> do let err = show (e :: SomeException)
                                 evalStateT (hPutStrLnLock stderr ("Exception in processLine: " ++ err)) st
                                 putMVar b bot
@@ -521,7 +523,7 @@ timerLoop st = do
           let who = if mod (r + 11) 3 == 0 then n' else chan in if r < acts * 10 then
             forkIO (evalStateT (write s d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
             else if r < 850 then
-              sentenceReply st bot load chan who $ words msg
+              sentenceReply st bot r load chan who $ words msg
                  else
                    forkIO $ replyMsgT st bot chan who msg
           else forkIO $ return ()
@@ -589,9 +591,9 @@ greeting line = do
     who  = getNick line
     chan = dropWhile (\x -> x == ':') $ getChannel line
 
-processLine :: [String] -> StateT Fstate IO ()
-processLine [] = return ()
-processLine line = do
+processLine :: Int -> [String] -> StateT Fstate IO ()
+processLine _ []   = return ()
+processLine r line = do
     b <- gets getBot
     bot@Bot{sock=s, params=p@Parameter{nick=n, rejoinkick=rk}} <- lift $ takeMVar b
     _ <- return p
@@ -603,23 +605,23 @@ processLine line = do
                                           else if (head $ head $ tail msg) == '!'
                                                then do nb <- execCmd bot chan who (tail msg)
                                                        lift $ putMVar b nb >> return ()
-                                               else do nb <- reply bot False chan who (tail msg)
+                                               else do nb <- reply bot r False chan who (tail msg)
                                                        lift $ putMVar b nb >> return ()
-                   else do nb <- reply bot True chan who msg ; lift $ putMVar b nb >> return ()
+                   else do nb <- reply bot r True chan who msg ; lift $ putMVar b nb >> return ()
   where
     msg  = getMsg line
     who  = getNick line
     chan = getChannel line
     prvcmd bot = if (length $ head msg) > 0 then
                    if (head $ head msg) == '!' then execCmd bot who who msg
-                   else reply bot False [] who msg
-                 else reply bot False [] who msg
+                   else reply bot r False [] who msg
+                 else reply bot r False [] who msg
 
-reply :: Bot -> Bool -> String -> String -> [String] -> StateT Fstate IO Bot
-reply bot _ _ _ [] = return bot
+reply :: Bot -> Int -> Bool -> String -> String -> [String] -> StateT Fstate IO Bot
+reply bot _ _ _ _ [] = return bot
 reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=plen, strictlearn=sl,
                                          autoname=an, allowpm=apm, debug=d, Main.topic=top, actions=acts},
-              fugly=f@Fugly{defs=defs', pgf=pgf', FuglyLib.match=match'}} chanmsg chan nick' msg = do
+              fugly=f@Fugly{defs=defs', pgf=pgf', FuglyLib.match=match'}} r chanmsg chan nick' msg = do
     st@(_, lock, _, _) <- get :: StateT Fstate IO Fstate
     _   <- return p
     let mmsg = if null $ head msg then msg
@@ -627,54 +629,56 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                    ':' -> tail msg
                    ',' -> tail msg
                    _   -> msg
-    let fmsg = map cleanString mmsg
     load <- lift getLoad
-    let parse = if sl then
-                   if (read $ fHead [] load :: Float) < 1.5 then gfParseBool pgf' plen $ unwords fmsg
-                   else False
-                else True
-    let matchon = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
+    let fload    = read $ fHead [] load :: Float
+    let rr       = mod (r + (floor $ fload * 5.1)) 100
+    let fmsg     = map cleanString mmsg
+    let parse    = if sl then
+                     if fload < 1.5 then gfParseBool pgf' plen $ unwords fmsg
+                     else False
+                   else True
+    let matchon  = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
     let isaction = head msg == "\SOHACTION"
-    let r = 20 * mod (length $ concat msg) 5
     action <- lift $ ircAction False nick' [] top defs'
     lift $ (if null chan then
                    if apm && not isaction then
-                     sentenceReply st bot load nick' [] fmsg >> return ()
+                     sentenceReply st bot rr load nick' [] fmsg >> return ()
                    else return ()
                  else if chanmsg then
                         if map toLower (unwords msg) =~ matchon then
-                          if isaction && r < acts  || r * 5 + 15 < acts then
+                          if isaction && rr < acts  || rr * 5 + 15 < acts then
                              evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st
-                            else sentenceReply st bot load chan chan fmsg >> return ()
+                            else sentenceReply st bot rr load chan chan fmsg >> return ()
                         else return ()
-                      else sentenceReply st bot load chan nick' fmsg >> return ())
+                      else sentenceReply st bot rr load chan nick' fmsg >> return ())
     if ((nick' == o && null chan) || parse) && l && not isaction then do
       nd <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd}} else
       return bot
-reply bot _ _ _ _ = return bot
+reply bot _ _ _ _ _ = return bot
 
-sentenceReply :: Fstate -> Bot -> [String] -> String -> String -> [String] -> IO ThreadId
-sentenceReply _ _ _ _ _ [] = forkIO $ return ()
+sentenceReply :: Fstate -> Bot -> Int -> [String] -> String -> String -> [String] -> IO ThreadId
+sentenceReply _ _ _ _ _ _ [] = forkIO $ return ()
 sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
                 params=p@Parameter{stries=str, slength=slen, plength=plen,
                                    Main.topic=top, randoms=rand, rwords=rw,
                                    stricttopic=stopic, debug=d, delay=dl},
-                fugly=fugly'@Fugly{defs=defs'}} load chan nick' m = forkIO (do
+                fugly=fugly'@Fugly{defs=defs'}} r load chan nick' m = forkIO (do
     tId  <- myThreadId
     tc'  <- incT tc tId
     _    <- if d then evalStateT (hPutStrLnLock stdout ("> debug: thread count: " ++ show tc')) st else return ()
-    r    <- Random.getStdRandom (Random.randomR (1, 7 :: Int)) :: IO Int
-    rr   <- Random.getStdRandom (Random.randomR (0, 4 :: Int)) :: IO Int
     _    <- return p
-    let n' = if nick' == chan then "somebody" else nick'
-    let nn = if nick' == chan || null nick' then [] else nick' ++ ": "
+    let fload = read $ fHead [] load :: Float
+    let r'    = 1 + mod r 7
+    let rr    = mod (r + floor (fload * 2.3)) 5
+    let n'    = if nick' == chan then "somebody" else nick'
+    let nn    = if nick' == chan || null nick' then [] else nick' ++ ": "
     action <- ircAction False n' [] top defs'
-    if tc' < 10 && (read $ fHead [] load :: Float) < 2.3 then do
+    if tc' < 10 && fload < 2.3 then do
       let d1 = dl * 1000000
-      threadDelay (d1 * (1 + if rr - 2 > 0 then rr - 2 else 0 * 3 + if r - 3 > 0 then r - 3 else 0 * 9))
-      let num = if r - 4 < 1 || str < 4 || length m < 7 then 1 else r - 4
+      threadDelay (d1 * (1 + if rr - 2 > 0 then rr - 2 else 0 * 3 + if r' - 3 > 0 then r' - 3 else 0 * 9))
+      let num = if r' - 4 < 1 || str < 4 || length m < 7 then 1 else r' - 4
       x <- sentenceA lock fugly' d rw stopic rand str slen top m
       y <- sentenceB lock fugly' d rw stopic rand str slen plen top num m
       let ww = unwords $ if null x then y else x
@@ -682,7 +686,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
                        else if null nick' || nick' == chan || rr == 0 then
                                write h d "PRIVMSG" $ chan ++ " :" ++ ww
                             else write h d "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ ww) st
-      else replyMsgT st bot chan [] $ case mod (r * rr * 3) 13 of
+      else replyMsgT st bot chan [] $ case mod r 13 of
         1 -> nn ++ "I don't know if you're making any sense."
         2 -> nn ++ "I can't chat now, sorry."
         3 -> nn ++ "Let's discuss this later."
@@ -694,7 +698,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
         9 -> "All this chat is making me thirsty."
         _ -> []
     decT tc tId)
-sentenceReply _ _ _ _ _ _ = forkIO $ return ()
+sentenceReply _ _ _ _ _ _ _ = forkIO $ return ()
 
 execCmd :: Bot -> String -> String -> [String] -> StateT Fstate IO Bot
 execCmd b _ _ [] = lift $ return b
@@ -954,7 +958,8 @@ execCmd b chan nick' (x:xs) = do
           if nick' == owner' then
             if length xs > 2 then do
               load <- getLoad
-              sentenceReply st bot load (xs!!0) (xs!!1) (drop 2 xs) >> return bot
+              let fload = read $ fHead [] load :: Float
+              sentenceReply st bot (floor $ fload * 35) load (xs!!0) (xs!!1) (drop 2 xs) >> return bot
             else replyMsgT st bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
             else return bot
       | x == "!raw" = if nick' == owner' then
