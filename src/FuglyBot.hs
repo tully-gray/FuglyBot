@@ -1087,7 +1087,7 @@ internalize st b n msg = internalize' st b n 0 msg
                                                 stricttopic=stopic, randoms=rands}, fugly=f}
       num i imsg = do
       _   <- return p
-      sen <- getSentence $ sentenceB' (getLock st') f d rw stopic rands tries slen plen topic' $ words imsg
+      sen <- getSentence $ sentenceB' (getLock st') f d False rw stopic rands tries slen plen topic' $ words imsg
       nd  <- insertWords (getLock st') f aname topic' $ words sen
       r   <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
       if i >= num then return bot

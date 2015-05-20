@@ -977,17 +977,18 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
     s1a :: Int -> Int -> [String] -> IO String
     s1a _ _ [] = return []
     s1a r l w
-      | s2l w == "test" = return (case mod r 10 of
+      | l < 7 && r < 31 && s2l w == "test" = return (case mod r 4 of
          0 -> "what are we testing"
          1 -> "but I don't want to test"
          2 -> "is this just a test"
          3 -> "test it yourself"
          _ -> [])
-      | l < 8 && r < 60 && (map toLower $ unwords w) Regex.=~ "really" = return (case mod r 3 of
+      | l < 8 && r < 17 && (map toLower $ unwords w) Regex.=~ "really" = return (case mod r 3 of
          0 -> let n = if r < 40 then "no, " else [] in n ++ "not really"
          1 -> "yes really"
+         2 -> "oh really"
          _ -> [])
-      | (map toLower $ unwords w) Regex.=~ "lol|haha|hehe|rofl|lmao" = return (case mod r 10 of
+      | l < 9 && r < 65 && (map toLower $ unwords w) Regex.=~ "lol|haha|hehe|rofl|lmao" = return (case mod r 8 of
          0 -> "very funny"
          1 -> "hilarious, I'm sure"
          2 -> "what's so funny"
@@ -997,7 +998,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
          6 -> "I'm glad you think this is funny"
          7 -> "seriously"
          _ -> [])
-      | s2l w Regex.=~ "hello|greetings|hi|welcome" = return (case mod r 8 of
+      | l < 7 && s2l w Regex.=~ "hello|greetings|hi|welcome" = return (case mod r 6 of
          0 -> "hello my friend"
          1 -> "hi there"
          2 -> "thanks"
@@ -1006,13 +1007,13 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
          5 -> "hey what's going on"
          _ -> [])
       | l > 2 && s2l w == "hey" = do
-          m' <- fixIt st debug (sentenceB' st fugly debug rwords stopic randoms 10 23 7 topic' (drop 2 w)
+          m' <- fixIt st debug (sentenceB' st fugly debug False rwords stopic randoms stries slen 5 topic' (drop 2 w)
                                 ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
           return $ unwords x'
       | (map toLower $ unwords w) Regex.=~ "rhyme|rhymes|sing.*|song|songs" || r > 87 = do
-          m' <- fixIt st debug (sentenceB' st fugly debug rwords stopic randoms 5 5 5 topic' w
+          m' <- fixIt st debug (sentenceB' st fugly debug False rwords stopic randoms stries slen 5 topic' w
                                 ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
@@ -1033,23 +1034,23 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
          3 -> "why would I want to " ++ if r < 50 then "do something like that" else unwords (drop 2 w)
          4 -> unwords (drop 2 w) ++ " is " ++ if r < 20 then "boring" else if r < 50 then "fun" else "certainly possible"
          _ -> [])
-      | elem (s2l w) qWords = do
+      | l > 2 && l < 12 && r > 65 && elem (s2l w) qWords = do
          ww <- filterWordPOS wne' (POS Noun) w
          let ww'  = filter (\x -> length x > 2) ww
          let n'   = if null ww' then "thing" else ww'!!(mod r $ length ww')
          let noun = if last n' == 's' then init n' else n'
-         return (case mod r 14 of
-           0 -> "yes, the " ++ noun ++ " is okay."
-           1 -> "no, not really"
-           2 -> "maybe, but I don't really like " ++ noun ++ "s"
-           3 -> "I'm not really sure"
-           4 -> "let me get back to you on that"
-           5 -> "I think the " ++ noun ++ " is hungry"
-           6 -> "only sometimes"
-           7 -> noun ++ "s are boring"
-           8 -> "I think so, yeah"
-           9 -> "let's discuss this later"
-           _ -> [])
+         case mod r 10 of
+           0 -> return ("yes, the " ++ noun ++ " is okay.")
+           1 -> return "no, not really"
+           2 -> return ("maybe, but I don't really like " ++ noun ++ "s")
+           3 -> return "I'm not really sure"
+           4 -> return "let me get back to you on that"
+           5 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic 75 5 6 5 topic' [noun]) [] 1 0 0 30 ; return $ unwords mm }
+           6 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 5 5 topic' ["sometimes"] ++ [return "hmm sometimes"]) [] 1 0 0 25 ; return $ unwords mm }
+           7 -> return (noun ++ "s are boring")
+           8 -> return "I think so, yeah"
+           9 -> return "let's discuss this later"
+           _ -> return []
       | otherwise = return []
     s1l = map (\x -> map toLower x)
     s2l x = map toLower $ head x
@@ -1058,18 +1059,18 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
                                  else return $ ry!!(mod rr (length ry))) mm
 
 sentenceB :: (MVar ()) -> Fugly -> Bool -> Bool -> Bool -> Int -> Int -> Int
-              -> Int-> String -> Int -> [String] -> IO [String]
+             -> Int-> String -> Int -> [String] -> IO [String]
 sentenceB st fugly@Fugly{pgf=pgf'} debug rwords stopic randoms stries slen plen topic' num msg = do
-  m <- chooseWord msg
-  let mm = if length msg < 4 || mod (length $ concat msg) 3 == 0 then msg else m
-  fixIt st debug (sentenceB' st fugly debug rwords stopic randoms stries slen plen topic' mm ++
-                  [gfRandom pgf' []]) [] num 0 0 (stries * slen)
+    m <- chooseWord msg
+    let mm = if length msg < 4 || mod (length $ concat msg) 3 == 0 then msg else m
+    fixIt st debug (sentenceB' st fugly debug False rwords stopic randoms stries slen plen topic' mm ++
+                    [gfRandom pgf' []]) [] num 0 0 (stries * slen)
 
-sentenceB' :: (MVar ()) -> Fugly -> Bool -> Bool -> Bool -> Int -> Int -> Int
-               -> Int-> String -> [String] -> [IO String]
-sentenceB' _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
+sentenceB' :: (MVar ()) -> Fugly -> Bool -> Bool -> Bool -> Bool -> Int -> Int
+              -> Int -> Int -> String -> [String] -> [IO String]
+sentenceB' _ _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
 sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
-  debug rwords stopic randoms stries slen plen topic' msg = do
+  debug first rwords stopic randoms stries slen plen topic' msg = do
     let s1h n a x = let out = if a then map toUpper x else if n then x else map toLower x in
           if isJust $ Map.lookup out dict' then out else []
     let s1a x = do
@@ -1079,9 +1080,10 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
           let zz = fHead [] z
           y <- findNextWord fugly 1 randoms True stopic topic' zz
           let yy = fHead [] y
-          let c = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
-          w   <- s1b fugly slen c $ findNextWord fugly 1 randoms False stopic topic' x
-          let d = [yy] ++ [zz] ++ [s1h n a x] ++ w
+          let c  = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
+          w  <- s1b fugly slen c $ findNextWord fugly 1 randoms False stopic topic' x
+          ww <- s1b fugly slen 0 $ return msg
+          let d  = if first then ww else [yy] ++ [zz] ++ [s1h n a x] ++ w
           wnReplaceWords fugly rwords randoms $ filter (not . null) $ take (stries * slen) d
     let s1d x = do
           w <- x
