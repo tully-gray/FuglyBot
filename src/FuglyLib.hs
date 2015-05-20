@@ -966,90 +966,87 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
                             else "Not a GF type."
 
 sentenceA :: MVar () -> Fugly -> Bool -> Bool -> Bool -> Int -> Int
-             -> Int -> String -> [String] -> IO [String]
+             -> Int -> String -> [String] -> IO String
 sentenceA _ _ _ _ _ _ _ _ _ [] = return []
 sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
   debug rwords stopic randoms stries slen topic' msg = do
     r <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
-    m <- s1a r (length msg) msg
-    wnReplaceWords fugly rwords randoms $ toUpperSentence $ endSentence $ replace "i" "I" $ words m
+    s1a r (length msg) msg
   where
     s1a :: Int -> Int -> [String] -> IO String
     s1a _ _ [] = return []
     s1a r l w
       | l < 7 && r < 31 && s2l w == "test" = return (case mod r 4 of
-         0 -> "what are we testing"
-         1 -> "but I don't want to test"
-         2 -> "is this just a test"
-         3 -> "test it yourself"
+         0 -> "What are we testing?"
+         1 -> "But I don't want to test..."
+         2 -> "Is this just a test?"
+         3 -> "Test it yourself."
          _ -> [])
       | l < 8 && r < 17 && (map toLower $ unwords w) Regex.=~ "really" = return (case mod r 3 of
-         0 -> let n = if r < 40 then "no, " else [] in n ++ "not really"
-         1 -> "yes really"
-         2 -> "oh really"
+         0 -> "Not really."
+         1 -> "Yes really."
+         2 -> "Oh really."
          _ -> [])
-      | l < 9 && r < 65 && (map toLower $ unwords w) Regex.=~ "lol|haha|hehe|rofl|lmao" = return (case mod r 8 of
-         0 -> "very funny"
-         1 -> "hilarious, I'm sure"
-         2 -> "what's so funny"
-         3 -> "it's not funny"
-         4 -> "please don't laugh"
-         5 -> "oh really"
-         6 -> "I'm glad you think this is funny"
-         7 -> "seriously"
+      | l < 9 && r < 65 && (map toLower $ unwords w) Regex.=~ "lol|haha|hehe|rofl|lmao" = return (case mod r 7 of
+         0 -> "Very funny."
+         1 -> "What's so funny?"
+         2 -> "It's not funny."
+         3 -> "Please don't laugh."
+         4 -> "Oh really."
+         5 -> "I'm glad you think this is funny."
+         6 -> "Seriously."
          _ -> [])
       | l < 7 && s2l w Regex.=~ "hello|greetings|hi|welcome" = return (case mod r 6 of
-         0 -> "hello my friend"
-         1 -> "hi there"
-         2 -> "thanks"
-         3 -> "hey there pal"
-         4 -> "good morning"
-         5 -> "hey what's going on"
+         0 -> "Hello my friend."
+         1 -> "Hi there."
+         2 -> "Thanks."
+         3 -> "Hey there pal."
+         4 -> "Good morning."
+         5 -> "Hey, what's going on?"
          _ -> [])
       | l > 2 && s2l w == "hey" = do
           m' <- fixIt st debug (sentenceB' st fugly debug False rwords stopic randoms stries slen 5 topic' (drop 2 w)
                                 ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
-          return $ unwords x'
+          return $ unwords $ toUpperSentence $ endSentence x'
       | (map toLower $ unwords w) Regex.=~ "rhyme|rhymes|sing.*|song|songs" || r > 87 = do
           m' <- fixIt st debug (sentenceB' st fugly debug False rwords stopic randoms stries slen 5 topic' w
                                 ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
           w' <- s1r r m'
           x' <- asReplaceWords st fugly w'
-          return $ unwords x'
+          return $ unwords $ toUpperSentence $ endSentence x'
       | l > 3 && (s1l $ take 3 w) == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want"] =
         let s1b rr ww = ww!!2 Regex.=~ "like|hate|love|have|want" ++ " " ++
                         if rr < 20 then "it" else if rr < 40 then "that" else unwords (drop 3 ww) in
-          return (case mod r 6 of
+          return $ unwords $ toUpperSentence $ endSentence $ words (case mod r 6 of
             0 -> "I don't " ++ s1b r w
             1 -> "yeah, I " ++ s1b r w
             2 -> "sometimes I " ++ s1b r w
             3 -> unwords (drop 3 w) ++ " is " ++ if r < 50 then "not" else "" ++ " something I " ++ w!!2 Regex.=~ "like|hate|love|have|want"
             _ -> [])
-      | l > 2 && (s1l $ take 2 w) == ["can", "you"] = return (case mod r 7 of
+      | l > 2 && (s1l $ take 2 w) == ["can", "you"] = return $ unwords $ toUpperSentence $ endSentence $ words (case mod r 7 of
          0 -> "no I can't " ++ if r < 35 then "" else unwords (drop 2 w)
          1 -> "sure, I can " ++ if r < 40 then "do that" else unwords (drop 2 w)
          2 -> "it depends"
          3 -> "why would I want to " ++ if r < 50 then "do something like that" else unwords (drop 2 w)
          4 -> unwords (drop 2 w) ++ " is " ++ if r < 20 then "boring" else if r < 50 then "fun" else "certainly possible"
          _ -> [])
-      | l > 2 && l < 12 && r > 65 && elem (s2l w) qWords = do
+      | r > 35 && elem (s2l w) qWords = do
          ww <- filterWordPOS wne' (POS Noun) w
-         let ww'  = filter (\x -> length x > 2) ww
+         let ww'  = filter (\x -> length x > 2 && (not $ elem x qWords)) ww
          let n'   = if null ww' then "thing" else ww'!!(mod r $ length ww')
          let noun = if last n' == 's' then init n' else n'
-         case mod r 10 of
-           0 -> return ("yes, the " ++ noun ++ " is okay.")
-           1 -> return "no, not really"
-           2 -> return ("maybe, but I don't really like " ++ noun ++ "s")
-           3 -> return "I'm not really sure"
-           4 -> return "let me get back to you on that"
-           5 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic 75 5 6 5 topic' [noun]) [] 1 0 0 30 ; return $ unwords mm }
-           6 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 5 5 topic' ["sometimes"] ++ [return "hmm sometimes"]) [] 1 0 0 25 ; return $ unwords mm }
-           7 -> return (noun ++ "s are boring")
-           8 -> return "I think so, yeah"
-           9 -> return "let's discuss this later"
+         case mod r 9 of
+           0 -> do { mm <- fixIt st debug (return ("Yes, the " ++ noun ++ " is okay.") : sentenceB' st fugly debug True rwords stopic 30 5 5 5 topic' [noun]) [] 2 0 0 25 ; return $ unwords mm }
+           1 -> do { mm <- fixIt st debug (return "No, not really." : sentenceB' st fugly debug True rwords stopic 30 5 7 7 topic' [noun]) [] 2 0 0 49 ; return $ unwords mm }
+           2 -> return ("Maybe, but I don't really like " ++ noun ++ "s.")
+           3 -> return ("I'm not really sure about " ++ noun ++ "s.")
+           4 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic 75 5 6 5 topic' [noun]) [] 1 0 0 30 ; return $ unwords mm }
+           5 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 5 5 topic' ["sometimes"]) [] 1 0 0 25 ; return $ unwords mm }
+           6 -> return ("But " ++ noun ++ "s are boring.")
+           7 -> do { mm <- fixIt st debug (return "Yes." : sentenceB' st fugly debug True rwords stopic 10 5 4 4 topic' [noun]) [] 2 0 0 20 ; return $ unwords mm }
+           8 -> return ("Let's discuss " ++ noun ++ " later.")
            _ -> return []
       | otherwise = return []
     s1l = map (\x -> map toLower x)
@@ -1139,7 +1136,7 @@ fixIt st d (x:xs) a n i j s = do
     _  <- if d then evalStateT (hPutStrLnLock stdout ("> debug: fixIt try: " ++ show j)) st else return ()
     if i >= n || j > s * n then return a
       else if null xx then fixIt st d xs a n i (j + 1) s
-      else fixIt st d xs ([xx ++ " "] ++ a) n (i + 1) j s
+      else fixIt st d xs (a ++ [(if null a then [] else " ") ++ xx]) n (i + 1) j s
 
 insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
 insertCommas wne' i w = do

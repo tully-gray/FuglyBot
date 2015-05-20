@@ -584,8 +584,8 @@ greeting line = do
           1 -> replyMsg bot chan [] ("Welcome to the channel, " ++ who ++ ".")
           2 -> replyMsg bot chan who "Greetings."
           3 -> replyMsg bot chan who "Hello."
-          _ -> replyMsg bot chan (if elem "#nick" line then [] else who) $
-               if len_greet == 0 then "Hello." else fixAction who top $ greet!!mod r len_greet
+          _ -> let l = if len_greet == 0 then "Hello." else greet!!mod r len_greet in
+            replyMsg bot chan (if elem "#nick" $ words l then [] else who) $ fixAction who top l
            else
              write s d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")
     lift $ putMVar b bot >> return ()
@@ -648,7 +648,7 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                    else return ()
                  else if chanmsg then
                         if map toLower (unwords msg) =~ matchon then
-                          if isaction && rr < acts  || rr * 5 + 15 < acts then
+                          if isaction && rr - 60 < acts  || rr * 5 + 15 < acts then
                              evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st
                             else sentenceReply st bot rr load chan chan fmsg >> return ()
                         else return ()
@@ -679,11 +679,11 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
     action <- ircAction False n' [] top defs'
     if tc' < 10 && fload < 2.3 then do
       let d1 = dl * 1000000
-      threadDelay (d1 * (1 + if rr - 2 > 0 then rr - 2 else 0 * 3 + if r' - 3 > 0 then r' - 3 else 0 * 9))
+      threadDelay (d1 * (1 + if rr - 2 > 0 then rr - 2 else 0 * 3 + if r' - 3 > 0 then r' - 3 else 0 * 23))
       let num = if r' - 4 < 1 || str < 4 || length m < 7 then 1 else r' - 4
       x <- sentenceA lock fugly' d rw stopic rand str slen top m
       y <- sentenceB lock fugly' d rw stopic rand str slen plen top num m
-      let ww = unwords $ if null x then y else x
+      let ww = if null x then unwords y else x
       evalStateT (do if null ww then return ()
                        else if null nick' || nick' == chan || rr == 0 then
                                write h d "PRIVMSG" $ chan ++ " :" ++ ww
