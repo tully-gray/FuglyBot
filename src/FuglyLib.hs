@@ -680,7 +680,7 @@ joinWords a s  = joinWords' a $ filter (not . null) s
     joinWords' _ [] = []
     joinWords' a' (x:xs)
       | (fHead ' ' x) == a' = unwords (x : (take num xs)) : joinWords a' (drop num xs)
-      | otherwise                       = x : joinWords a' xs
+      | otherwise           = x : joinWords a' xs
       where
         num = (fromMaybe 0 (elemIndex a' $ map (\y -> fLast '!' y) xs)) + 1
 
@@ -832,15 +832,38 @@ wnMeet w c d e  = do
     let wnPos = fromEPOS $ readEPOS e
     s1 <- runs w $ search (fixUnderscore c) wnPos 1
     s2 <- runs w $ search (fixUnderscore d) wnPos 1
-    let r1 = runs w s1
-    let r2 = runs w s2
-    m <- runs w $ meet emptyQueue (head $ r1) (head $ r2)
-    if not (null r1) && not (null r2) then do
+    m  <- runs w $ meet emptyQueue (head s1) (head s2)
+    if not (null s1) && not (null s2) then do
         let result = m
         if isNothing result then return [] else
             return $ replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $
                     getWords $ getSynset $ fromJust result
         else return []
+
+sentenceMeet :: WordNetEnv -> String -> [String] -> StateT (MVar ()) IO (Bool, String)
+sentenceMeet _ _ [] = return (False, [])
+sentenceMeet w s m  = do
+    l    <- get :: StateT (MVar ()) IO (MVar ())
+    lock <- lift $ takeMVar l
+    out  <- lift $ sentenceMeet' s m
+    lift $ putMVar l lock
+    return out
+  where
+    sentenceMeet' :: String -> [String] -> IO (Bool, String)
+    sentenceMeet' _  []     = return (False, [])
+    sentenceMeet' s' (x:xs) = do
+        a <- catch (meet' s' x) (\e -> return (e :: SomeException) >> return [])
+        if null a then sentenceMeet' s' xs
+          else if fHead [] a == s' then return (True, x)
+               else sentenceMeet' s' xs
+    meet' c d = do
+      s1 <- runs w $ search c Noun 1
+      s2 <- runs w $ search d Noun 1
+      if null s1 || null s2 then return []
+        else do
+          m' <- runs w $ meet emptyQueue (head s1) (head s2)
+          if isNothing m' then return []
+            else return $ getWords $ getSynset $ fromJust m'
 
 asIsName :: (MVar ()) -> Aspell.SpellChecker -> String -> IO Bool
 asIsName _ _ []    = return False
@@ -1048,6 +1071,24 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
            7 -> do { mm <- fixIt st debug (return "Yes." : sentenceB' st fugly debug True rwords stopic 10 5 4 4 topic' [noun]) [] 2 0 0 20 ; return $ unwords mm }
            8 -> return ("Let's discuss " ++ noun ++ "s later.")
            _ -> return []
+      | l > 3 && l < 10 && r > 50 = do
+          let rr = mod r 5
+          let t  = case rr of
+                0 -> "food"
+                1 -> "animal"
+                2 -> "tool"
+                3 -> "abstraction"
+                4 -> "group"
+                _ -> []
+          (a, b) <- evalStateT (sentenceMeet wne' t w) st
+          if a then case rr of
+                0 -> return ("Food is delicious, especially " ++ b ++ "!")
+                1 -> return ("Animals are cute, I really like the " ++ b ++ ".")
+                2 -> return "Tools are very useful things."
+                3 -> return "This is too abstract for me."
+                4 -> return "Something about groups is creepy."
+                _ -> return []
+            else return []
       | otherwise = return []
     s1l = map (\x -> map toLower x)
     s2l x = map toLower $ head x
