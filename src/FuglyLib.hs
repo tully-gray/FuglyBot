@@ -854,7 +854,7 @@ sentenceMeet w s m  = do
     sentenceMeet' s' (x:xs) = do
         a <- catch (meet' s' x) (\e -> return (e :: SomeException) >> return [])
         if null a then sentenceMeet' s' xs
-          else if fHead [] a == s' then return (True, x)
+          else if fHead [] a == s' && length x > 2 then return (True, x)
                else sentenceMeet' s' xs
     meet' c d = do
       s1 <- runs w $ search c Noun 1
@@ -999,6 +999,13 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
     s1a :: Int -> Int -> [String] -> IO String
     s1a _ _ [] = return []
     s1a r' l w
+      | l == 1 && r < 70 = do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 10 5 5 topic' w) [] 1 0 0 50 ; return $ unwords mm }
+      | l < 4 && r < 60 || r + r' < 30 = case mod r' 4 of
+         0 -> do { mm <- fixIt st debug (return ("Do you like " ++ topic' ++ "?") : sentenceB' st fugly debug True rwords stopic 5 10 4 4 topic' [topic']) [] 2 0 0 40 ; return $ unwords mm }
+         1 -> do { mm <- fixIt st debug (return ("Not really.") : sentenceB' st fugly debug True rwords stopic randoms 10 6 6 topic' (words "perhaps you")) [] 2 0 0 60 ; return $ unwords mm }
+         2 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic 75 10 7 7 topic' $ words "can you") [] 1 0 0 70 ; return $ unwords mm }
+         3 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 10 6 6 topic' $ words "I think that") [] 1 0 0 60 ; return $ unwords mm }
+         _ -> return []
       | l < 7 && r' < 31 && s2l w == "test" = return (case mod r' 4 of
          0 -> "What are we testing?"
          1 -> "But I don't want to test..."
@@ -1019,7 +1026,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
          5 -> "I'm glad you think this is funny."
          6 -> "Seriously."
          _ -> [])
-      | l < 7 && s2l w Regex.=~ "hello|greetings|hi|welcome" = return (case mod r' 6 of
+      | l < 7 && s2l w Regex.=~ "hello|greetings|welcome" = return (case mod r' 6 of
          0 -> "Hello my friend."
          1 -> "Hi there."
          2 -> "Thanks."
@@ -1062,13 +1069,13 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
          let noun = if last n' == 's' then init n' else n'
          case mod r' 9 of
            0 -> do { mm <- fixIt st debug (return ("Yes, the " ++ noun ++ " is okay.") : sentenceB' st fugly debug True rwords stopic 30 5 5 5 topic' [noun]) [] 2 0 0 25 ; return $ unwords mm }
-           1 -> do { mm <- fixIt st debug (return "No, not really." : sentenceB' st fugly debug True rwords stopic 30 5 7 7 topic' [noun]) [] 2 0 0 49 ; return $ unwords mm }
+           1 -> do { mm <- fixIt st debug (return "No, not really." : sentenceB' st fugly debug True rwords stopic 30 5 7 7 topic' [noun]) [] 2 0 0 35 ; return $ unwords mm }
            2 -> return ("Maybe, but I don't really like " ++ noun ++ "s.")
            3 -> return ("I'm not really sure about " ++ noun ++ "s.")
-           4 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic 75 5 6 5 topic' [noun]) [] 1 0 0 30 ; return $ unwords mm }
+           4 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic 75 5 6 6 topic' [noun]) [] 1 0 0 30 ; return $ unwords mm }
            5 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 5 5 topic' ["sometimes"]) [] 1 0 0 25 ; return $ unwords mm }
            6 -> return ("But " ++ noun ++ "s are boring.")
-           7 -> do { mm <- fixIt st debug (return "Yes." : sentenceB' st fugly debug True rwords stopic 10 5 4 4 topic' [noun]) [] 2 0 0 20 ; return $ unwords mm }
+           7 -> do { mm <- fixIt st debug (return "Yes." : sentenceB' st fugly debug True rwords stopic 10 5 7 7 topic' ["the", noun, "is"]) [] 2 0 0 35 ; return $ unwords mm }
            8 -> return ("Let's discuss " ++ noun ++ "s later.")
            _ -> return []
       | l > 3 && l < 15 = do
@@ -1085,19 +1092,19 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
                 0 -> case rb of
                   0 -> return ("Food is delicious, especially " ++ b ++ "!")
                   1 -> return ("I like to eat the " ++ b ++ ".")
-                  _ -> do { mm <- fixIt st debug (return ("Oh yes, " ++ b ++ ".") : sentenceB' st fugly debug True rwords stopic randoms 5 5 5 topic' [b, "tasty", "food"]) [] 2 0 0 25 ; return $ unwords mm }
+                  _ -> do { mm <- fixIt st debug (return ("Oh yes, " ++ b ++ ".") : sentenceB' st fugly debug True rwords stopic randoms 5 9 9 topic' [b, "is", "tasty", "and"]) [] 2 0 0 45 ; return $ unwords mm }
                 1 -> case rb of
                   0 -> return ("Animals are cute, I really like the " ++ b ++ ".")
                   1 -> return ("The " ++ b ++ " is an adorable animal.")
-                  _ -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 8 5 5 topic' [b, "adorable"]) [] 1 0 0 40 ; return $ unwords mm }
+                  _ -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 8 5 5 topic' [b, "is", "adorable"]) [] 1 0 0 40 ; return $ unwords mm }
                 2 -> case rb of
                   0 -> return "Tools are very useful things."
                   1 -> return ("Can you please lend me your " ++ b ++ "?")
-                  _ -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 6 6 topic' [b, "tools"]) [] 1 0 0 30 ; return $ unwords mm }
+                  _ -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 6 6 topic' ["tools"]) [] 1 0 0 30 ; return $ unwords mm }
                 3 -> case rb of
                   0 -> return "This is too abstract for me."
                   1 -> return ("I find " ++ b ++ " to be a rather esoteric subject for discussion.")
-                  _ -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 9 9 topic' [b, "abstract", "esoteric"]) [] 1 0 0 45 ; return $ unwords mm }
+                  _ -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 9 9 topic' ["abstract", b, "is"]) [] 1 0 0 45 ; return $ unwords mm }
                 _ -> return []
             else return []
       | otherwise = return []
