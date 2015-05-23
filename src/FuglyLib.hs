@@ -1019,8 +1019,7 @@ sentenceA _ _ _ _ _ _ _ _ _ _ [] = return []
 sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
   r debug rwords stopic randoms stries slen topic' msg = do
     rr  <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
-    out <- s1a rr (length msg) msg
-    return $ dedup out
+    s1a rr (length msg) msg
   where
     s1a :: Int -> Int -> [String] -> IO String
     s1a _ _ [] = return []
