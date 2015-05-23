@@ -678,9 +678,11 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
     let nn    = if nick' == chan || null nick' then [] else nick' ++ ": "
     action <- ircAction False n' [] top defs'
     if tc' < 10 && fload < 2.3 then do
-      let d1 = dl * 1000000
-      threadDelay (d1 * (1 + (if rr - 2 > 0 then rr - 2 else 0) * 3 + (if r' - 3 > 0 then r' - 3 else 0) * 23))
-      let num = if r' - 4 < 1 || str < 4 || length m < 7 then 1 else r' - 4
+      let d1     = dl * 1000000
+      let bdelay = (if r' - 3 > 0 then r' - 3 else 0) * 23
+          sdelay = (if rr - 2 > 0 then rr - 2 else 0) * 3 in
+        threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
+      let num    = if r' - 4 < 1 || str < 4 || length m < 7 then 1 else r' - 4
       x <- sentenceA lock fugly' r d rw stopic rand str slen top m
       y <- sentenceB lock fugly' d rw stopic rand str slen plen top num m
       let ww = if null x then unwords y else x
