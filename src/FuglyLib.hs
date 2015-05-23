@@ -338,16 +338,17 @@ insertWords :: (MVar ()) -> Fugly -> Bool -> String -> [String] -> IO Dict
 insertWords _  Fugly{dict=d}  _ _    []   = return d
 insertWords st fugly autoname topic' [x]  = insertWord st fugly autoname topic' x [] [] []
 insertWords st fugly@Fugly{dict=dict'} autoname topic' msg =
-  let mx = fHead [] msg
-      my = if len > 1 then msg!!1 else [] in
+  let mx = fHead [] dmsg
+      my = if len > 1 then dmsg!!1 else [] in
   case (len) of
     0 -> return dict'
     1 -> return dict'
     2 -> do ff <- insertWord st fugly autoname topic' mx [] my []
             insertWord st fugly{dict=ff} autoname topic' my mx [] []
-    _ -> insertWords' st fugly autoname topic' 0 len msg
+    _ -> insertWords' st fugly autoname topic' 0 len dmsg
   where
-    len  = length msg
+    dmsg = dedup msg
+    len  = length dmsg
     insertWords' _ (Fugly{dict=d}) _ _ _ _ [] = return d
     insertWords' st' f@(Fugly{dict=d}) a t i l m
       | i == 0     = do ff <- insertWord st' f a t (m!!i) [] (m!!(i+1)) []
@@ -675,6 +676,13 @@ replace _ _ [] = []
 replace a b (x:xs)
     | x == a    = b : replace a b xs
     | otherwise = x : replace a b xs
+
+dedup :: Eq a => [a] -> [a]
+dedup []  = []
+dedup [x] = [x]
+dedup (x:xs)
+    | x == head xs = x : dedup (drop 1 xs)
+    | otherwise    = x : dedup xs
 
 joinWords :: Char -> [String] -> [String]
 joinWords _ [] = []
@@ -1010,18 +1018,27 @@ sentenceA :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int
 sentenceA _ _ _ _ _ _ _ _ _ _ [] = return []
 sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
   r debug rwords stopic randoms stries slen topic' msg = do
-    rr <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
-    s1a rr (length msg) msg
+    rr  <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
+    out <- s1a rr (length msg) msg
+    return $ dedup out
   where
     s1a :: Int -> Int -> [String] -> IO String
     s1a _ _ [] = return []
     s1a r' l w
-      | l == 1 && r < 70 = do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 10 5 5 topic' w) [] 1 0 0 50 ; return $ unwords mm }
-      | l < 4 && r < 60 || r + r' < 30 = case mod r' 4 of
-         0 -> do { mm <- fixIt st debug (return ("Do you like " ++ topic' ++ "?") : sentenceB' st fugly debug True rwords stopic 5 10 4 4 topic' [topic']) [] 2 0 0 40 ; return $ unwords mm }
-         1 -> do { mm <- fixIt st debug (return ("Not really.") : sentenceB' st fugly debug True rwords stopic randoms 10 6 6 topic' (words "perhaps you")) [] 2 0 0 60 ; return $ unwords mm }
-         2 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic 75 10 7 7 topic' $ words "can you") [] 1 0 0 70 ; return $ unwords mm }
-         3 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 10 6 6 topic' $ words "I think that") [] 1 0 0 60 ; return $ unwords mm }
+      | l < 7 && s2l w Regex.=~ "hi$|hello|greetings|welcome" = return (case mod r' 6 of
+         0 -> "Hello my friend."
+         1 -> "Hi there."
+         2 -> "Thanks."
+         3 -> "Hey there pal."
+         4 -> "Good morning."
+         5 -> "Hey, what's going on?"
+         _ -> [])
+      | l == 1 && r < 70 = do { mm <- fixIt st debug (sentenceB' st fugly r debug True rwords stopic 0 10 5 5 topic' w) [] 1 0 0 50 ; return $ unwords mm }
+      | l < 4 && r < 60 || r + r' < 20 = case mod r' 4 of
+         0 -> do { mm <- fixIt st debug (return ("Do you like " ++ topic' ++ "?") : sentenceB' st fugly r debug True rwords stopic 5 10 4 4 topic' [topic']) [] 2 0 0 40 ; return $ unwords mm }
+         1 -> do { mm <- fixIt st debug (return ("Not really.") : sentenceB' st fugly r debug True rwords stopic randoms 10 6 6 topic' (words "perhaps you")) [] 2 0 0 60 ; return $ unwords mm }
+         2 -> do { mm <- fixIt st debug (sentenceB' st fugly r debug True rwords stopic 75 10 7 7 topic' $ words "can you") [] 1 0 0 70 ; return $ unwords mm }
+         3 -> do { mm <- fixIt st debug (sentenceB' st fugly r debug True rwords stopic randoms 10 6 6 topic' $ words "I think that") [] 1 0 0 60 ; return $ unwords mm }
          _ -> return []
       | l < 7 && r' < 31 && s2l w == "test" = return (case mod r' 4 of
          0 -> "What are we testing?"
@@ -1034,7 +1051,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
          1 -> "Yes really."
          2 -> "Oh really."
          _ -> [])
-      | l < 9 && r' < 65 && (map toLower $ unwords w) Regex.=~ "lol|haha|hehe|rofl|lmao" = return (case mod r' 7 of
+      | l < 9 && r' < 65 && (map toLower $ unwords w) Regex.=~ "lol|haha|hehe|rofl|lmao|funny|humorous" = return (case mod r' 7 of
          0 -> "Very funny."
          1 -> "What's so funny?"
          2 -> "It's not funny."
@@ -1043,53 +1060,43 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
          5 -> "I'm glad you think this is funny."
          6 -> "Seriously."
          _ -> [])
-      | l < 7 && s2l w Regex.=~ "hello|greetings|welcome" = return (case mod r' 6 of
-         0 -> "Hello my friend."
-         1 -> "Hi there."
-         2 -> "Thanks."
-         3 -> "Hey there pal."
-         4 -> "Good morning."
-         5 -> "Hey, what's going on?"
-         _ -> [])
       | l > 2 && s2l w == "hey" = do
-          m' <- fixIt st debug (sentenceB' st fugly debug False rwords stopic randoms stries slen 5 topic' (drop 2 w)
+          m' <- fixIt st debug (sentenceB' st fugly r debug False rwords stopic randoms stries slen 5 topic' (drop 2 w)
                                 ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
           w' <- s1r r' m'
           x' <- asReplaceWords st fugly w'
           return $ unwords $ toUpperSentence $ endSentence x'
       | (map toLower $ unwords w) Regex.=~ "rhyme|rhymes|sing.*|song|songs" || r' > 87 = do
-          m' <- fixIt st debug (sentenceB' st fugly debug False rwords stopic randoms stries slen 5 topic' w
+          m' <- fixIt st debug (sentenceB' st fugly r debug False rwords stopic randoms stries slen 5 topic' w
                                 ++ [gfRandom pgf' []]) [] 1 0 0 (stries * slen)
           w' <- s1r r' m'
           x' <- asReplaceWords st fugly w'
           return $ unwords $ toUpperSentence $ endSentence x'
-      | l > 3 && (s1l $ take 3 w) == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want"] =
-        let s1b rr ww = ww!!2 Regex.=~ "like|hate|love|have|want" ++ " " ++
-                        if rr < 20 then "it" else if rr < 40 then "that" else unwords (drop 3 ww) in
-          return $ unwords $ toUpperSentence $ endSentence $ words (case mod r' 6 of
+      | l > 3 && (s1l $ take 3 w) == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want|need"] = do
+        noun <- getNoun wne' r' w
+        let s1b rr ww = ww!!2 Regex.=~ "like|hate|love|have|want|need" ++ " " ++
+                        if rr < 20 then "it" else if rr < 40 then "that" else noun ++ ['s'] in
+          return $ unwords $ toUpperSentence $ endSentence $ words (case mod r' 4 of
             0 -> "I don't " ++ s1b r' w
             1 -> "yeah, I " ++ s1b r' w
             2 -> "sometimes I " ++ s1b r' w
-            3 -> unwords (drop 3 w) ++ " is " ++ if r' < 50 then "not" else "" ++ " something I " ++ w!!2 Regex.=~ "like|hate|love|have|want"
+            3 -> (noun ++ ['s']) ++ " are " ++ if r' < 50 then "not" else "" ++ " something I " ++ w!!2 Regex.=~ "like|hate|love|have|want|need"
             _ -> [])
-      | l > 2 && (s1l $ take 2 w) == ["can", "you"] = return $ unwords $ toUpperSentence $ endSentence $ words (case mod r' 7 of
-         0 -> "no I can't " ++ if r' < 35 then "" else unwords (drop 2 w)
-         1 -> "sure, I can " ++ if r' < 40 then "do that" else unwords (drop 2 w)
-         2 -> "it depends"
-         3 -> "why would I want to " ++ if r' < 50 then "do something like that" else unwords (drop 2 w)
-         4 -> unwords (drop 2 w) ++ " is " ++ if r' < 20 then "boring" else if r' < 50 then "fun" else "certainly possible"
+      | l > 2 && (s1l $ take 2 w) == ["can", "you"] = return (case mod r' 5 of
+         0 -> "No I can't."
+         1 -> "Sure, I can do that."
+         2 -> "It depends..."
+         3 -> "Why would I want to do something like that?"
+         4 -> "It is " ++ if r' < 20 then "boring" else if r' < 50 then "fun" else "certainly possible."
          _ -> [])
       | l > 2 && r' > 25 && elem (s2l w) qWords || r' > 65 && (map toLower $ unwords w) Regex.=~ intercalate "|" qWords = do
-         ww <- filterWordPOS wne' (POS Noun) w
-         let ww'  = filter (\x -> length x > 2 && (not $ elem x qWords)) ww
-         let n'   = if null ww' then "thing" else ww'!!(mod r' $ length ww')
-         let noun = if last n' == 's' then init n' else if length n' < 3 then "thing" else n'
+         noun <- getNoun wne' r' w
          case mod r' 9 of
-           0 -> do { mm <- fixIt st debug (return ("Yes, the " ++ noun ++ " is okay.") : sentenceB' st fugly debug True rwords stopic 30 5 5 5 topic' [noun]) [] 2 0 0 25 ; return $ unwords mm }
-           1 -> do { mm <- fixIt st debug (return "No, not really." : sentenceB' st fugly debug True rwords stopic 30 5 7 7 topic' [noun]) [] 2 0 0 35 ; return $ unwords mm }
-           2 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic 75 5 6 6 topic' [noun]) [] 1 0 0 30 ; return $ unwords mm }
-           3 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 5 5 topic' ["sometimes"]) [] 1 0 0 25 ; return $ unwords mm }
-           4 -> do { mm <- fixIt st debug (return "Yes." : sentenceB' st fugly debug True rwords stopic 10 5 7 7 topic' ["the", noun, "is"]) [] 2 0 0 35 ; return $ unwords mm }
+           0 -> do { mm <- fixIt st debug (return ("Yes, the " ++ noun ++ " is okay.") : sentenceB' st fugly r debug True rwords stopic 30 5 5 5 topic' [noun]) [] 2 0 0 25 ; return $ unwords mm }
+           1 -> do { mm <- fixIt st debug (return "No, not really." : sentenceB' st fugly r debug True rwords stopic 30 5 7 7 topic' [noun]) [] 2 0 0 35 ; return $ unwords mm }
+           2 -> do { mm <- fixIt st debug (sentenceB' st fugly r debug True rwords stopic 75 5 6 6 topic' [noun]) [] 1 0 0 30 ; return $ unwords mm }
+           3 -> do { mm <- fixIt st debug (sentenceB' st fugly r debug True rwords stopic randoms 5 5 5 topic' ["sometimes"]) [] 1 0 0 25 ; return $ unwords mm }
+           4 -> do { mm <- fixIt st debug (return "Yes." : sentenceB' st fugly r debug True rwords stopic 10 5 7 7 topic' ["the", noun, "is"]) [] 2 0 0 35 ; return $ unwords mm }
            5 -> return ("Maybe, but I don't really like " ++ noun ++ "s.")
            6 -> return ("I'm not really sure about " ++ noun ++ "s.")
            7 -> return ("But " ++ noun ++ "s are boring.")
@@ -1109,19 +1116,19 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
                 0 -> case rb of
                   0 -> return ("Food is delicious, especially " ++ b ++ "!")
                   1 -> return ("I like to eat the " ++ b ++ ".")
-                  _ -> do { mm <- fixIt st debug (return ("Oh yes, " ++ b ++ ".") : sentenceB' st fugly debug True rwords stopic randoms 5 9 9 topic' [b, "is", "tasty", "and"]) [] 2 0 0 45 ; return $ unwords mm }
+                  _ -> do { mm <- fixIt st debug (return ("Oh yes, " ++ b ++ ".") : sentenceB' st fugly r debug True rwords stopic randoms 5 9 9 topic' [b, "is", "tasty", "and"]) [] 2 0 0 45 ; return $ unwords mm }
                 1 -> case rb of
                   0 -> return ("Animals are cute, I really like the " ++ b ++ ".")
                   1 -> return ("The " ++ b ++ " is an adorable animal.")
-                  _ -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 8 5 5 topic' [b, "is", "adorable"]) [] 1 0 0 40 ; return $ unwords mm }
+                  _ -> do { mm <- fixIt st debug (sentenceB' st fugly r debug True rwords stopic randoms 8 5 5 topic' [b, "is", "adorable"]) [] 1 0 0 40 ; return $ unwords mm }
                 2 -> case rb of
                   0 -> return "Tools are very useful things."
                   1 -> return ("Can you please lend me your " ++ b ++ "?")
-                  _ -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 6 6 topic' ["tools"]) [] 1 0 0 30 ; return $ unwords mm }
+                  _ -> do { mm <- fixIt st debug (sentenceB' st fugly r debug True rwords stopic randoms 5 6 6 topic' ["tools"]) [] 1 0 0 30 ; return $ unwords mm }
                 3 -> case rb of
                   0 -> return "This is too abstract for me."
                   1 -> return ("I find " ++ b ++ " to be a rather esoteric subject for discussion.")
-                  _ -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 9 9 topic' ["abstract", b, "is"]) [] 1 0 0 45 ; return $ unwords mm }
+                  _ -> do { mm <- fixIt st debug (sentenceB' st fugly r debug True rwords stopic randoms 5 9 9 topic' ["abstract", b, "is"]) [] 1 0 0 45 ; return $ unwords mm }
                 _ -> return []
             else return []
       | otherwise = return []
@@ -1131,31 +1138,32 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
                                if null ry then return []
                                  else return $ ry!!(mod rr (length ry))) mm
 
-sentenceB :: (MVar ()) -> Fugly -> Bool -> Bool -> Bool -> Int -> Int -> Int
-             -> Int-> String -> Int -> [String] -> IO [String]
-sentenceB st fugly@Fugly{pgf=pgf'} debug rwords stopic randoms stries slen plen topic' num msg = do
+sentenceB :: (MVar ()) -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int -> Int
+             -> Int -> String -> Int -> [String] -> IO [String]
+sentenceB st fugly@Fugly{pgf=pgf'} r debug rwords stopic randoms stries slen plen topic' num msg = do
     m <- chooseWord msg
     let mm = if length msg < 4 || mod (length $ concat msg) 3 == 0 then msg else m
-    fixIt st debug (sentenceB' st fugly debug False rwords stopic randoms stries slen plen topic' mm ++
+    fixIt st debug (sentenceB' st fugly r debug False rwords stopic randoms stries slen plen topic' mm ++
                     [gfRandom pgf' []]) [] num 0 0 (stries * slen)
 
-sentenceB' :: (MVar ()) -> Fugly -> Bool -> Bool -> Bool -> Bool -> Int -> Int
-              -> Int -> Int -> String -> [String] -> [IO String]
-sentenceB' _ _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
+sentenceB' :: (MVar ()) -> Fugly -> Int -> Bool -> Bool -> Bool -> Bool -> Int
+               -> Int -> Int -> Int -> String -> [String] -> [IO String]
+sentenceB' _ _ _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
 sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
-  debug first rwords stopic randoms stries slen plen topic' msg = do
+  r debug first rwords stopic randoms stries slen plen topic' msg = do
     let s1h n a x = let out = if a then map toUpper x else if n then x else map toLower x in
           if isJust $ Map.lookup out dict' then out else []
     let s1a x = do
           a <- isAcronym st aspell' dict' x
           n <- isName st aspell' dict' x
-          z <- findNextWord fugly 0 randoms True stopic topic' x
+          b <- getNoun wne' r msg
+          z <- findNextWord fugly 0 randoms True stopic topic' b x
           let zz = fHead [] z
-          y <- findNextWord fugly 1 randoms True stopic topic' zz
+          y <- findNextWord fugly 1 randoms True stopic topic' b zz
           let yy = fHead [] y
           let c  = if null zz && null yy then 2 else if null zz || null yy then 3 else 4
-          w  <- s1b fugly slen c $ findNextWord fugly 1 randoms False stopic topic' x
-          ww <- s1b fugly slen 0 $ return msg
+          w  <- s1b fugly slen c b $ findNextWord fugly 1 randoms False stopic topic' b x
+          ww <- s1b fugly slen 0 b $ return msg
           let d  = if first then ww else [yy] ++ [zz] ++ [s1h n a x] ++ w
           wnReplaceWords fugly rwords randoms $ filter (not . null) $ take (stries * slen) d
     let s1d x = do
@@ -1170,13 +1178,13 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     let s1g = map (\x -> do y <- insertCommas wne' 0 x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
     s1f 0 s1t s1g
   where
-    s1b :: Fugly -> Int -> Int -> IO [String] -> IO [String]
-    s1b f n i msg' = do
+    s1b :: Fugly -> Int -> Int -> String -> IO [String] -> IO [String]
+    s1b f n i noun msg' = do
       ww <- msg'
       if null $ concat ww then return []
-        else if i >= n then return $ nub ww else do
-               www <- findNextWord f i randoms False stopic topic' $ fLast [] ww
-               s1b f n (i + 1) (return $ ww ++ www)
+        else if i >= n then return $ dedup ww else do
+               www <- findNextWord f i randoms False stopic topic' noun $ fLast [] ww
+               s1b f n (i + 1) noun (return $ ww ++ www)
     s1c :: [String] -> String
     s1c [] = []
     s1c w  = [toUpper $ head $ head w] ++ (fTail [] $ head w)
@@ -1201,6 +1209,13 @@ fixIt st d (x:xs) a n i j s = do
     if i >= n || j > s * n then return a
       else if null xx then fixIt st d xs a n i (j + 1) s
       else fixIt st d xs (a ++ [(if null a then [] else " ") ++ xx]) n (i + 1) j s
+
+getNoun :: WordNetEnv -> Int -> [String] -> IO String
+getNoun wne' r w = do
+    ww <- filterWordPOS wne' (POS Noun) w
+    let ww' = filter (\x -> length x > 2 && (not $ elem x qWords)) ww
+    let n'  = if null ww' then "thing" else ww'!!(mod r $ length ww')
+    return $ if last n' == 's' then init n' else if length n' < 3 then "thing" else n'
 
 insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
 insertCommas wne' i w = do
@@ -1314,9 +1329,9 @@ rhymesWith st aspell' word' = do
                        x Regex.=~ (end ++ "$") && levenshteinDistance defaultEditCosts l x < 4) asw
     return $ if null out then [word'] else out
 
-findNextWord :: Fugly -> Int -> Int -> Bool -> Bool -> String -> String -> IO [String]
-findNextWord _                 _ _       _    _      _      []    = return []
-findNextWord Fugly{dict=dict'} i randoms prev stopic topic' word' = do
+findNextWord :: Fugly -> Int -> Int -> Bool -> Bool -> String -> String -> String -> IO [String]
+findNextWord _                 _ _       _    _      _      _    []    = return []
+findNextWord Fugly{dict=dict'} i randoms prev stopic topic' noun word' = do
     let ln = if isJust w then length neigh else 0
     let lm = if isJust w then length neighmax else 0
     let ll = if isJust w then length neighleast else 0
@@ -1355,10 +1370,14 @@ findNextWord Fugly{dict=dict'} i randoms prev stopic topic' word' = do
     where
       w        = Map.lookup word' dict'
       wordGet' = if prev then wordGetBefore else wordGetAfter
-      neigh_all        = listNeigh $ wordGet' (fromJust w)
-      neigh_topic      = listNeighTopic dict' topic' neigh_all
-      neighmax_all     = listNeighMax $ wordGet' (fromJust w)
-      neighmax_topic   = listNeighTopic dict' topic' neighmax_all
+      neigh_all'       = listNeigh $ wordGet' (fromJust w)
+      neigh_all        = if elem noun neigh_all' then [noun] else neigh_all'
+      neigh_topic'     = listNeighTopic dict' topic' neigh_all'
+      neigh_topic      = if elem noun neigh_topic' then [noun] else neigh_topic'
+      neighmax_all'    = listNeighMax $ wordGet' (fromJust w)
+      neighmax_all     = if elem noun neighmax_all' then [noun] else neighmax_all'
+      neighmax_topic'  = listNeighTopic dict' topic' neighmax_all'
+      neighmax_topic   = if elem noun neighmax_topic' then [noun] else neighmax_topic'
       neighleast_all   = listNeighLeast $ wordGet' (fromJust w)
       neighleast_topic = listNeighTopic dict' topic' neighleast_all
       neigh      = if stopic then neigh_topic else if null neigh_topic then neigh_all else neigh_topic

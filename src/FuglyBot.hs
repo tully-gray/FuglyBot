@@ -689,12 +689,12 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
     action <- ircAction False n' [] top defs'
     if tc' < 10 && fload < 2.3 then do
       let d1     = dl * 1000000
-      let bdelay = (if r' - 3 > 0 then r' - 3 else 0) * 23
+      let bdelay = (if r' - 3 > 0 then r' - 3 else if dl < 3 then 0 else 0) * 23
           sdelay = (if rr - 2 > 0 then rr - 2 else 0) * 3 in
         threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
       let num    = if r' - 4 < 1 || str < 4 || length m < 7 then 1 else r' - 4
       x <- sentenceA lock fugly' r d rw stopic rand str slen top m
-      y <- sentenceB lock fugly' d rw stopic rand str slen plen top num m
+      y <- sentenceB lock fugly' r d rw stopic rand str slen plen top num m
       let ww = if null x then unwords y else x
       evalStateT (do if null ww then return ()
                        else if null nick' || nick' == chan || rr == 0 then
@@ -1101,9 +1101,9 @@ internalize st b n msg = internalize' st b n 0 msg
                                                 stricttopic=stopic, randoms=rands}, fugly=f}
       num i imsg = do
       _   <- return p
-      sen <- getSentence $ sentenceB' (getLock st') f d False rw stopic rands tries slen plen topic' $ words imsg
-      nd  <- insertWords (getLock st') f aname topic' $ words sen
       r   <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
+      sen <- getSentence $ sentenceB' (getLock st') f r d False rw stopic rands tries slen plen topic' $ words imsg
+      nd  <- insertWords (getLock st') f aname topic' $ words sen
       if i >= num then return bot
         else if r == 0 then evalStateT (hPutStrLnLock stdout ("> internalize: " ++ msg)) st >> internalize' st bot{fugly=f{dict=nd}} num (i + 1) msg
              else evalStateT (hPutStrLnLock stdout ("> internalize: " ++ sen)) st >> internalize' st bot{fugly=f{dict=nd}} num (i + 1) sen
