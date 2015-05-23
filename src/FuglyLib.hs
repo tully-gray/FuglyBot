@@ -1066,16 +1066,16 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
          ww <- filterWordPOS wne' (POS Noun) w
          let ww'  = filter (\x -> length x > 2 && (not $ elem x qWords)) ww
          let n'   = if null ww' then "thing" else ww'!!(mod r' $ length ww')
-         let noun = if last n' == 's' then init n' else n'
+         let noun = if last n' == 's' then init n' else if length n' < 3 then "thing" else n'
          case mod r' 9 of
            0 -> do { mm <- fixIt st debug (return ("Yes, the " ++ noun ++ " is okay.") : sentenceB' st fugly debug True rwords stopic 30 5 5 5 topic' [noun]) [] 2 0 0 25 ; return $ unwords mm }
            1 -> do { mm <- fixIt st debug (return "No, not really." : sentenceB' st fugly debug True rwords stopic 30 5 7 7 topic' [noun]) [] 2 0 0 35 ; return $ unwords mm }
-           2 -> return ("Maybe, but I don't really like " ++ noun ++ "s.")
-           3 -> return ("I'm not really sure about " ++ noun ++ "s.")
-           4 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic 75 5 6 6 topic' [noun]) [] 1 0 0 30 ; return $ unwords mm }
-           5 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 5 5 topic' ["sometimes"]) [] 1 0 0 25 ; return $ unwords mm }
-           6 -> return ("But " ++ noun ++ "s are boring.")
-           7 -> do { mm <- fixIt st debug (return "Yes." : sentenceB' st fugly debug True rwords stopic 10 5 7 7 topic' ["the", noun, "is"]) [] 2 0 0 35 ; return $ unwords mm }
+           2 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic 75 5 6 6 topic' [noun]) [] 1 0 0 30 ; return $ unwords mm }
+           3 -> do { mm <- fixIt st debug (sentenceB' st fugly debug True rwords stopic randoms 5 5 5 topic' ["sometimes"]) [] 1 0 0 25 ; return $ unwords mm }
+           4 -> do { mm <- fixIt st debug (return "Yes." : sentenceB' st fugly debug True rwords stopic 10 5 7 7 topic' ["the", noun, "is"]) [] 2 0 0 35 ; return $ unwords mm }
+           5 -> return ("Maybe, but I don't really like " ++ noun ++ "s.")
+           6 -> return ("I'm not really sure about " ++ noun ++ "s.")
+           7 -> return ("But " ++ noun ++ "s are boring.")
            8 -> return ("Let's discuss " ++ noun ++ "s later.")
            _ -> return []
       | l > 3 && l < 15 = do
