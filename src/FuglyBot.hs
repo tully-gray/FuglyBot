@@ -647,7 +647,7 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                      sentenceReply st bot rr load nick' [] fmsg >> return ()
                    else return ()
                  else if chanmsg then
-                        if map toLower (unwords msg) =~ matchon then
+                        if (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchon then
                           if isaction && rr - 60 < acts  || rr * 5 + 15 < acts then
                              evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st
                             else sentenceReply st bot rr load chan chan fmsg >> return ()
