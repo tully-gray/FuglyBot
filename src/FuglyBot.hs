@@ -623,7 +623,8 @@ reply :: Bot -> Int -> Bool -> String -> String -> [String] -> StateT Fstate IO 
 reply bot _ _ _ _ [] = return bot
 reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=plen, strictlearn=sl,
                                          autoname=an, allowpm=apm, debug=d, Main.topic=top, actions=acts},
-              fugly=f@Fugly{defs=defs', pgf=pgf', FuglyLib.match=match'}} r chanmsg chan nick' msg = do
+              fugly=f@Fugly{defs=defs', pgf=pgf', aspell=aspell', dict=dict', FuglyLib.match=match', ban=ban'}}
+  r chanmsg chan nick' msg = do
     st@(_, lock, _, _) <- get :: StateT Fstate IO Fstate
     _   <- return p
     let mmsg = if null $ head msg then msg
@@ -632,9 +633,11 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                    ',' -> tail msg
                    _   -> msg
     load <- lift getLoad
+    n    <- lift $ isName    lock aspell' dict' $ head mmsg
+    a    <- lift $ isAcronym lock aspell' dict' $ head mmsg
     let fload    = read $ fHead [] load :: Float
     let rr       = mod (r + (floor $ fload * 5.1)) 100
-    let fmsg     = map cleanString mmsg
+    let fmsg     = nmsg n a mmsg
     let parse    = if sl then
                      if fload < 1.5 then gfParseBool pgf' plen $ unwords fmsg
                      else False
@@ -653,11 +656,18 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                             else sentenceReply st bot rr load chan chan fmsg >> return ()
                         else return ()
                       else sentenceReply st bot rr load chan nick' fmsg >> return ())
-    if ((nick' == o && null chan) || parse) && l && not isaction then do
+    if ((nick' == o && null chan) || parse) && l && not isaction && noban fmsg ban' then do
       nd <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd}} else
       return bot
+  where
+    nmsg _ _ []     = []
+    nmsg n a (x:xs) = let x' = if n || a then x else map toLower x in
+      map cleanString (x':xs)
+    noban []     _ = True
+    noban (x:xs) b = if elem x b then False
+                     else noban xs b
 reply bot _ _ _ _ _ = return bot
 
 sentenceReply :: Fstate -> Bot -> Int -> [String] -> String -> String -> [String] -> IO ThreadId
@@ -923,15 +933,15 @@ execCmd b chan nick' (x:xs) = do
       | x == "!banword" = if nick' == owner' then case length xs of
           2 -> if (xs!!0) == "add" then
                  if elem (xs!!1) ban' then
-                   replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " already banned.") >> return bot
+                   replyMsgT st bot chan nick' ("Learning on word " ++ (xs!!1) ++ " already banned.") >> return bot
                  else
-                   replyMsgT st bot chan nick' ("Banned word " ++ (xs!!1) ++ ".") >>
-                     return bot{fugly=f{dict=dropWord dict' (xs!!1), ban=nub $ ban' ++ [(xs!!1)]}}
+                   replyMsgT st bot chan nick' ("Banned learning on word " ++ (xs!!1) ++ ".") >>
+                     return bot{fugly=f{ban=nub $ ban' ++ [(xs!!1)]}}
                else if (xs!!0) == "delete" then
                  if not $ elem (xs!!1) ban' then
                    replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " not in ban list.") >> return bot
                  else
-                   replyMsgT st bot chan nick' ("Unbanned word " ++ (xs!!1) ++ ".") >>
+                   replyMsgT st bot chan nick' ("Unbanned learning on word " ++ (xs!!1) ++ ".") >>
                      return bot{fugly=f{ban=nub $ delete (xs!!1) ban'}}
                  else replyMsgT st bot chan nick' "Usage: !banword <list|add|delete> <word>" >> return bot
           1 -> if (xs!!0) == "list" then
