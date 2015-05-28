@@ -626,7 +626,7 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
               fugly=f@Fugly{defs=defs', pgf=pgf', aspell=aspell', dict=dict', FuglyLib.match=match', ban=ban'}}
   r chanmsg chan nick' msg = do
     st@(_, lock, _, _) <- get :: StateT Fstate IO Fstate
-    _   <- return p
+    _ <- return p
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
                    ':' -> tail msg
@@ -656,7 +656,8 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                             else sentenceReply st bot rr load chan chan fmsg >> return ()
                         else return ()
                       else sentenceReply st bot rr load chan nick' fmsg >> return ())
-    if ((nick' == o && null chan) || parse) && l && not isaction && noban fmsg ban' then do
+    if l && not isaction && noban fmsg ban' && parse && (not $ null chan || apm) ||
+       (l && not isaction && noban fmsg ban' && null chan && nick' == o) then do
       nd <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd}} else
