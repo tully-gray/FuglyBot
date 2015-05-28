@@ -1073,9 +1073,9 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
           return $ unwords $ toUpperSentence $ endSentence x'
       | l > 3 && (s1l $ take 3 w) == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want|need"] = do
         noun <- getNoun wne' r' w
-        let nouns = if last noun == 'y' then (init noun) ++ "ies" else noun ++ "s"
+        let nouns' = nouns noun
         let s1b rr ww = ww!!2 Regex.=~ "like|hate|love|have|want|need" ++ " " ++
-                        if rr < 20 then "it" else if rr < 40 then "that" else nouns in
+                        if rr < 20 then "it" else if rr < 40 then "that" else nouns' in
           return $ unwords $ toUpperSentence $ endSentence $ words (case mod r' 4 of
             0 -> "I don't " ++ s1b r' w
             1 -> "yeah, I " ++ s1b r' w
@@ -1091,17 +1091,17 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
          _ -> [])
       | l > 2 && r' > 25 && elem (s2l w) qWords || r' > 65 && (map toLower $ unwords w) Regex.=~ intercalate "|" qWords = do
          noun <- getNoun wne' r' w
-         let nouns = if last noun == 'y' then (init noun) ++ "ies" else noun ++ "s"
+         let nouns' = nouns noun
          case mod r' 9 of
            0 -> do { mm <- fixIt st debug (return ("Yes, the " ++ noun ++ " is okay.") : sentenceB' st fugly r debug True rwords stopic 30 5 5 5 topic' [noun]) [] 2 0 0 25 ; return $ unwords mm }
            1 -> do { mm <- fixIt st debug (return "No, not really." : sentenceB' st fugly r debug True rwords stopic 30 5 7 7 topic' [noun]) [] 2 0 0 35 ; return $ unwords mm }
            2 -> do { mm <- fixIt st debug (sentenceB' st fugly r debug True rwords stopic 75 5 6 6 topic' [noun]) [] 1 0 0 30 ; return $ unwords mm }
            3 -> do { mm <- fixIt st debug (sentenceB' st fugly r debug True rwords stopic randoms 5 5 5 topic' ["sometimes"]) [] 1 0 0 25 ; return $ unwords mm }
            4 -> do { mm <- fixIt st debug (return "Yes." : sentenceB' st fugly r debug True rwords stopic 10 5 7 7 topic' ["the", noun, "is"]) [] 2 0 0 35 ; return $ unwords mm }
-           5 -> return ("Maybe, but I don't really like " ++ nouns ++ ".")
-           6 -> return ("I'm not really sure about " ++ nouns ++ ".")
-           7 -> return ("But " ++ nouns ++ " are boring.")
-           8 -> return ("Let's discuss " ++ nouns ++ " later.")
+           5 -> return ("Maybe, but I don't really like " ++ nouns' ++ ".")
+           6 -> return ("I'm not really sure about " ++ nouns' ++ ".")
+           7 -> return ("But " ++ nouns' ++ " are boring.")
+           8 -> return ("Let's discuss " ++ nouns' ++ " later.")
            _ -> return []
       | l > 3 && l < 15 = do
           let ra = mod r 4
@@ -1211,13 +1211,6 @@ fixIt st d (x:xs) a n i j s = do
       else if null xx then fixIt st d xs a n i (j + 1) s
       else fixIt st d xs (a ++ [(if null a then [] else " ") ++ xx]) n (i + 1) j s
 
-getNoun :: WordNetEnv -> Int -> [String] -> IO String
-getNoun wne' r w = do
-    ww <- filterWordPOS wne' (POS Noun) w
-    let ww' = filter (\x -> length x > 2 && (not $ elem x qWords)) ww
-    let n'  = if null ww' then "thing" else ww'!!(mod r $ length ww')
-    return $ if last n' == 's' then init n' else if length n' < 3 then "thing" else n'
-
 insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
 insertCommas wne' i w = do
     w' <- w
@@ -1273,6 +1266,29 @@ filterWordPOS wne' pos' msg = fpos [] msg
       p <- wnPartPOS wne' x
       if p == pos' then fpos (x : a) xs
         else fpos a xs
+
+getNoun :: WordNetEnv -> Int -> [String] -> IO String
+getNoun wne' r w = do
+    ww <- filterWordPOS wne' (POS Noun) w
+    let ww' = filter (\x -> length x > 2 && (not $ elem x qWords)) ww
+    let n   = case mod r 9 of
+          0 -> "thing"
+          1 -> "stuff"
+          2 -> "idea"
+          3 -> "belief"
+          4 -> "debate"
+          5 -> "conversation"
+          6 -> "cat"
+          7 -> "bacon"
+          8 -> "pony"
+          _ -> []
+    let n'  = if null ww' then n else ww'!!(mod r $ length ww')
+    return $ if last n' == 's' then init n' else if length n' < 3 then n else n'
+
+nouns :: String -> String
+nouns []      = "stuff"
+nouns "stuff" = "stuff"
+nouns n       = if last n == 'y' then (init n) ++ "ies" else n ++ "s"
 
 wnReplaceWords :: Fugly -> Bool -> Int -> [String] -> IO [String]
 wnReplaceWords _                               _     _       []  = return []
