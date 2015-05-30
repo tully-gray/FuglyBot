@@ -46,6 +46,8 @@ module FuglyLib
          gfParseShow,
          gfCategories,
          gfRandom,
+         nnInsert,
+         nnReply,
          sentenceA,
          sentenceB,
          sentenceB',
@@ -76,6 +78,7 @@ import           Data.List
 import qualified Data.Map.Strict                as Map
 import           Data.Maybe
 import           Data.Tree                      (flatten)
+import           Data.Word                      (Word16)
 import qualified System.Random                  as Random
 import           System.IO
 import qualified Text.Regex.Posix               as Regex
@@ -87,12 +90,14 @@ import           NLP.WordNet                    hiding (Word)
 import           NLP.WordNet.Prims              (indexLookup, senseCount, getSynset, getWords, getGloss)
 import           NLP.WordNet.PrimTypes
 
+import           AI.NeuralNetworks.Simple
 import           PGF
-
 import           Text.EditDistance              as EditDistance
 
 type Dict    = Map.Map String Word
 type Default = (DType, String)
+type NSet    = [([Double], [Double])]
+type NMap    = Map.Map Int String
 
 data Fugly = Fugly {
               dict    :: Dict,
@@ -101,7 +106,9 @@ data Fugly = Fugly {
               wne     :: WordNetEnv,
               aspell  :: Aspell.SpellChecker,
               ban     :: [String],
-              match   :: [String]
+              match   :: [String],
+              nset    :: NSet,
+              nmap    :: NMap
               }
 
 data Word = Word {
@@ -194,7 +201,9 @@ initFugly fuglydir wndir gfdir dfile = do
                                          Aspell.Options.IgnoreCase False, Aspell.Options.Size Aspell.Options.Large,
                                          Aspell.Options.SuggestMode Aspell.Options.Normal, Aspell.Options.Ignore 2]
     let aspell' = head $ rights [a]
-    return ((Fugly dict' defs' pgf' wne' aspell' ban' match'), params')
+    let nset'   = []
+    let nmap'   = Map.empty
+    return ((Fugly dict' defs' pgf' wne' aspell' ban' match' nset' nmap'), params')
 
 stopFugly :: (MVar ()) -> FilePath -> Fugly -> String -> [String] -> IO ()
 stopFugly st fuglydir fugly@Fugly{wne=wne'} dfile params = do
@@ -1016,14 +1025,16 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
 sentenceA :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int
              -> Int -> String -> [String] -> IO String
 sentenceA _ _ _ _ _ _ _ _ _ _ [] = return []
-sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
+sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', nset=nset', nmap=nmap'}
   r debug rwords stopic randoms stries slen topic' msg = do
-    rr  <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
+    rr <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     s1a rr (length msg) msg
   where
     s1a :: Int -> Int -> [String] -> IO String
     s1a _ _ [] = return []
     s1a r' l w
+      | l < 16 && r < 75 = do
+        nnReply nset' nmap' 5000 w
       | l < 7 && s2l w Regex.=~ "hi$|hello|greetings|welcome" = return (case mod r' 6 of
          0 -> "Hello my friend."
          1 -> "Hi there."
@@ -1426,6 +1437,46 @@ findRelated wne' word' = do
                   return (anto'!!r)
               else return word'
     if null out then return word' else return out
+
+wordToDouble :: String -> Double
+wordToDouble w = c $ (sum $ stringToDL w) / (realToFrac $ length w :: Double)
+  where
+    c n
+      | n > 1     = 1.0
+      | n < 0     = 0.0
+      | otherwise = n
+    stringToDL w' = map (fun . realToFrac . ord) w' :: [Double]
+    fun a = c $ (a - 97) / 25
+
+doubleToWord :: NMap -> Double -> String
+doubleToWord _ 1.0 = []
+doubleToWord m d   = let r = Map.lookup (floor $ d * 1000) m in
+    if isJust r then fromJust r else doubleToWord m $ d + 0.007
+
+nnInsert :: NSet -> NMap -> [String] -> [String] -> (NSet, NMap)
+nnInsert nset' nmap' []    _      = (nset', nmap')
+nnInsert nset' nmap' _    []      = (nset', nmap')
+nnInsert nset' nmap' input output =
+  let a = (map wordToDouble $ low input, (map wordToDouble $ low output) ++ take 16 (cycle [0])) : nset'
+      b = foldr (\x -> Map.insert (mKey x) x) nmap' input in
+  (a, b)
+  where
+    low = map (map toLower)
+    mKey w = floor $ (wordToDouble w) * 1000
+
+nnReply :: NSet -> NMap -> Int -> [String] -> IO String
+nnReply []    _     _    _   = return []
+nnReply _     _     _    []  = return []
+nnReply nset' nmap' numg msg = do
+    g <- Random.newStdGen
+    let nnet = fst $ randomNeuralNetwork g [fromIntegral (length msg) :: Word16,
+                 8, 8, 16] [Tanh, Tanh, Logistic] 0.3
+    n <- backpropagationBatchParallel nnet nset' 0.43 nstop :: IO (NeuralNetwork Double)
+    return $ unwords $ toUpperSentence $ endSentence $ nnAnswer n
+  where
+    nstop _ num = do
+      return $ num >= numg
+    nnAnswer nnet' = map (\x -> doubleToWord nmap' x) $ runNeuralNetwork nnet' $ map wordToDouble msg
 
 hPutStrLock :: Handle -> String -> StateT (MVar ()) IO ()
 hPutStrLock s m = do

@@ -13,7 +13,8 @@ Cabal-version:   >= 1.8
 
 Library
     Build-depends:   base == 4.*, array, bytestring, containers, edit-distance,
-                     filepath, gf, haspell, random, regex-posix, transformers
+                     filepath, gf, haspell, random, regex-posix, simple-neural-networks,
+                     transformers
     Hs-source-dirs:  src
     Exposed-Modules: FuglyLib, NLP.WordNet
     Other-Modules:
@@ -29,6 +30,6 @@ Executable fuglybot
     Main-is:         FuglyBot.hs
     Build-depends:   base == 4.*, array, bytestring, containers, edit-distance,
                      filepath, gf, haspell, network, parallel, random,
-                     regex-posix, socks, transformers
+                     regex-posix, simple-neural-networks, socks, transformers
     Hs-source-dirs:  src
     GHC-Options: -rtsopts=all -threaded -Wall -fno-prof-count-entries

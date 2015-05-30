@@ -22,7 +22,8 @@ import           NLP.WordNet.PrimTypes          (allForm, allPOS)
 data Bot = Bot {
     sock   :: Handle,
     params :: Parameter,
-    fugly  :: Fugly
+    fugly  :: Fugly,
+    lastm  :: [String]
     }
 
 data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | MaxChanMsg | Debug
@@ -187,8 +188,10 @@ start = do
     hSetBuffering sh NoBuffering
     (f, p) <- initFugly fdir wndir gfdir topic'
     let b = if null p then
-              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0 True False False True False False topic' 50 False 0 2 40 5) f
-              else Bot sh ((readParamsFromList p){nick=nick', owner=owner', fuglydir=fdir, dictfile=dfile}) f
+              Bot sh (Parameter nick' owner' fdir dfile False 10 400 20 7 0
+                      True False False True False False topic' 50 False 0 2 40 5) f []
+              else Bot sh ((readParamsFromList p){nick=nick', owner=owner',
+                      fuglydir=fdir, dictfile=dfile}) f []
     bot  <- newMVar b
     lock <- newMVar ()
     tc   <- newMVar []
@@ -623,7 +626,8 @@ reply :: Bot -> Int -> Bool -> String -> String -> [String] -> StateT Fstate IO 
 reply bot _ _ _ _ [] = return bot
 reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=plen, strictlearn=sl,
                                          autoname=an, allowpm=apm, debug=d, Main.topic=top, actions=acts},
-              fugly=f@Fugly{defs=defs', pgf=pgf', aspell=aspell', dict=dict', FuglyLib.match=match', ban=ban'}}
+              fugly=f@Fugly{defs=defs', pgf=pgf', aspell=aspell', dict=dict', FuglyLib.match=match',
+                            ban=ban', nset=nset', nmap=nmap'}, lastm=lastm'}
   r chanmsg chan nick' msg = do
     st@(_, lock, _, _) <- get :: StateT Fstate IO Fstate
     _ <- return p
@@ -658,9 +662,10 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                       else sentenceReply st bot rr load chan nick' fmsg >> return ())
     if l && not isaction && noban fmsg ban' && parse && (not $ null chan || apm) ||
        (l && not isaction && noban fmsg ban' && null chan && nick' == o) then do
+      let (ns, nm) = nnInsert nset' nmap' lastm' fmsg
       nd <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
-      return bot{fugly=f{dict=nd}} else
+      return bot{fugly=f{dict=nd, nset=ns, nmap=nm}, lastm=fmsg} else
       return bot
   where
     nmsg _ _ []     = []
@@ -731,7 +736,7 @@ execCmd b chan nick' (x:xs) = do
                                        stries' slen plen learn slearn stopic
                                        autoname' allowpm' debug' topic' randoms'
                                        rwords' timer' delay' greets actions'),
-                     fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match')} st
+                     fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match' _ _)} st
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" = if nick' == owner' then case length xs of
           0 -> do evalStateT (write s debug' "QUIT" ":Bye") st >> return bot
@@ -750,7 +755,7 @@ execCmd b chan nick' (x:xs) = do
                                                                           return (dict', defs', ban', match', paramsToList p))
            replyMsgT st bot chan nick' "Loaded dict file!"
            return bot{params=(readParamsFromList np){nick=botnick, owner=owner', fuglydir=fdir, dictfile=dfile},
-                      fugly=(Fugly nd nde pgf' wne' aspell' nb nm)}
+                      fugly=f{dict=nd, defs=nde, pgf=pgf', wne=wne', aspell=aspell', ban=nb, FuglyLib.match=nm}}
                        else return bot
       | x == "!join" = if nick' == owner' then evalStateT (joinChannel s "JOIN" xs) st >> return bot else return bot
       | x == "!part" = if nick' == owner' then evalStateT (joinChannel s "PART" xs) st >> return bot else return bot
