@@ -190,6 +190,9 @@ emptyWord = Word [] 0 Map.empty Map.empty [] [] [] UnknownEPos
 nsize :: Word16
 nsize = 8
 
+msize :: Double
+msize = 2000
+
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO (Fugly, [String])
 initFugly fuglydir wndir gfdir dfile = do
     (dict', defs', ban', match', params') <- catch (loadDict fuglydir dfile)
@@ -1088,9 +1091,9 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', nset=nset', nmap=nm
     s1a :: Int -> Int -> [String] -> IO String
     s1a _ _ [] = return []
     s1a r' l w
-      | l < 32 && r < 75 = do
+      | l < 32 && r < 90 = do
         let pad = take (fromIntegral nsize :: Int) $ cycle [" "]
-        nnReply st nset' nmap' 5000 (w ++ pad)
+        nnReply st nset' nmap' 2000 (w ++ pad)
       | l < 7 && s2l w Regex.=~ "hi$|hello|greetings|welcome" = return (case mod r' 6 of
          0 -> "Hello my friend."
          1 -> "Hi there."
@@ -1497,18 +1500,24 @@ findRelated wne' word' = do
     if null out then return word' else return out
 
 wordToDouble :: String -> Double
-wordToDouble " " = (-1.0)
-wordToDouble w   = (sum $ stringToDL w) / (realToFrac $ length w :: Double)
+wordToDouble " " = 0.0
+wordToDouble "a" = 1.0
+wordToDouble w   = clamp $ (sum $ stringToDL w) / (realToFrac $ length w :: Double)
   where
-    c n
-      | n > 1     = 1.0
-      | n < 0     = 0.0
-      | otherwise = n
-    stringToDL w' = map (fun . realToFrac . ord) w' :: [Double]
-    fun a = c $ (a - 97) / 25
+    stringToDL w' = map charToDouble w' :: [Double]
+
+charToDouble :: Char -> Double
+charToDouble a = let c = realToFrac $ ord a in
+  clamp $ (c - 109.5) / 12.5
+
+clamp :: (Ord a, Num a) => a -> a
+clamp n
+    | n > 1     = 1
+    | n < -1    = -1
+    | otherwise = n
 
 doubleToWord :: NMap -> Bool -> Int -> Int -> Double -> String
-doubleToWord nmap' b j k d = let i = (j * u) + (floor $ d * 10000)
+doubleToWord nmap' b j k d = let i = (j * u) + (floor $ d * msize)
                                  s = not b
                                  t = if b then 1 else 0
                                  u = if b then 1 else (-1)
@@ -1535,26 +1544,30 @@ nnInsert Fugly{wne=wne', aspell=aspell'} nset' nmap' input output = do
          fix xs (x : a) else fix xs a
     low = map (map toLower)
     pad = take (fromIntegral nsize :: Int) $ cycle [" "]
-    mKey w = floor $ (wordToDouble w) * 10000
+    mKey w = floor $ (wordToDouble w) * msize
 
 nnReply :: MVar () -> NSet -> NMap -> Int -> [String] -> IO String
 nnReply _  []    _     _    _   = return []
 nnReply _  _     _     _    []  = return []
 nnReply st nset' nmap' numg msg = do
     g <- Random.newStdGen
-    let nnet = fst $ randomNeuralNetwork g [nsize, nsize, nsize] [Tanh, Tanh] 0.3
-    n <- backpropagationBatchParallel nnet nset' 0.43 nstop :: IO (NeuralNetwork Double)
+    let nnet = fst $ randomNeuralNetwork g [nsize, nsize, nsize, nsize] [Tanh, Tanh, Tanh] 0.5
+    n <- backpropagationBatchParallel nnet nset' 0.01 nstop :: IO (NeuralNetwork Double)
     let a = filter (\x -> x /= "a") $ dedup $ nnAnswer n
     evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords a)) st
     if null $ concat a then return [] else
       return $ unwords $ toUpperSentence $ endSentence a
   where
-    nstop _ num = do
+    nstop nnet num = do
+      let a = runNeuralNetwork nnet $ map wordToDouble $ take (fromIntegral nsize :: Int) msg
+      if mod num 500 == 0 then
+        evalStateT (hPutStrLnLock stdout ("> debug: nnStop: " ++ unwords (map show a))) st
+        else return ()
       return $ num >= numg
     nnAnswer :: NeuralNetwork Double -> [String]
-    nnAnswer nnet' = filter (not . null) $ map (\x -> doubleToWord nmap' True 0 10 x)
-                     $ runNeuralNetwork nnet' $ map wordToDouble $
-                     take (fromIntegral nsize :: Int) msg
+    nnAnswer nnet' = filter (not . null) $ map (\x -> doubleToWord nmap' True 0 25 x)
+                     $ runNeuralNetwork nnet' $ map wordToDouble
+                     $ take (fromIntegral nsize :: Int) msg
 
 hPutStrLock :: Handle -> String -> StateT (MVar ()) IO ()
 hPutStrLock s m = do
