@@ -79,6 +79,7 @@ import           Data.List
 import qualified Data.Map.Strict                as Map
 import           Data.Maybe
 import           Data.Tree                      (flatten)
+import           Data.Word                      (Word16)
 import qualified System.Random                  as Random
 import           System.IO
 import qualified Text.Regex.Posix               as Regex
@@ -186,6 +187,9 @@ data DType = Normal | Action | GreetAction | Greeting | Enter deriving (Eq, Read
 emptyWord :: Word
 emptyWord = Word [] 0 Map.empty Map.empty [] [] [] UnknownEPos
 
+nsize :: Word16
+nsize = 8
+
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO (Fugly, [String])
 initFugly fuglydir wndir gfdir dfile = do
     (dict', defs', ban', match', params') <- catch (loadDict fuglydir dfile)
@@ -261,7 +265,8 @@ loadNeural fuglydir = do
         fm h $ Map.insert n s a
 
 checkNSet :: NSet -> NSet
-checkNSet n = [(i, o) | (i, o) <- n, length i == 16 && length o == 16]
+checkNSet n = [(i, o) | (i, o) <- n, length i == (fromIntegral nsize :: Int)
+                                  && length o == (fromIntegral nsize :: Int)]
 
 saveDict :: MVar () -> Fugly -> FilePath -> String -> [String] -> IO ()
 saveDict st Fugly{dict=dict', defs=defs', ban=ban', match=match'} fuglydir dfile params = do
@@ -1083,8 +1088,8 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', nset=nset', nmap=nm
     s1a :: Int -> Int -> [String] -> IO String
     s1a _ _ [] = return []
     s1a r' l w
-      | l < 16 && r < 75 = do
-        let pad = take 16 $ cycle [" "]
+      | l < 32 && r < 75 = do
+        let pad = take (fromIntegral nsize :: Int) $ cycle [" "]
         nnReply st nset' nmap' 5000 (w ++ pad)
       | l < 7 && s2l w Regex.=~ "hi$|hello|greetings|welcome" = return (case mod r' 6 of
          0 -> "Hello my friend."
@@ -1521,7 +1526,7 @@ nnInsert Fugly{wne=wne', aspell=aspell'} nset' nmap' input output = do
       b = foldr (\x -> Map.insert (mKey x) x) nmap' $ i' ++ o'
   return (a, b)
   where
-    dList x = take 16 $ map wordToDouble $ x ++ pad
+    dList x = take (fromIntegral nsize :: Int) $ map wordToDouble $ x ++ pad
     fix :: [String] -> [String] -> IO [String]
     fix []     a = return $ dedup $ filter (not . null) a
     fix (x:xs) a = do
@@ -1529,7 +1534,7 @@ nnInsert Fugly{wne=wne', aspell=aspell'} nset' nmap' input output = do
       if p /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then
          fix xs (x : a) else fix xs a
     low = map (map toLower)
-    pad = take 16 $ cycle [" "]
+    pad = take (fromIntegral nsize :: Int) $ cycle [" "]
     mKey w = floor $ (wordToDouble w) * 10000
 
 nnReply :: MVar () -> NSet -> NMap -> Int -> [String] -> IO String
@@ -1537,9 +1542,9 @@ nnReply _  []    _     _    _   = return []
 nnReply _  _     _     _    []  = return []
 nnReply st nset' nmap' numg msg = do
     g <- Random.newStdGen
-    let nnet = fst $ randomNeuralNetwork g [16, 16, 16, 16] [Tanh, Tanh, Logistic] 0.3
+    let nnet = fst $ randomNeuralNetwork g [nsize, nsize, nsize] [Tanh, Tanh] 0.3
     n <- backpropagationBatchParallel nnet nset' 0.43 nstop :: IO (NeuralNetwork Double)
-    let a = dedup $ nnAnswer n
+    let a = filter (\x -> x /= "a") $ dedup $ nnAnswer n
     evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords a)) st
     if null $ concat a then return [] else
       return $ unwords $ toUpperSentence $ endSentence a
@@ -1548,7 +1553,8 @@ nnReply st nset' nmap' numg msg = do
       return $ num >= numg
     nnAnswer :: NeuralNetwork Double -> [String]
     nnAnswer nnet' = filter (not . null) $ map (\x -> doubleToWord nmap' True 0 10 x)
-                     $ runNeuralNetwork nnet' $ map wordToDouble msg
+                     $ runNeuralNetwork nnet' $ map wordToDouble $
+                     take (fromIntegral nsize :: Int) msg
 
 hPutStrLock :: Handle -> String -> StateT (MVar ()) IO ()
 hPutStrLock s m = do
