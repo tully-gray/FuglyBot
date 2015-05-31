@@ -663,7 +663,7 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
     if l && not isaction && noban fmsg ban' && parse && (not $ null chan || apm) ||
        (l && not isaction && noban fmsg ban' && null chan && nick' == o) then do
       (ns, nm) <- lift $ nnInsert f nset' nmap' lastm' fmsg
-      nd <- lift $ insertWords lock f an top fmsg
+      nd       <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd, nset=ns, nmap=nm}, lastm=fmsg} else
       return bot

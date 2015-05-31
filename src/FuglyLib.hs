@@ -221,13 +221,11 @@ saveNeural st Fugly{nset=nset', nmap=nmap'} fuglydir = do
     hSetBuffering h LineBuffering
     evalStateT (hPutStrLnLock stdout "Saving neural file...") st
     _ <- evalStateT (mapM (\(i, o) -> hPutStrLnLock h ((unwords $ map show i) ++
-                            " / " ++ (unwords $ map show o))) $ check nset') st
+                            " / " ++ (unwords $ map show o))) $ checkNSet nset') st
     evalStateT (hPutStrLnLock h ">END<") st
     _ <- evalStateT (mapM (\x -> hPutStrLnLock h x) [unwords [show n, s] | (n, s) <- Map.toList nmap']) st
     evalStateT (hPutStrLnLock h ">END<") st
     hClose h
-  where
-    check n = [(i, o) | (i, o) <- n, (not $ null i) && (not $ null o)]
 
 loadNeural :: FilePath -> IO (NSet, NMap)
 loadNeural fuglydir = do
@@ -245,14 +243,14 @@ loadNeural fuglydir = do
     fn :: Handle -> NSet -> IO NSet
     fn h a = do
       l <- hGetLine h
-      if l == ">END<" then return a else
+      if l == ">END<" then return $ checkNSet a else
         let j = elemIndex '/' l in
           if isJust j then let
             (i, o) = splitAt (fromJust j) l
             i' = map read $ words $ init i
             o' = map read $ words $ drop 2 o in
             fn h ((i', o') : a)
-          else fn h a
+          else fn h $ checkNSet a
     fm :: Handle -> NMap -> IO NMap
     fm h a = do
       l <- hGetLine h
@@ -261,6 +259,9 @@ loadNeural fuglydir = do
             n  = read $ head ll :: Int
             s  = unwords $ tail ll in
         fm h $ Map.insert n s a
+
+checkNSet :: NSet -> NSet
+checkNSet n = [(i, o) | (i, o) <- n, length i == 16 && length o == 16]
 
 saveDict :: (MVar ()) -> Fugly -> FilePath -> String -> [String] -> IO ()
 saveDict st Fugly{dict=dict', defs=defs', ban=ban', match=match'} fuglydir dfile params = do
@@ -375,7 +376,7 @@ loadDict fuglydir dfile = do
                            "end:"        -> word'
                            _             -> word'
                else word'
-      if l4 == False then do hPutStrLn stderr ("Oops: " ++ l) >> return nm
+      if l4 == False then do return nm
         else if head wl == "end:" then
                ff h ww (nm ++ ((wordGetWord ww), ww) : [])
              else if head wl == ">END<" then
