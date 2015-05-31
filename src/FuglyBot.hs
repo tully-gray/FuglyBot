@@ -700,7 +700,8 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
         threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
       let num    = if r' - 4 < 1 || str < 4 || length m < 7 then 1 else r' - 4
       x <- sentenceA lock fugly' r d rw stopic rand str slen top m
-      y <- sentenceB lock fugly' r d rw stopic rand str slen plen top num m
+      y <- if null x then sentenceB lock fugly' r d rw stopic rand str slen plen top num m
+           else return []
       let ww = if null x then unwords y else x
       evalStateT (do if null ww then return ()
                        else if null nick' || nick' == chan || rr == 0 then
