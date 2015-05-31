@@ -662,7 +662,7 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                       else sentenceReply st bot rr load chan nick' fmsg >> return ())
     if l && not isaction && noban fmsg ban' && parse && (not $ null chan || apm) ||
        (l && not isaction && noban fmsg ban' && null chan && nick' == o) then do
-      let (ns, nm) = nnInsert nset' nmap' lastm' fmsg
+      (ns, nm) <- lift $ nnInsert f nset' nmap' lastm' fmsg
       nd <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd, nset=ns, nmap=nm}, lastm=fmsg} else
@@ -742,20 +742,25 @@ execCmd b chan nick' (x:xs) = do
           0 -> do evalStateT (write s debug' "QUIT" ":Bye") st >> return bot
           _ -> do evalStateT (write s debug' "QUIT" (":" ++ unwords xs)) st >> return bot
                        else return bot
-      | x == "!save" = if nick' == owner' then
-                         catch (saveDict (getLock st) f fdir dfile (paramsToList p))
+      | x == "!save" = if nick' == owner' then let l' = getLock st in
+                         catch (do {saveDict l' f fdir dfile (paramsToList p) ; saveNeural l' f fdir})
                          (\e -> do let err = show (e :: SomeException)
-                                   evalStateT (hPutStrLnLock stderr ("Exception in saveDict: " ++ err)) st
+                                   evalStateT (hPutStrLnLock stderr ("Exception saving state: " ++ err)) st
                                    return ())
-                         >> replyMsgT st bot chan nick' "Saved dict file!" >> return bot
+                         >> replyMsgT st bot chan nick' "Saved bot state!" >> return bot
                        else return bot
       | x == "!load" = if nick' == owner' then do
-           (nd, nde, nb, nm, np) <- catch (loadDict fdir dfile) (\e -> do let err = show (e :: SomeException)
-                                                                          evalStateT (hPutStrLnLock stderr ("Exception in loadDict: " ++ err)) st
-                                                                          return (dict', defs', ban', match', paramsToList p))
-           replyMsgT st bot chan nick' "Loaded dict file!"
+           (nd, nde, nb, nm, np) <- catch (loadDict fdir dfile)
+                                    (\e -> do let err = show (e :: SomeException)
+                                              evalStateT (hPutStrLnLock stderr ("Exception in loadDict: " ++ err)) st
+                                              return (dict', defs', ban', match', paramsToList p))
+           (ns, nm') <- catch (loadNeural fdir)
+                        (\e -> do let err = show (e :: SomeException)
+                                  hPutStrLn stderr ("Exception in loadNeural: " ++ err)
+                                  return ([], Map.empty))
+           replyMsgT st bot chan nick' "Loaded bot state!"
            return bot{params=(readParamsFromList np){nick=botnick, owner=owner', fuglydir=fdir, dictfile=dfile},
-                      fugly=f{dict=nd, defs=nde, pgf=pgf', wne=wne', aspell=aspell', ban=nb, FuglyLib.match=nm}}
+                      fugly=f{dict=nd, defs=nde, pgf=pgf', wne=wne', aspell=aspell', ban=nb, FuglyLib.match=nm, nset=ns, nmap=nm'}}
                        else return bot
       | x == "!join" = if nick' == owner' then evalStateT (joinChannel s "JOIN" xs) st >> return bot else return bot
       | x == "!part" = if nick' == owner' then evalStateT (joinChannel s "PART" xs) st >> return bot else return bot
@@ -909,7 +914,7 @@ execCmd b chan nick' (x:xs) = do
                    else replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " not in dict.") >> return bot
                else if (xs!!0) == "delete" then let w = Map.lookup (xs!!1) dict' in
                  if isJust w then
-                   if not $ elem (xs!!2) $ wordGetBanAfter $ fromJust w then
+                   if notElem (xs!!2) $ wordGetBanAfter $ fromJust w then
                      replyMsgT st bot chan nick' ("Word " ++ (xs!!2) ++ " not in ban list.") >> return bot
                      else
                        replyMsgT st bot chan nick' ("Unbanned word " ++ (xs!!2) ++ " after word " ++ (xs!!1) ++ ".") >>
@@ -944,7 +949,7 @@ execCmd b chan nick' (x:xs) = do
                    replyMsgT st bot chan nick' ("Banned learning on word " ++ (xs!!1) ++ ".") >>
                      return bot{fugly=f{ban=nub $ ban' ++ [(xs!!1)]}}
                else if (xs!!0) == "delete" then
-                 if not $ elem (xs!!1) ban' then
+                 if notElem (xs!!1) ban' then
                    replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " not in ban list.") >> return bot
                  else
                    replyMsgT st bot chan nick' ("Unbanned learning on word " ++ (xs!!1) ++ ".") >>
@@ -963,7 +968,7 @@ execCmd b chan nick' (x:xs) = do
                    replyMsgT st bot chan nick' ("Matching word " ++ (xs!!1) ++ ".") >>
                      return bot{fugly=f{FuglyLib.match=nub $ match' ++ [(xs!!1)]}}
                else if (xs!!0) == "delete" then
-                 if not $ elem (xs!!1) match' then
+                 if notElem (xs!!1) match' then
                    replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " not in match list.") >> return bot
                  else
                    replyMsgT st bot chan nick' ("No longer matching word " ++ (xs!!1) ++ ".") >>
