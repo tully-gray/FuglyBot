@@ -207,7 +207,7 @@ initFugly fuglydir wndir gfdir dfile = do
                                 return ([], Map.empty))
     return ((Fugly dict' defs' pgf' wne' aspell' ban' match' nset' nmap'), params')
 
-stopFugly :: (MVar ()) -> FilePath -> Fugly -> String -> [String] -> IO ()
+stopFugly :: MVar () -> FilePath -> Fugly -> String -> [String] -> IO ()
 stopFugly st fuglydir fugly@Fugly{wne=wne'} dfile params = do
     catch (do {saveDict st fugly fuglydir dfile params ; saveNeural st fugly fuglydir})
       (\e -> do let err = show (e :: SomeException)
@@ -215,7 +215,7 @@ stopFugly st fuglydir fugly@Fugly{wne=wne'} dfile params = do
                 return ())
     closeWordNet wne'
 
-saveNeural :: (MVar ()) -> Fugly -> FilePath -> IO ()
+saveNeural :: MVar () -> Fugly -> FilePath -> IO ()
 saveNeural st Fugly{nset=nset', nmap=nmap'} fuglydir = do
     h <- openFile (fuglydir ++ "/neural.txt") WriteMode
     hSetBuffering h LineBuffering
@@ -263,7 +263,7 @@ loadNeural fuglydir = do
 checkNSet :: NSet -> NSet
 checkNSet n = [(i, o) | (i, o) <- n, length i == 16 && length o == 16]
 
-saveDict :: (MVar ()) -> Fugly -> FilePath -> String -> [String] -> IO ()
+saveDict :: MVar () -> Fugly -> FilePath -> String -> [String] -> IO ()
 saveDict st Fugly{dict=dict', defs=defs', ban=ban', match=match'} fuglydir dfile params = do
     let d = Map.toList dict'
     if null d then evalStateT (hPutStrLnLock stderr "> Empty dict!") st
@@ -393,7 +393,7 @@ badEndWords = ["a", "about", "am", "an", "and", "are", "as", "at", "but", "by", 
 sWords :: [String]
 sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "on", "or", "so", "to", "us", "we", "yo"]
 
-insertWords :: (MVar ()) -> Fugly -> Bool -> String -> [String] -> IO Dict
+insertWords :: MVar () -> Fugly -> Bool -> String -> [String] -> IO Dict
 insertWords _  Fugly{dict=d}  _ _    []   = return d
 insertWords st fugly autoname topic' [x]  = insertWord st fugly autoname topic' x [] [] []
 insertWords st fugly@Fugly{dict=dict'} autoname topic' msg =
@@ -418,7 +418,7 @@ insertWords st fugly@Fugly{dict=dict'} autoname topic' msg =
       | otherwise  = do ff <- insertWord st' f a t (m!!i) (m!!(i-1)) (m!!(i+1)) []
                         insertWords' st' f{dict=ff} a t (i+1) l m
 
-insertWord :: (MVar ()) -> Fugly -> Bool -> String -> String -> String -> String -> String -> IO Dict
+insertWord :: MVar () -> Fugly -> Bool -> String -> String -> String -> String -> String -> IO Dict
 insertWord _  Fugly{dict=d}                                     _        _      []    _       _      _    = return d
 insertWord st fugly@Fugly{dict=dict', aspell=aspell', ban=ban'} autoname topic' word' before' after' pos' = do
     n   <- asIsName st aspell' word'
@@ -479,10 +479,10 @@ insertWord st fugly@Fugly{dict=dict', aspell=aspell', ban=ban'} autoname topic' 
     f st' bn an ba aa Name{}    = insertNameRaw' st' fugly True  w  word'             (bi bn ba) (ai an aa) topic'
     f st' bn an ba aa Acronym{} = insertAcroRaw' st' fugly       wa (acroword word')  (bi bn ba) (ai an aa) topic' []
 
-insertWordRaw :: (MVar ()) -> Fugly -> Bool -> String -> String -> String -> String -> String -> IO Dict
+insertWordRaw :: MVar () -> Fugly -> Bool -> String -> String -> String -> String -> String -> IO Dict
 insertWordRaw st f@Fugly{dict=d} s w b a t p = insertWordRaw' st f s (Map.lookup w d) w b a t p
 
-insertWordRaw' :: (MVar ()) -> Fugly -> Bool -> Maybe Word -> String -> String
+insertWordRaw' :: MVar () -> Fugly -> Bool -> Maybe Word -> String -> String
                  -> String -> String -> String -> IO Dict
 insertWordRaw' _  Fugly{dict=d}                               _      _ []    _       _      _      _    = return d
 insertWordRaw' st Fugly{dict=dict', wne=wne', aspell=aspell'} strict w word' before' after' topic' pos' = do
@@ -518,10 +518,10 @@ insertWordRaw' st Fugly{dict=dict', wne=wne', aspell=aspell'} strict w word' bef
                        (ByteString.pack x) then incBefore' (fromJust w) x 1
                     else wordGetBefore (fromJust w)
 
-insertNameRaw :: (MVar ()) -> Fugly -> Bool -> String -> String -> String -> String -> IO Dict
+insertNameRaw :: MVar () -> Fugly -> Bool -> String -> String -> String -> String -> IO Dict
 insertNameRaw st f@Fugly{dict=d} s w b a t = insertNameRaw' st f s (Map.lookup w d) w b a t
 
-insertNameRaw' :: (MVar ()) -> Fugly -> Bool -> Maybe Word -> String -> String
+insertNameRaw' :: MVar () -> Fugly -> Bool -> Maybe Word -> String -> String
                   -> String -> String -> IO Dict
 insertNameRaw' _  Fugly{dict=d}                               _      _ []    _       _      _      = return d
 insertNameRaw' st Fugly{dict=dict', wne=wne', aspell=aspell'} strict w name' before' after' topic' = do
@@ -545,10 +545,10 @@ insertNameRaw' st Fugly{dict=dict', wne=wne', aspell=aspell'} strict w name' bef
       nn x y  = if isJust $ Map.lookup x dict' then x
                 else if y == UnknownEPos && Aspell.check aspell' (ByteString.pack x) == False then [] else x
 
-insertAcroRaw :: (MVar ()) -> Fugly -> String -> String -> String -> String -> String -> IO Dict
+insertAcroRaw :: MVar () -> Fugly -> String -> String -> String -> String -> String -> IO Dict
 insertAcroRaw st f@Fugly{dict=d} w b a t def = insertAcroRaw' st f (Map.lookup w d) w b a t def
 
-insertAcroRaw' :: (MVar ()) -> Fugly -> Maybe Word -> String -> String
+insertAcroRaw' :: MVar () -> Fugly -> Maybe Word -> String -> String
                   -> String -> String -> String -> IO Dict
 insertAcroRaw' _  Fugly{dict=d}                               _ []    _       _      _      _   = return d
 insertAcroRaw' st Fugly{dict=dict', wne=wne', aspell=aspell'} w acro' before' after' topic' def = do
@@ -935,7 +935,7 @@ sentenceMeet w s m  = do
           if isNothing m' then return []
             else return $ getWords $ getSynset $ fromJust m'
 
-asIsName :: (MVar ()) -> Aspell.SpellChecker -> String -> IO Bool
+asIsName :: MVar () -> Aspell.SpellChecker -> String -> IO Bool
 asIsName _ _ []    = return False
 asIsName _ _ "i"   = return True
 asIsName _ _ "I"   = return True
@@ -952,14 +952,14 @@ asIsName st aspell' word' = do
                        else if (word' == (words nb)!!0 || u == (words nb)!!0) && (not $ null nl) then True
                             else False
 
-isName :: (MVar ()) -> Aspell.SpellChecker -> Dict -> String -> IO Bool
+isName :: MVar () -> Aspell.SpellChecker -> Dict -> String -> IO Bool
 isName _  _       _     [] = return False
 isName st aspell' dict' w  = do
       n <- asIsName st aspell' w
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "name" else n
 
-asIsAcronym :: (MVar ()) -> Aspell.SpellChecker -> String -> IO Bool
+asIsAcronym :: MVar () -> Aspell.SpellChecker -> String -> IO Bool
 asIsAcronym _  _       []    = return False
 asIsAcronym _  _      (_:[]) = return False
 asIsAcronym st aspell' word' = do
@@ -974,14 +974,14 @@ asIsAcronym st aspell' word' = do
                        else if (not $ null na) && u == (words na)!!0 then True
                             else False
 
-isAcronym :: (MVar ()) -> Aspell.SpellChecker -> Dict -> String -> IO Bool
+isAcronym :: MVar () -> Aspell.SpellChecker -> Dict -> String -> IO Bool
 isAcronym _  _       _     [] = return False
 isAcronym st aspell' dict' w  = do
       a <- asIsAcronym st aspell' w
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "acronym" else a
 
-dictLookup :: (MVar ()) -> Fugly -> String -> String -> IO String
+dictLookup :: MVar () -> Fugly -> String -> String -> IO String
 dictLookup st Fugly{wne=wne', aspell=aspell'} word' pos' = do
     gloss <- wnGloss wne' word' pos'
     if gloss == "Nothing!" then
@@ -1085,7 +1085,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', nset=nset', nmap=nm
     s1a r' l w
       | l < 16 && r < 75 = do
         let pad = take 16 $ cycle [" "]
-        nnReply nset' nmap' 5000 (w ++ pad)
+        nnReply st nset' nmap' 5000 (w ++ pad)
       | l < 7 && s2l w Regex.=~ "hi$|hello|greetings|welcome" = return (case mod r' 6 of
          0 -> "Hello my friend."
          1 -> "Hi there."
@@ -1201,7 +1201,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', nset=nset', nmap=nm
                                if null ry then return []
                                  else return $ ry!!(mod rr (length ry))) mm
 
-sentenceB :: (MVar ()) -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int -> Int
+sentenceB :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int -> Int
              -> Int -> String -> Int -> [String] -> IO [String]
 sentenceB st fugly@Fugly{pgf=pgf'} r debug rwords stopic randoms stries slen plen topic' num msg = do
     m <- chooseWord msg
@@ -1209,7 +1209,7 @@ sentenceB st fugly@Fugly{pgf=pgf'} r debug rwords stopic randoms stries slen ple
     fixIt st debug (sentenceB' st fugly r debug False rwords stopic randoms stries slen plen topic' mm ++
                     [gfRandom pgf' []]) [] num 0 0 (stries * slen)
 
-sentenceB' :: (MVar ()) -> Fugly -> Int -> Bool -> Bool -> Bool -> Bool -> Int
+sentenceB' :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Bool -> Int
                -> Int -> Int -> Int -> String -> [String] -> [IO String]
 sentenceB' _ _ _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
 sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
@@ -1263,7 +1263,7 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     s1f _ _ []     = []
     s1f i f (x:xs) = f i x : s1f (i + 1) f xs
 
-fixIt :: (MVar ()) -> Bool -> [IO String] -> [String] -> Int -> Int
+fixIt :: MVar () -> Bool -> [IO String] -> [String] -> Int -> Int
          -> Int -> Int -> IO [String]
 fixIt _  _ []     a _ _ _ _ = return a
 fixIt st d (x:xs) a n i j s = do
@@ -1373,12 +1373,12 @@ wnReplaceWords fugly@Fugly{wne=wne'} True  randoms msg = do
                 else
                   return msg
 
-asReplaceWords :: (MVar ()) -> Fugly -> [String] -> IO [String]
+asReplaceWords :: MVar () -> Fugly -> [String] -> IO [String]
 asReplaceWords _  _     []  = return [[]]
 asReplaceWords st fugly msg = do
     mapM (\x -> asReplace st fugly x) msg
 
-asReplace :: (MVar ()) -> Fugly -> String -> IO String
+asReplace :: MVar () -> Fugly -> String -> IO String
 asReplace _  _                                           []    = return []
 asReplace st Fugly{dict=dict', wne=wne', aspell=aspell'} word' = do
     n  <- asIsName st aspell' word'
@@ -1492,7 +1492,8 @@ findRelated wne' word' = do
     if null out then return word' else return out
 
 wordToDouble :: String -> Double
-wordToDouble w = c $ (sum $ stringToDL w) / (realToFrac $ length w :: Double)
+wordToDouble " " = (-1.0)
+wordToDouble w   = (sum $ stringToDL w) / (realToFrac $ length w :: Double)
   where
     c n
       | n > 1     = 1.0
@@ -1517,7 +1518,7 @@ nnInsert Fugly{wne=wne', aspell=aspell'} nset' nmap' input output = do
   i' <- fix (low input) []
   o' <- fix (low output) []
   let a = (dList i', dList o') : nset'
-      b = foldr (\x -> Map.insert (mKey x) x) nmap' i'
+      b = foldr (\x -> Map.insert (mKey x) x) nmap' $ i' ++ o'
   return (a, b)
   where
     dList x = take 16 $ map wordToDouble $ x ++ pad
@@ -1531,23 +1532,22 @@ nnInsert Fugly{wne=wne', aspell=aspell'} nset' nmap' input output = do
     pad = take 16 $ cycle [" "]
     mKey w = floor $ (wordToDouble w) * 10000
 
-nnReply :: NSet -> NMap -> Int -> [String] -> IO String
-nnReply []    _     _    _   = return []
-nnReply _     _     _    []  = return []
-nnReply nset' nmap' numg msg = do
+nnReply :: MVar () -> NSet -> NMap -> Int -> [String] -> IO String
+nnReply _  []    _     _    _   = return []
+nnReply _  _     _     _    []  = return []
+nnReply st nset' nmap' numg msg = do
     g <- Random.newStdGen
-    -- let nnet = fst $ randomNeuralNetwork g [16, 8, 8, 16] [Tanh, Tanh, Logistic] 0.3
-    let nnet = fst $ randomNeuralNetwork g [16, 16, 16] [Tanh, Tanh] 0.3
+    let nnet = fst $ randomNeuralNetwork g [16, 16, 16, 16] [Tanh, Tanh, Logistic] 0.3
     n <- backpropagationBatchParallel nnet nset' 0.43 nstop :: IO (NeuralNetwork Double)
-    let a = nnAnswer n
-    hPutStrLn stdout ("> debug: nnReply: " ++ unwords a)
+    let a = dedup $ nnAnswer n
+    evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords a)) st
     if null $ concat a then return [] else
-      return $ unwords $ toUpperSentence $ endSentence $ nnAnswer n
+      return $ unwords $ toUpperSentence $ endSentence a
   where
     nstop _ num = do
       return $ num >= numg
     nnAnswer :: NeuralNetwork Double -> [String]
-    nnAnswer nnet' = dedup $ filter (not . null) $ map (\x -> doubleToWord nmap' True 0 5 x)
+    nnAnswer nnet' = filter (not . null) $ map (\x -> doubleToWord nmap' True 0 10 x)
                      $ runNeuralNetwork nnet' $ map wordToDouble msg
 
 hPutStrLock :: Handle -> String -> StateT (MVar ()) IO ()

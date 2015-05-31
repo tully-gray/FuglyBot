@@ -1090,7 +1090,7 @@ replyMsgT :: Fstate -> Bot -> String -> String -> String -> IO ()
 replyMsgT _  _   _    _     []  = return ()
 replyMsgT st bot chan nick' msg = evalStateT (replyMsg bot chan nick' msg) st
 
--- insertFromFile :: (MVar ()) -> Bot -> FilePath -> IO Bot
+-- insertFromFile :: MVar () -> Bot -> FilePath -> IO Bot
 -- insertFromFile _ b [] = return b
 -- insertFromFile st bot@Bot{params=p@Parameter{autoname=a, Main.topic=t}, fugly=f} file = do
 --     _    <- return p
