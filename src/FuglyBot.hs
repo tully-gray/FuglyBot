@@ -699,7 +699,9 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
           sdelay = (if rr - 2 > 0 then rr - 2 else 0) * 3 in
         threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
       let num    = if r' - 4 < 1 || str < 4 || length m < 7 then 1 else r' - 4
-      x <- sentenceA lock fugly' r d rw stopic rand str slen top m
+      (nnet', x) <- sentenceA lock fugly' r d rw stopic rand str slen top m
+      nb <- newMVar $ bot{fugly=fugly'{nnet=nnet'}}
+      evalStateT (modify (\(_, nlock', ntc', ncn') -> (nb, nlock', ntc', ncn'))) st
       y <- if null x then sentenceB lock fugly' r d rw stopic rand str slen plen top num m
            else return []
       let ww = if null x then unwords y else x
@@ -737,7 +739,7 @@ execCmd b chan nick' (x:xs) = do
                                        stries' slen plen learn slearn stopic
                                        autoname' allowpm' debug' topic' randoms'
                                        rwords' timer' delay' greets actions'),
-                     fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match' _ _)} st
+                     fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match' _ _ _)} st
       | usercmd' == False && nick' /= owner' = return bot
       | x == "!quit" = if nick' == owner' then case length xs of
           0 -> do evalStateT (write s debug' "QUIT" ":Bye") st >> return bot
