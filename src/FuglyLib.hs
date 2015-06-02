@@ -1086,13 +1086,13 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
 sentenceA :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int
              -> Int -> String -> [String] -> IO (MVar (NeuralNetwork Double), String)
 sentenceA _ Fugly{nnet=nnet'} _ _ _ _ _ _ _ _ [] = return (nnet', [])
-sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', nnet=nnet', nset=nset', nmap=nmap'}
+sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', nnet=nnet'}
   r debug rwords stopic randoms stries slen topic' msg = do
     rr <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     let len = length msg
-    if len <= (fromIntegral nsize :: Int) && r < 60 then
+    if len <= (fromIntegral nsize :: Int) && r < 70 then
       let pad = take (fromIntegral nsize :: Int) $ cycle [" "] in
-      nnReply st nnet' nset' nmap' 2000 (msg ++ pad)
+      nnReply st fugly 2000 (msg ++ pad)
       else do
       out <- s1a rr len msg
       return (nnet', out)
@@ -1532,19 +1532,19 @@ doubleToWord nmap' b j k d = let i = (j * u) + (floor $ d * msize)
     if isJust r then fromJust r else if j < k then
       doubleToWord nmap' s (j + t) k d else []
 
-nnInsert :: Fugly -> NSet -> NMap -> [String] -> [String] -> IO (NSet, NMap)
-nnInsert _                               nset' nmap' []    _      = return (nset', nmap')
-nnInsert _                               nset' nmap' _     []     = return (nset', nmap')
-nnInsert Fugly{wne=wne', aspell=aspell'} nset' nmap' input output = do
+nnInsert :: Fugly -> [String] -> [String] -> IO (NSet, NMap)
+nnInsert Fugly{nset=nset', nmap=nmap'} [] _ = return (nset', nmap')
+nnInsert Fugly{nset=nset', nmap=nmap'} _ [] = return (nset', nmap')
+nnInsert Fugly{wne=wne', aspell=aspell', nset=nset', nmap=nmap'} input output = do
   i' <- fix (low input) []
   o' <- fix (low output) []
-  let a = (dList i', dList o') : nset'
+  let a = if i' == o' then nset' else (dList i', dList o') : nset'
       b = foldr (\x -> Map.insert (mKey x) x) nmap' $ i' ++ o'
   return (a, b)
   where
     dList x = take (fromIntegral nsize :: Int) $ map wordToDouble $ x ++ pad
     fix :: [String] -> [String] -> IO [String]
-    fix []     a = return $ dedup $ filter (not . null) a
+    fix []     a = return $ dedup $ filter (not . null) $ reverse a
     fix (x:xs) a = do
       p <- wnPartPOS wne' x
       if p /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then
@@ -1554,18 +1554,18 @@ nnInsert Fugly{wne=wne', aspell=aspell'} nset' nmap' input output = do
     pad = take (fromIntegral nsize :: Int) $ cycle [" "]
     mKey w = floor $ (wordToDouble w) * msize
 
-nnReply :: MVar () -> MVar (NeuralNetwork Double) -> NSet -> NMap -> Int
-           -> [String] -> IO (MVar (NeuralNetwork Double), String)
-nnReply _  nnet' []    _     _    _   = return (nnet', [])
-nnReply _  nnet' _     _     _    []  = return (nnet', [])
-nnReply st nnet' nset' nmap' numg msg = do
+nnReply :: MVar () -> Fugly -> Int -> [String] -> IO (MVar (NeuralNetwork Double), String)
+nnReply _  Fugly{nnet=nnet', nset=[]} _ _  = return (nnet', [])
+nnReply _  Fugly{nnet=nnet'}          _ [] = return (nnet', [])
+nnReply st Fugly{wne=wne', pgf=pgf', nnet=nnet', nset=nset', nmap=nmap'} numg msg = do
     nn <- takeMVar nnet'
     n  <- backpropagationBatchParallel nn nset' 0.1 nstop :: IO (NeuralNetwork Double)
     putMVar nnet' n
-    let a = filter (\x -> x /= "a") $ dedup $ nnAnswer n
-    evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords a)) st
-    if null $ concat a then return (nnet', []) else
-      let out = unwords $ toUpperSentence $ endSentence a in
+    let a = filter (not . null) $ dedup $ nnAnswer n
+    b <- check a
+    if null $ concat b then return (nnet', []) else do
+      let out = unwords $ toUpperSentence $ endSentence b
+      evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ out)) st
       return (nnet', out)
   where
     nstop n num = do
@@ -1575,9 +1575,15 @@ nnReply st nnet' nset' nmap' numg msg = do
         else return ()
       return $ num >= numg
     nnAnswer :: NeuralNetwork Double -> [String]
-    nnAnswer n = filter (not . null) $ map (\x -> doubleToWord nmap' True 0 25 x)
+    nnAnswer n = map (\x -> doubleToWord nmap' True 0 25 x)
                  $ runNeuralNetwork n $ map wordToDouble
                  $ take (fromIntegral nsize :: Int) msg
+    check :: [String] -> IO [String]
+    check [] = return []
+    check x = do
+      p <- wnPartPOS wne' $ cleanString $ last x
+      if gfParseBool pgf' 0 (unwords x) && p /= POS Adj then return x
+        else return []
 
 hPutStrLock :: Handle -> String -> StateT (MVar ()) IO ()
 hPutStrLock s m = do
