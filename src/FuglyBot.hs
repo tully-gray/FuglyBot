@@ -662,17 +662,18 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
     let matchon  = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
     let isaction = head msg == "\SOHACTION"
     action <- lift $ ircAction False nick' [] top defs'
-    lift $ (if null chan then
-                   if apm && not isaction then
-                     sentenceReply st bot rr load nick' [] fmsg >> return ()
-                   else return ()
-                 else if chanmsg then
-                        if (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchon then
-                          if isaction && rr - 60 < acts  || rr * 5 + 15 < acts then
-                             evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st
-                            else sentenceReply st bot rr load chan chan fmsg >> return ()
-                        else return ()
-                      else sentenceReply st bot rr load chan nick' fmsg >> return ())
+    if null fmsg then return () else
+      lift $ (if null chan then
+                     if apm && not isaction then
+                       sentenceReply st bot rr load nick' [] fmsg >> return ()
+                     else return ()
+                   else if chanmsg then
+                          if (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchon then
+                            if isaction && rr - 60 < acts  || rr * 5 + 15 < acts then
+                               evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st
+                              else sentenceReply st bot rr load chan chan fmsg >> return ()
+                          else return ()
+                        else sentenceReply st bot rr load chan nick' fmsg >> return ())
     if ((nick' == o && null chan) || parse) && l && not isaction && noban fmsg ban' then do
       (ns, nm) <- lift $ nnInsert f nsets lastm' fmsg
       nd       <- lift $ insertWords lock f an top fmsg
