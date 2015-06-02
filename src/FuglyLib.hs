@@ -415,19 +415,20 @@ insertWords st fugly@Fugly{dict=dict'} autoname topic' msg =
     1 -> return dict'
     2 -> do ff <- insertWord st fugly autoname topic' mx [] my []
             insertWord st fugly{dict=ff} autoname topic' my mx [] []
-    _ -> insertWords' st fugly autoname topic' 0 len dmsg
+    _ -> insertWords' fugly autoname topic' 0 len dmsg
   where
     dmsg = dedup msg
     len  = length dmsg
-    insertWords' _ (Fugly{dict=d}) _ _ _ _ [] = return d
-    insertWords' st' f@(Fugly{dict=d}) a t i l m
-      | i == 0     = do ff <- insertWord st' f a t (m!!i) [] (m!!(i+1)) []
-                        insertWords' st' f{dict=ff} a t (i+1) l m
+    insertWords' :: Fugly -> Bool -> String -> Int -> Int -> [String] -> IO Dict
+    insertWords' (Fugly{dict=d}) _ _ _ _ [] = return d
+    insertWords' f@(Fugly{dict=d}) a t i l m
+      | i == 0     = do ff <- insertWord st f a t (m!!i) [] (m!!(i+1)) []
+                        insertWords' f{dict=ff} a t (i+1) l m
       | i > l - 1  = return d
-      | i == l - 1 = do ff <- insertWord st' f a t (m!!i) (m!!(i-1)) [] []
-                        insertWords' st' f{dict=ff} a t (i+1) l m
-      | otherwise  = do ff <- insertWord st' f a t (m!!i) (m!!(i-1)) (m!!(i+1)) []
-                        insertWords' st' f{dict=ff} a t (i+1) l m
+      | i == l - 1 = do ff <- insertWord st f a t (m!!i) (m!!(i-1)) [] []
+                        insertWords' f{dict=ff} a t (i+1) l m
+      | otherwise  = do ff <- insertWord st f a t (m!!i) (m!!(i-1)) (m!!(i+1)) []
+                        insertWords' f{dict=ff} a t (i+1) l m
 
 insertWord :: MVar () -> Fugly -> Bool -> String -> String -> String -> String -> String -> IO Dict
 insertWord _  Fugly{dict=d}                                     _        _      []    _       _      _    = return d
