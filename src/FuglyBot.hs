@@ -769,7 +769,7 @@ execCmd b chan nick' (x:xs) = do
                                     (\e -> do let err = show (e :: SomeException)
                                               evalStateT (hPutStrLnLock stderr ("Exception in loadDict: " ++ err)) st
                                               return (dict', defs', ban', match', paramsToList p))
-           (ns, nm') <- catch (loadNeural fdir)
+           (ns, nm') <- catch (loadNeural fdir nsets)
                         (\e -> do let err = show (e :: SomeException)
                                   hPutStrLn stderr ("Exception in loadNeural: " ++ err)
                                   return ([], Map.empty))

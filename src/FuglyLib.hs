@@ -209,7 +209,7 @@ initFugly fuglydir wndir gfdir dfile = do
                                          Aspell.Options.IgnoreCase False, Aspell.Options.Size Aspell.Options.Large,
                                          Aspell.Options.SuggestMode Aspell.Options.Normal, Aspell.Options.Ignore 2]
     let aspell' = head $ rights [a]
-    (nset', nmap') <- catch (loadNeural fuglydir)
+    (nset', nmap') <- catch (loadNeural fuglydir $ read (params'!!4))
                       (\e -> do let err = show (e :: SomeException)
                                 hPutStrLn stderr ("Exception in initFugly: " ++ err)
                                 return ([], Map.empty))
@@ -237,8 +237,8 @@ saveNeural st Fugly{nset=nset', nmap=nmap'} fuglydir = do
     evalStateT (hPutStrLnLock h ">END<") st
     hClose h
 
-loadNeural :: FilePath -> IO (NSet, NMap)
-loadNeural fuglydir = do
+loadNeural :: FilePath -> Int -> IO (NSet, NMap)
+loadNeural fuglydir nsets = do
     h <- openFile (fuglydir ++ "/neural.txt") ReadMode
     eof <- hIsEOF h
     if eof then
@@ -253,7 +253,7 @@ loadNeural fuglydir = do
     fn :: Handle -> NSet -> IO NSet
     fn h a = do
       l <- hGetLine h
-      if l == ">END<" then return $ checkNSet a else
+      if l == ">END<" then return $ take nsets $ checkNSet a else
         let j = elemIndex '/' l in
           if isJust j then let
             (i, o) = splitAt (fromJust j) l
