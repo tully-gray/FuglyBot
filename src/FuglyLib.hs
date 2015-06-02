@@ -753,7 +753,7 @@ dedup :: Eq a => [a] -> [a]
 dedup []  = []
 dedup [x] = [x]
 dedup (x:xs)
-    | x == head xs = x : dedup (drop 1 xs)
+    | x == head xs = x : dedup (dropWhile (\y -> y == x) xs)
     | otherwise    = x : dedup xs
 
 joinWords :: Char -> [String] -> [String]
