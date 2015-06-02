@@ -29,7 +29,7 @@ data Bot = Bot {
 data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | MaxChanMsg | Debug
                | SentenceTries | SentenceLength | ParseLength | Learning | StrictLearn | StrictTopic
                | Autoname | AllowPM | Topic | Randoms | ReplaceWords | Timer | Delay | NumThreads
-               | Greetings | Actions | UnknownParam | Parameter {
+               | NSetSize | Greetings | Actions | UnknownParam | Parameter {
                  nick        :: String,
                  owner       :: String,
                  fuglydir    :: FilePath,
@@ -38,6 +38,7 @@ data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick | MaxChanMs
                  rejoinkick  :: Int,
                  maxchanmsg  :: Int,
                  numthreads  :: Int,
+                 nsetsize    :: Int,
                  stries      :: Int,
                  slength     :: Int,
                  plength     :: Int,
@@ -68,23 +69,24 @@ instance Enum Parameter where
     toEnum 5  = RejoinKick
     toEnum 6  = MaxChanMsg
     toEnum 7  = NumThreads
-    toEnum 8  = SentenceTries
-    toEnum 9  = SentenceLength
-    toEnum 10 = ParseLength
-    toEnum 11 = Learning
-    toEnum 12 = StrictLearn
-    toEnum 13 = StrictTopic
-    toEnum 14 = Autoname
-    toEnum 15 = AllowPM
-    toEnum 16 = Debug
-    toEnum 17 = Topic
-    toEnum 18 = Randoms
-    toEnum 19 = ReplaceWords
-    toEnum 20 = Timer
-    toEnum 21 = Delay
-    toEnum 22 = Greetings
-    toEnum 23 = Actions
-    toEnum 24 = UnknownParam
+    toEnum 8  = NSetSize
+    toEnum 9  = SentenceTries
+    toEnum 10 = SentenceLength
+    toEnum 11 = ParseLength
+    toEnum 12 = Learning
+    toEnum 13 = StrictLearn
+    toEnum 14 = StrictTopic
+    toEnum 15 = Autoname
+    toEnum 16 = AllowPM
+    toEnum 17 = Debug
+    toEnum 18 = Topic
+    toEnum 19 = Randoms
+    toEnum 20 = ReplaceWords
+    toEnum 21 = Timer
+    toEnum 22 = Delay
+    toEnum 23 = Greetings
+    toEnum 24 = Actions
+    toEnum 25 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owner          = 2
@@ -93,24 +95,25 @@ instance Enum Parameter where
     fromEnum RejoinKick     = 5
     fromEnum MaxChanMsg     = 6
     fromEnum NumThreads     = 7
-    fromEnum SentenceTries  = 8
-    fromEnum SentenceLength = 9
-    fromEnum ParseLength    = 10
-    fromEnum Learning       = 11
-    fromEnum StrictLearn    = 12
-    fromEnum StrictTopic    = 13
-    fromEnum Autoname       = 14
-    fromEnum AllowPM        = 15
-    fromEnum Debug          = 16
-    fromEnum Topic          = 17
-    fromEnum Randoms        = 18
-    fromEnum ReplaceWords   = 19
-    fromEnum Timer          = 20
-    fromEnum Delay          = 21
-    fromEnum Greetings      = 22
-    fromEnum Actions        = 23
-    fromEnum UnknownParam   = 24
-    fromEnum _              = 24
+    fromEnum NSetSize       = 8
+    fromEnum SentenceTries  = 9
+    fromEnum SentenceLength = 10
+    fromEnum ParseLength    = 11
+    fromEnum Learning       = 12
+    fromEnum StrictLearn    = 13
+    fromEnum StrictTopic    = 14
+    fromEnum Autoname       = 15
+    fromEnum AllowPM        = 16
+    fromEnum Debug          = 17
+    fromEnum Topic          = 18
+    fromEnum Randoms        = 19
+    fromEnum ReplaceWords   = 20
+    fromEnum Timer          = 21
+    fromEnum Delay          = 22
+    fromEnum Greetings      = 23
+    fromEnum Actions        = 24
+    fromEnum UnknownParam   = 25
+    fromEnum _              = 25
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -124,6 +127,7 @@ readParam a | (map toLower a) == "usercommands"    = UserCommands
 readParam a | (map toLower a) == "rejoinkick"      = RejoinKick
 readParam a | (map toLower a) == "maxchanmsg"      = MaxChanMsg
 readParam a | (map toLower a) == "numthreads"      = NumThreads
+readParam a | (map toLower a) == "nsetsize"        = NSetSize
 readParam a | (map toLower a) == "stries"          = SentenceTries
 readParam a | (map toLower a) == "sentencetries"   = SentenceTries
 readParam a | (map toLower a) == "slen"            = SentenceLength
@@ -192,7 +196,7 @@ start = do
     hSetBuffering sh NoBuffering
     (f, p) <- initFugly fdir wndir gfdir topic'
     let b = if null p then
-              Bot sh (Parameter nick' owner' fdir dfile False 10 400 4 20 7 0
+              Bot sh (Parameter nick' owner' fdir dfile False 10 400 4 100 20 7 0
                       True False False True False False topic' 50 False 0 2 40 5) f []
               else Bot sh ((readParamsFromList p){nick=nick', owner=owner',
                       fuglydir=fdir, dictfile=dfile}) f []
@@ -368,17 +372,17 @@ joinChannel h a (x:xs) = do
 readParamsFromList :: [String] -> Parameter
 readParamsFromList a = Parameter{nick="", owner="", fuglydir="", dictfile="", usercmd=read (a!!0),
                                  rejoinkick=read (a!!1), maxchanmsg=read (a!!2), numthreads=read (a!!3),
-                                 stries=read (a!!4), slength=read (a!!5),
-                                 plength=read (a!!6), learning=read (a!!7),
-                                 strictlearn=read (a!!8), stricttopic=read (a!!9), autoname=read (a!!10),
-                                 allowpm=read (a!!11), debug=read (a!!12), Main.topic=(a!!13),
-                                 randoms=read (a!!14), rwords=read (a!!15), timer=read (a!!16),
-                                 delay=read (a!!17), greetings=read (a!!18), actions=read (a!!19)}
+                                 nsetsize=read (a!!4), stries=read (a!!5), slength=read (a!!6),
+                                 plength=read (a!!7), learning=read (a!!8),
+                                 strictlearn=read (a!!9), stricttopic=read (a!!10), autoname=read (a!!11),
+                                 allowpm=read (a!!12), debug=read (a!!13), Main.topic=(a!!14),
+                                 randoms=read (a!!15), rwords=read (a!!16), timer=read (a!!17),
+                                 delay=read (a!!18), greetings=read (a!!19), actions=read (a!!20)}
 
 paramsToList :: Parameter -> [String]
-paramsToList (Parameter _ _ _ _ uc rk mcm nt st sl pl l stl stt an apm d t r rw ti dl g a) =
-  [show uc, show rk, show mcm, show nt, show st, show sl, show pl, show l, show stl,
-   show stt, show an, show apm, show d, t, show r, show rw, show ti, show dl,
+paramsToList (Parameter _ _ _ _ uc rk mcm nt ss st sl pl l stl stt an apm d t r rw ti dl g a) =
+  [show uc, show rk, show mcm, show nt, show ss, show st, show sl, show pl, show l,
+   show stl, show stt, show an, show apm, show d, t, show r, show rw, show ti, show dl,
    show g, show a]
 paramsToList _ = []
 
@@ -394,6 +398,7 @@ changeParam bot@Bot{sock=s, params=p@Parameter{nick=botnick, owner=owner', fugly
       RejoinKick     -> replyMsg' (readInt 1 4096 value) "Rejoin kick time"   >>= (\x -> return bot{params=p{rejoinkick=x}})
       MaxChanMsg     -> replyMsg' (readInt 9 450 value) "Max channel message" >>= (\x -> return bot{params=p{maxchanmsg=x}})
       NumThreads     -> replyMsg' (readInt 1 50 value)   "Number of threads"  >>= (\x -> return bot{params=p{numthreads=x}})
+      NSetSize       -> replyMsg' (readInt 2 8192 value)   "NSet size"        >>= (\x -> return bot{params=p{nsetsize=x}})
       SentenceTries  -> replyMsg' (readInt 1 4096 value) "Sentence tries"     >>= (\x -> return bot{params=p{stries=x}})
       SentenceLength -> replyMsg' (readInt 2 256 value) "Sentence length"     >>= (\x -> return bot{params=p{slength=x}})
       ParseLength    -> replyMsg' (readInt 0 256 value) "Parse length"        >>= (\x -> return bot{params=p{plength=x}})
@@ -410,7 +415,8 @@ changeParam bot@Bot{sock=s, params=p@Parameter{nick=botnick, owner=owner', fugly
                                                (loadDict fdir value) (\_ -> return (Map.empty, [], [], [], (paramsToList p)))
                            _ <- lift $ saveDict lock f fdir dfile (paramsToList p)
                            let pp = (readParamsFromList pl){nick=botnick, owner=owner', fuglydir=fdir}
-                           replyMsg' value "Dict file" >>= (\x -> return bot{params=pp{dictfile=x}, fugly=f{dict=d, defs=de, ban=b, FuglyLib.match=m}})
+                           replyMsg' value "Dict file" >>= (\x -> return bot{params=pp{dictfile=x},
+                             fugly=f{dict=d, defs=de, ban=b, FuglyLib.match=m}})
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"             >>= (\x -> return bot{params=p{randoms=x}})
       ReplaceWords   -> replyMsg' (readBool value)      "Replace words"       >>= (\x -> return bot{params=p{rwords=x}})
       Timer          -> replyMsg' (readInt 0 36000 value)  "Timer"            >>= (\x -> return bot{params=p{timer=x}})
@@ -631,7 +637,8 @@ processLine r line = do
 reply :: Bot -> Int -> Bool -> String -> String -> [String] -> StateT Fstate IO Bot
 reply bot _ _ _ _ [] = return bot
 reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=plen, strictlearn=sl,
-                                         autoname=an, allowpm=apm, debug=d, Main.topic=top, actions=acts},
+                                         autoname=an, allowpm=apm, debug=d, Main.topic=top,
+                                         nsetsize=nsets, actions=acts},
               fugly=f@Fugly{defs=defs', pgf=pgf', aspell=aspell', dict=dict', FuglyLib.match=match',
                             ban=ban'}, lastm=lastm'}
   r chanmsg chan nick' msg = do
@@ -667,7 +674,7 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                         else return ()
                       else sentenceReply st bot rr load chan nick' fmsg >> return ())
     if ((nick' == o && null chan) || parse) && l && not isaction && noban fmsg ban' then do
-      (ns, nm) <- lift $ nnInsert f lastm' fmsg
+      (ns, nm) <- lift $ nnInsert f nsets lastm' fmsg
       nd       <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd, nset=ns, nmap=nm}, lastm=fmsg} else
@@ -740,7 +747,7 @@ execCmd b chan nick' (x:xs) = do
   where
     execCmd' :: Bot -> Fstate -> IO Bot
     execCmd' bot@Bot{sock=s, params=p@(Parameter botnick owner' fdir
-                                       dfile usercmd' rkick maxcmsg numt
+                                       dfile usercmd' rkick maxcmsg numt nsets
                                        stries' slen plen learn slearn stopic
                                        autoname' allowpm' debug' topic' randoms'
                                        rwords' timer' delay' greets actions'),
@@ -791,7 +798,8 @@ execCmd b chan nick' (x:xs) = do
       | x == "!showparams" = if nick' == owner' then case length xs of
           0 -> replyMsgT st bot chan nick' ("nick: " ++ botnick ++ "  owner: " ++ owner' ++
                    "  usercommands: " ++ show usercmd' ++ "  rejoinkick: "
-                   ++ show rkick ++ "  maxchanmsg: " ++ show maxcmsg ++ "  numthreads: " ++ show numt
+                   ++ show rkick ++ "  maxchanmsg: " ++ show maxcmsg
+                   ++ "  numthreads: " ++ show numt ++ "  nsetsize: " ++ show nsets
                    ++ "  sentencetries: " ++ show stries' ++ "  sentencelength: "
                    ++ show slen ++ "  parselength: " ++ show plen ++ "  dictfile: " ++ dfile
                    ++ "  learning: " ++ show learn ++ "  strictlearn: " ++ show slearn

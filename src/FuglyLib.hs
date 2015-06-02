@@ -1533,13 +1533,13 @@ doubleToWord nmap' b j k d = let i = (j * u) + (floor $ d * msize)
     if isJust r then fromJust r else if j < k then
       doubleToWord nmap' s (j + t) k d else []
 
-nnInsert :: Fugly -> [String] -> [String] -> IO (NSet, NMap)
-nnInsert Fugly{nset=nset', nmap=nmap'} [] _ = return (nset', nmap')
-nnInsert Fugly{nset=nset', nmap=nmap'} _ [] = return (nset', nmap')
-nnInsert Fugly{wne=wne', aspell=aspell', nset=nset', nmap=nmap'} input output = do
+nnInsert :: Fugly -> Int -> [String] -> [String] -> IO (NSet, NMap)
+nnInsert Fugly{nset=nset', nmap=nmap'} _ [] _ = return (nset', nmap')
+nnInsert Fugly{nset=nset', nmap=nmap'} _ _ [] = return (nset', nmap')
+nnInsert Fugly{wne=wne', aspell=aspell', nset=nset', nmap=nmap'} nsets input output = do
   i' <- fix (low input) []
   o' <- fix (low output) []
-  let a = if i' == o' then nset' else (dList i', dList o') : nset'
+  let a = if i' == o' then nset' else take nsets $ nub $ (dList i', dList o') : nset'
       b = foldr (\x -> Map.insert (mKey x) x) nmap' $ i' ++ o'
   return (a, b)
   where
