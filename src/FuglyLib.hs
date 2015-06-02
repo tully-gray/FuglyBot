@@ -273,7 +273,7 @@ loadNeural fuglydir nsets = do
 checkNSet :: NSet -> NSet
 checkNSet n = [(i, o) | (i, o) <- n, length i == (fromIntegral nsize :: Int)
                                   && length o == (fromIntegral nsize :: Int),
-                                  sum i > 0 && sum o > 0, i /= o]
+                                  sum (map abs (i ++ o)) > 0, i /= o]
 
 saveDict :: MVar () -> Fugly -> FilePath -> String -> [String] -> IO ()
 saveDict st Fugly{dict=dict', defs=defs', ban=ban', match=match'} fuglydir dfile params = do
