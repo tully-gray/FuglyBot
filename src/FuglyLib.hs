@@ -257,8 +257,8 @@ loadNeural fuglydir nsets = do
         let j = elemIndex '/' l in
           if isJust j then let
             (i, o) = splitAt (fromJust j) l
-            i' = map read $ words $ init i
-            o' = map read $ words $ drop 2 o in
+            i' = map (clamp . read) $ words $ init i
+            o' = map (clamp . read) $ words $ drop 2 o in
             fn h ((i', o') : a)
           else fn h $ checkNSet a
     fm :: Handle -> NMap -> IO NMap
@@ -272,7 +272,8 @@ loadNeural fuglydir nsets = do
 
 checkNSet :: NSet -> NSet
 checkNSet n = [(i, o) | (i, o) <- n, length i == (fromIntegral nsize :: Int)
-                                  && length o == (fromIntegral nsize :: Int)]
+                                  && length o == (fromIntegral nsize :: Int)
+                                   , sum i > 0 && sum o > 0, i /= o]
 
 saveDict :: MVar () -> Fugly -> FilePath -> String -> [String] -> IO ()
 saveDict st Fugly{dict=dict', defs=defs', ban=ban', match=match'} fuglydir dfile params = do
@@ -1539,8 +1540,10 @@ nnInsert Fugly{nset=nset', nmap=nmap'} _ _ [] = return (nset', nmap')
 nnInsert Fugly{wne=wne', aspell=aspell', nset=nset', nmap=nmap'} nsets input output = do
   i' <- fix (low input) []
   o' <- fix (low output) []
-  let a = if i' == o' then nset' else take nsets $ nub $ (dList i', dList o') : nset'
-      b = foldr (\x -> Map.insert (mKey x) x) nmap' $ i' ++ o'
+  let new = (dList i', dList o')
+      ok  = checkNSet [new]
+      a   = if null ok then nset' else take nsets $ nub $ new : nset'
+      b   = foldr (\x -> Map.insert (mKey x) x) nmap' $ i' ++ o'
   return (a, b)
   where
     dList x = take (fromIntegral nsize :: Int) $ map wordToDouble $ x ++ pad
@@ -1571,8 +1574,9 @@ nnReply st Fugly{wne=wne', pgf=pgf', nnet=nnet', nset=nset', nmap=nmap'} numg ms
   where
     nstop n num = do
       let a = runNeuralNetwork n $ map wordToDouble $ take (fromIntegral nsize :: Int) msg
-      if mod num 500 == 0 then
-        evalStateT (hPutStrLnLock stdout ("> debug: nnStop: " ++ unwords (map show a))) st
+      if num < 4 || mod num 500 == 0 then
+        evalStateT (hPutStrLnLock stdout ("> debug: nnStop: gen: " ++ show num ++
+                                          "  values: " ++ unwords (map show a))) st
         else return ()
       return $ num >= numg
     nnAnswer :: NeuralNetwork Double -> [String]
