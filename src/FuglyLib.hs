@@ -1569,7 +1569,7 @@ nnReply st Fugly{wne=wne', pgf=pgf', nnet=nnet', nset=nset', nmap=nmap'} numg ms
     nn <- takeMVar nnet'
     n  <- backpropagationBatchParallel nn nset' 0.1 nstop :: IO (NeuralNetwork Float)
     putMVar nnet' n
-    let a = filter (not . null) $ dedup $ nnAnswer n
+    let a = filter (not . null) $ replace "i" "I" $ dedup $ nnAnswer n
     b <- check a
     if null $ concat b then return (nnet', []) else do
       let out = unwords $ toUpperSentence $ endSentence b
