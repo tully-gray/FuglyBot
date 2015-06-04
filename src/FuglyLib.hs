@@ -97,7 +97,7 @@ import           Text.EditDistance              as EditDistance
 
 type Dict    = Map.Map String Word
 type Default = (DType, String)
-type NSet    = [([Double], [Double])]
+type NSet    = [([Float], [Float])]
 type NMap    = Map.Map Int String
 
 data Fugly = Fugly {
@@ -108,7 +108,7 @@ data Fugly = Fugly {
               aspell  :: Aspell.SpellChecker,
               ban     :: [String],
               match   :: [String],
-              nnet    :: MVar (NeuralNetwork Double),
+              nnet    :: MVar (NeuralNetwork Float),
               nset    :: NSet,
               nmap    :: NMap
               }
@@ -189,10 +189,13 @@ emptyWord :: Word
 emptyWord = Word [] 0 Map.empty Map.empty [] [] [] UnknownEPos
 
 nsize :: Word16
-nsize = 8
+nsize = 16
 
-msize :: Double
-msize = 2000
+nsizehalf :: Word16
+nsizehalf = 8
+
+msize :: Float
+msize = 1000
 
 initFugly :: FilePath -> FilePath -> FilePath -> String -> IO (Fugly, [String])
 initFugly fuglydir wndir gfdir dfile = do
@@ -214,7 +217,7 @@ initFugly fuglydir wndir gfdir dfile = do
                                 hPutStrLn stderr ("Exception in initFugly: " ++ err)
                                 return ([], Map.empty))
     g     <- Random.newStdGen
-    nnet' <- newMVar $ fst $ randomNeuralNetwork g [nsize, nsize, nsize, nsize] [Tanh, Logistic, Tanh] 0.01
+    nnet' <- newMVar $ fst $ randomNeuralNetwork g [nsize, nsizehalf, nsizehalf, nsize] [Tanh, Logistic, Tanh] 0.01
     return ((Fugly dict' defs' pgf' wne' aspell' ban' match' nnet' nset' nmap'), params')
 
 stopFugly :: MVar () -> FilePath -> Fugly -> String -> [String] -> IO ()
@@ -273,7 +276,7 @@ loadNeural fuglydir nsets = do
 checkNSet :: NSet -> NSet
 checkNSet n = [(i, o) | (i, o) <- n, length i == (fromIntegral nsize :: Int)
                                   && length o == (fromIntegral nsize :: Int),
-                                  sum (map abs (i ++ o)) > 0, i /= o]
+                                  sum (map abs i) > 0 && sum (map abs o) > 0, i /= o]
 
 saveDict :: MVar () -> Fugly -> FilePath -> String -> [String] -> IO ()
 saveDict st Fugly{dict=dict', defs=defs', ban=ban', match=match'} fuglydir dfile params = do
@@ -1086,7 +1089,7 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
                             else "Not a GF type."
 
 sentenceA :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int
-             -> Int -> String -> [String] -> IO (MVar (NeuralNetwork Double), String)
+             -> Int -> String -> [String] -> IO (MVar (NeuralNetwork Float), String)
 sentenceA _ Fugly{nnet=nnet'} _ _ _ _ _ _ _ _ [] = return (nnet', [])
 sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', nnet=nnet'}
   r debug rwords stopic randoms stries slen topic' msg = do
@@ -1094,7 +1097,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', nnet=nnet'}
     let len = length msg
     if len <= (fromIntegral nsize :: Int) && r < 70 then
       let pad = take (fromIntegral nsize :: Int) $ cycle [" "] in
-      nnReply st fugly 2000 (msg ++ pad)
+      nnReply st fugly 5000 (msg ++ pad)
       else do
       out <- s1a rr len msg
       return (nnet', out)
@@ -1507,16 +1510,17 @@ findRelated wne' word' = do
               else return word'
     if null out then return word' else return out
 
-wordToDouble :: String -> Double
-wordToDouble " " = 0.0
-wordToDouble "a" = 1.0
-wordToDouble "I" = 0.2
-wordToDouble w   = clamp $ (sum $ stringToDL w) / (realToFrac $ length w :: Double)
+wordToFloat :: String -> Float
+wordToFloat []  = 0.0
+wordToFloat " " = 0.0
+wordToFloat "a" = 1.0
+wordToFloat "I" = 0.2
+wordToFloat w   = clamp $ (sum $ stringToDL w) / (realToFrac $ length w :: Float)
   where
-    stringToDL w' = map charToDouble w' :: [Double]
+    stringToDL w' = map charToFloat w' :: [Float]
 
-charToDouble :: Char -> Double
-charToDouble a = let c = realToFrac $ ord a in
+charToFloat :: Char -> Float
+charToFloat a = let c = realToFrac $ ord a in
   clamp $ (c - 109.5) / 12.5
 
 clamp :: (Ord a, Num a) => a -> a
@@ -1525,14 +1529,14 @@ clamp n
     | n < -1    = -1
     | otherwise = n
 
-doubleToWord :: NMap -> Bool -> Int -> Int -> Double -> String
-doubleToWord nmap' b j k d = let i = (j * u) + (floor $ d * msize)
-                                 s = not b
-                                 t = if b then 1 else 0
-                                 u = if b then 1 else (-1)
-                                 r = Map.lookup i nmap' in
+floatToWord :: NMap -> Bool -> Int -> Int -> Float -> String
+floatToWord nmap' b j k d = let i = (j * u) + (floor $ d * msize)
+                                s = not b
+                                t = if b then 1 else 0
+                                u = if b then 1 else (-1)
+                                r = Map.lookup i nmap' in
     if isJust r then fromJust r else if j < k then
-      doubleToWord nmap' s (j + t) k d else []
+      floatToWord nmap' s (j + t) k d else []
 
 nnInsert :: Fugly -> Int -> [String] -> [String] -> IO (NSet, NMap)
 nnInsert Fugly{nset=nset', nmap=nmap'} _ [] _ = return (nset', nmap')
@@ -1546,7 +1550,7 @@ nnInsert Fugly{wne=wne', aspell=aspell', nset=nset', nmap=nmap'} nsets input out
       b   = foldr (\x -> Map.insert (mKey x) x) nmap' $ i' ++ o'
   return (a, b)
   where
-    dList x = take (fromIntegral nsize :: Int) $ map wordToDouble $ x ++ pad
+    dList x = take (fromIntegral nsize :: Int) $ map wordToFloat $ x ++ pad
     fix :: [String] -> [String] -> IO [String]
     fix []     a = return $ dedup $ filter (not . null) $ reverse a
     fix (x:xs) a = do
@@ -1556,14 +1560,14 @@ nnInsert Fugly{wne=wne', aspell=aspell', nset=nset', nmap=nmap'} nsets input out
     low a | map (map toLower) a == ["i"] = ["I"]
     low a = map (map toLower) a
     pad = take (fromIntegral nsize :: Int) $ cycle [" "]
-    mKey w = floor $ (wordToDouble w) * msize
+    mKey w = floor $ (wordToFloat w) * msize
 
-nnReply :: MVar () -> Fugly -> Int -> [String] -> IO (MVar (NeuralNetwork Double), String)
+nnReply :: MVar () -> Fugly -> Int -> [String] -> IO (MVar (NeuralNetwork Float), String)
 nnReply _  Fugly{nnet=nnet', nset=[]} _ _  = return (nnet', [])
 nnReply _  Fugly{nnet=nnet'}          _ [] = return (nnet', [])
 nnReply st Fugly{wne=wne', pgf=pgf', nnet=nnet', nset=nset', nmap=nmap'} numg msg = do
     nn <- takeMVar nnet'
-    n  <- backpropagationBatchParallel nn nset' 0.1 nstop :: IO (NeuralNetwork Double)
+    n  <- backpropagationBatchParallel nn nset' 0.1 nstop :: IO (NeuralNetwork Float)
     putMVar nnet' n
     let a = filter (not . null) $ dedup $ nnAnswer n
     b <- check a
@@ -1573,15 +1577,15 @@ nnReply st Fugly{wne=wne', pgf=pgf', nnet=nnet', nset=nset', nmap=nmap'} numg ms
       return (nnet', out)
   where
     nstop n num = do
-      let a = runNeuralNetwork n $ map wordToDouble $ take (fromIntegral nsize :: Int) msg
+      let a = runNeuralNetwork n $ map wordToFloat $ take (fromIntegral nsize :: Int) msg
       if num < 4 || mod num 500 == 0 then
         evalStateT (hPutStrLnLock stdout ("> debug: nnStop: gen: " ++ show num ++
                                           "  values: " ++ unwords (map show a))) st
         else return ()
       return $ num >= numg
-    nnAnswer :: NeuralNetwork Double -> [String]
-    nnAnswer n = map (\x -> doubleToWord nmap' True 0 25 x)
-                 $ runNeuralNetwork n $ map wordToDouble
+    nnAnswer :: NeuralNetwork Float -> [String]
+    nnAnswer n = map (\x -> floatToWord nmap' True 0 25 x)
+                 $ runNeuralNetwork n $ map wordToFloat
                  $ take (fromIntegral nsize :: Int) msg
     check :: [String] -> IO [String]
     check [] = return []

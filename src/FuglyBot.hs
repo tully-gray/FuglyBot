@@ -16,6 +16,7 @@ import           System.IO.Error
 import qualified System.Random                  as Random
 import           Text.Regex.Posix
 
+import           AI.NeuralNetworks.Simple       (crossoverCommon)
 import           FuglyLib
 import           NLP.WordNet.PrimTypes          (allForm, allPOS)
 
@@ -196,7 +197,7 @@ start = do
     hSetBuffering sh NoBuffering
     (f, p) <- initFugly fdir wndir gfdir topic'
     let b = if null p then
-              Bot sh (Parameter nick' owner' fdir dfile False 10 400 4 100 20 7 0
+              Bot sh (Parameter nick' owner' fdir dfile False 10 400 4 50 20 7 0
                       True False False True False False topic' 50 False 0 2 40 5) f []
               else Bot sh ((readParamsFromList p){nick=nick', owner=owner',
                       fuglydir=fdir, dictfile=dfile}) f []
@@ -398,7 +399,7 @@ changeParam bot@Bot{sock=s, params=p@Parameter{nick=botnick, owner=owner', fugly
       RejoinKick     -> replyMsg' (readInt 1 4096 value) "Rejoin kick time"   >>= (\x -> return bot{params=p{rejoinkick=x}})
       MaxChanMsg     -> replyMsg' (readInt 9 450 value) "Max channel message" >>= (\x -> return bot{params=p{maxchanmsg=x}})
       NumThreads     -> replyMsg' (readInt 1 50 value)   "Number of threads"  >>= (\x -> return bot{params=p{numthreads=x}})
-      NSetSize       -> replyMsg' (readInt 2 8192 value)   "NSet size"        >>= (\x -> return bot{params=p{nsetsize=x}})
+      NSetSize       -> replyMsg' (readInt 2 512 value)   "NSet size"         >>= (\x -> return bot{params=p{nsetsize=x}})
       SentenceTries  -> replyMsg' (readInt 1 4096 value) "Sentence tries"     >>= (\x -> return bot{params=p{stries=x}})
       SentenceLength -> replyMsg' (readInt 2 256 value) "Sentence length"     >>= (\x -> return bot{params=p{slength=x}})
       ParseLength    -> replyMsg' (readInt 0 256 value) "Parse length"        >>= (\x -> return bot{params=p{plength=x}})
@@ -695,7 +696,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
                 params=p@Parameter{numthreads=nt, stries=str, slength=slen, plength=plen,
                                    Main.topic=top, randoms=rand, rwords=rw,
                                    stricttopic=stopic, debug=d, delay=dl},
-                fugly=fugly'@Fugly{defs=defs'}} r load chan nick' m = forkIO (do
+                fugly=fugly'@Fugly{defs=defs', nnet=oldnet}} r load chan nick' m = forkIO (do
     tId  <- myThreadId
     tc'  <- incT tc tId
     _    <- if d then evalStateT (hPutStrLnLock stdout ("> debug: thread count: " ++ show tc')) st else return ()
@@ -713,7 +714,11 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
         threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
       let num    = if r' - 4 < 1 || str < 4 || length m < 7 then 1 else r' - 4
       (nnet', x) <- sentenceA lock fugly' r d rw stopic rand str slen top m
-      nb <- newMVar $ bot{fugly=fugly'{nnet=nnet'}}
+      g  <- Random.newStdGen
+      n1 <- readMVar nnet'
+      n2 <- readMVar oldnet
+      n3 <- newMVar $ head $ fst $ crossoverCommon g n1 n2
+      nb <- newMVar $ bot{fugly=fugly'{nnet=n3}}
       evalStateT (modify (\(_, nlock', ntc', ncn') -> (nb, nlock', ntc', ncn'))) st
       y <- if null x then sentenceB lock fugly' r d rw stopic rand str slen plen top num m
            else return []
