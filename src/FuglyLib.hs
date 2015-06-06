@@ -1576,9 +1576,9 @@ nnInsert Fugly{wne=wne', aspell=aspell', nnet=nnet', nset=nset', nmap=nmap'} nse
 nnReply :: MVar () -> Fugly -> [String] -> IO String
 nnReply _  Fugly{nset=[]} _  = return []
 nnReply _  _              [] = return []
-nnReply st Fugly{wne=wne', pgf=pgf', nnet=nnet', nmap=nmap'} msg = do
+nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', nnet=nnet', nmap=nmap'} msg = do
     let a = filter (not . null) $ replace "i" "I" $ dedup $ nnAnswer nnet'
-    b <- check a
+    b <- acroName [] $ check a
     if null $ concat b then return [] else do
       out <- insertCommas wne' 0 $ toUpperSentence $ endSentence b
       evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords out)) st
@@ -1594,6 +1594,16 @@ nnReply st Fugly{wne=wne', pgf=pgf', nnet=nnet', nmap=nmap'} msg = do
       p <- wnPartPOS wne' $ cleanString $ last x
       if gfParseBool pgf' 0 (unwords x) && p /= POS Adj then return x
         else return []
+    acroName :: [String] -> IO [String] -> IO [String]
+    acroName o w = do
+      m <- w
+      if null m then return $ reverse o else do
+        let x  = head m
+            xs = fTail [] m
+        ac <- isAcronym st aspell' dict' x
+        n  <- isName st aspell' dict' x
+        let w' = if ac then map toUpper x else if n then x else map toLower x
+        acroName (w' : o) $ return xs
 
 hPutStrLock :: Handle -> String -> StateT (MVar ()) IO ()
 hPutStrLock s m = do
