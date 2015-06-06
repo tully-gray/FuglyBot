@@ -1263,7 +1263,8 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
           n <- isName st aspell' dict' $ fHead [] w
           if null w || n then return []
             else return ([s1c w] ++ tail w)
-    let s1g = map (\x -> do y <- insertCommas wne' 0 x ; return $ dePlenk $ unwords y) (map (s1e . s1d . s1a) (msg ++ sWords))
+    let s1g = map (\x -> do y <- x ; z <- insertCommas wne' 0 y ; return $ dePlenk $ unwords z)
+              (map (s1e . s1d . s1a) (msg ++ sWords))
     s1f 0 s1t s1g
   where
     s1b :: Fugly -> Int -> Int -> String -> IO [String] -> IO [String]
@@ -1298,33 +1299,32 @@ fixIt st d (x:xs) a n i j s = do
       else if null xx then fixIt st d xs a n i (j + 1) s
       else fixIt st d xs (a ++ [(if null a then [] else " ") ++ xx]) n (i + 1) j s
 
-insertCommas :: WordNetEnv -> Int -> IO [String] -> IO [String]
+insertCommas :: WordNetEnv -> Int -> [String] -> IO [String]
 insertCommas wne' i w = do
-    w' <- w
     r  <- Random.getStdRandom (Random.randomR (0, 7)) :: IO Int
-    let x  = fHead [] w'
-    let xs = fTail [] w'
+    let x  = fHead [] w
+    let xs = fTail [] w
     let y  = fHead [] xs
     let l  = length xs
     let bad = ["a", "am", "an", "and", "as", "but", "by", "for", "from", "had", "has", "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
     let match' = ["a", "but", "however", "the", "then", "though"]
     px <- wnPartPOS wne' x
     py <- wnPartPOS wne' y
-    if l < 1 then w
+    if l < 1 then return w
       else if elem x bad || elem '\'' x || i < 1 || l < 4 then do
-        xs' <- insertCommas wne' (i + 1) $ return xs
+        xs' <- insertCommas wne' (i + 1) xs
         return (x : xs')
            else if (elem y match') && r < 4 then do
-             xs' <- insertCommas wne' 0 $ return xs
+             xs' <- insertCommas wne' 0 xs
              return ((x ++ if r < 1 then ";" else ",") : xs')
                 else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 && y /= "or" && y /= "and" then do
-                  xs' <- insertCommas wne' 0 $ return xs
+                  xs' <- insertCommas wne' 0 xs
                   return ((x ++ if r < 2 then ", or" else ", and") : xs')
                      else if px == POS Adj && py == POS Adj && r < 2 then do
-                       xs' <- insertCommas wne' 0 $ return xs
+                       xs' <- insertCommas wne' 0 xs
                        return ((x ++ " and") : xs')
                           else do
-                            xs' <- insertCommas wne' (i + 1) $ return xs
+                            xs' <- insertCommas wne' (i + 1) xs
                             return (x : xs')
 
 chooseWord :: [String] -> IO [String]
@@ -1580,9 +1580,9 @@ nnReply st Fugly{wne=wne', pgf=pgf', nnet=nnet', nmap=nmap'} msg = do
     let a = filter (not . null) $ replace "i" "I" $ dedup $ nnAnswer nnet'
     b <- check a
     if null $ concat b then return [] else do
-      let out = unwords $ toUpperSentence $ endSentence b
-      evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ out)) st
-      return out
+      out <- insertCommas wne' 0 $ toUpperSentence $ endSentence b
+      evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords out)) st
+      return $ unwords out
   where
     nnAnswer :: NeuralNetwork Float -> [String]
     nnAnswer n = map (\x -> floatToWord nmap' True 0 25 x)
