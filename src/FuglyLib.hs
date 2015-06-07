@@ -1104,7 +1104,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
     let len = length msg
     if len <= (fromIntegral nsize :: Int) && r < 70 then
       let pad = take (fromIntegral nsize :: Int) $ cycle [" "] in
-      nnReply st fugly (msg ++ pad)
+      nnReply st fugly debug (msg ++ pad)
       else do
       s1a rr len msg
   where
@@ -1574,21 +1574,27 @@ nnInsert Fugly{wne=wne', aspell=aspell', nnet=nnet', nset=nset', nmap=nmap'} nse
     nstop _ num = do
       return $ num >= 5000
 
-nnReply :: MVar () -> Fugly -> [String] -> IO String
-nnReply _  Fugly{nset=[]} _  = return []
-nnReply _  _              [] = return []
-nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', nnet=nnet', nmap=nmap'} msg = do
-    let a = filter (not . null) $ replace "i" "I" $ dedup $ nnAnswer nnet'
-    b <- acroName [] $ check a
-    if null $ concat b then return [] else do
-      out <- insertCommas wne' 0 $ toUpperSentence $ endSentence b
-      evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords out)) st
+nnReply :: MVar () -> Fugly -> Bool -> [String] -> IO String
+nnReply _  Fugly{nset=[]} _ _  = return []
+nnReply _  _              _ [] = return []
+nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', nnet=nnet', nmap=nmap'} debug msg = do
+    a <- nnReply'
+    let b = filter (not . null) $ replace "i" "I" $ dedup a
+    c <- acroName [] $ check b
+    if null $ concat c then return [] else do
+      out <- insertCommas wne' 0 $ toUpperSentence $ endSentence c
+      if debug then
+        evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords out)) st
+        else return ()
       return $ unwords out
   where
-    nnAnswer :: NeuralNetwork Float -> [String]
-    nnAnswer n = map (\x -> floatToWord nmap' True 0 25 x)
-                 $ runNeuralNetwork n $ map wordToFloat
-                 $ take (fromIntegral nsize :: Int) msg
+    nnReply' :: IO [String]
+    nnReply' = do
+      let out = runNeuralNetwork nnet' $ map wordToFloat $ take (fromIntegral nsize :: Int) msg
+      if debug then
+        evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords (map show out))) st
+        else return ()
+      return $ map (\x -> floatToWord nmap' True 0 25 x) out
     check :: [String] -> IO [String]
     check [] = return []
     check x = do
@@ -1603,7 +1609,7 @@ nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', nnet=nnet', nma
             xs = fTail [] m
         ac <- isAcronym st aspell' dict' x
         n  <- isName st aspell' dict' x
-        let w' = if ac then map toUpper x else if n then x else map toLower x
+        let w' = if ac then map toUpper x else if n then toUpperWord x else map toLower x
         acroName (w' : o) $ return xs
 
 hPutStrLock :: Handle -> String -> StateT (MVar ()) IO ()
