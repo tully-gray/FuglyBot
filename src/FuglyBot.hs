@@ -652,8 +652,9 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
     load <- lift getLoad
     n    <- lift $ isName    lock aspell' dict' $ head mmsg
     a    <- lift $ isAcronym lock aspell' dict' $ head mmsg
+    r'   <- lift $ Random.getStdRandom (Random.randomR (0, 99)) :: StateT Fstate IO Int
     let fload    = read $ fHead [] load :: Float
-    let rr       = mod (r + (floor $ fload * 5.1)) 100
+    let rr       = mod (r + r') 100
     let fmsg     = nmsg n a mmsg
     let parse    = if sl then
                      if fload < 1.5 then gfParseBool pgf' plen $ unwords fmsg
@@ -702,7 +703,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{sock=h,
     _    <- return p
     let fload = read $ fHead [] load :: Float
     let r'    = 1 + mod r 7
-    let rr    = mod (r + floor (fload * 2.3)) 5
+    let rr    = mod r 5
     let n'    = if nick' == chan then "somebody" else nick'
     let nn    = if nick' == chan || null nick' then [] else nick' ++ ": "
     action <- ircAction False n' [] top defs'
@@ -997,9 +998,9 @@ execCmd b chan nick' (x:xs) = do
       | x == "!talk" = do
           if nick' == owner' then
             if length xs > 2 then do
+              r'   <- Random.getStdRandom (Random.randomR (0, 99))
               load <- getLoad
-              let fload = read $ fHead [] load :: Float
-              sentenceReply st bot (floor $ fload * 35) load (xs!!0) (xs!!1) (drop 2 xs) >> return bot
+              sentenceReply st bot r' load (xs!!0) (xs!!1) (drop 2 xs) >> return bot
             else replyMsgT st bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
             else return bot
       | x == "!raw" = if nick' == owner' then
