@@ -1564,8 +1564,9 @@ nnInsert Fugly{wne=wne', aspell=aspell', nnet=nnet', nset=nset', nmap=nmap'} nse
     fix []     a = return $ dedup $ filter (not . null) $ reverse a
     fix (x:xs) a = do
       p <- wnPartPOS wne' x
-      if p /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then
-         fix xs (x : a) else fix xs a
+      if (length x < 3) && (notElem (map toLower x) sWords) then fix xs a
+        else if p /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then fix xs (x : a)
+             else fix xs a
     low a | map (map toLower) a == ["i"] = ["I"]
     low a = map (map toLower) a
     pad = take (fromIntegral nsize :: Int) $ cycle [" "]

@@ -675,7 +675,7 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                           else return ()
                         else sentenceReply st bot rr load chan nick' fmsg >> return ())
     if ((nick' == o && null chan) || parse) && l && not isaction && noban fmsg ban' then do
-      (nn, ns, nm) <- lift $ nnInsert f nsets lastm' $ map (filter isAlpha) fmsg
+      (nn, ns, nm) <- lift $ nnInsert f nsets lastm' fmsg
       nd           <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}, lastm=fmsg} else
