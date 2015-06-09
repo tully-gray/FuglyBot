@@ -1520,7 +1520,6 @@ wordToFloat :: String -> Float
 wordToFloat []  = 0.0
 wordToFloat " " = 0.0
 wordToFloat "a" = 1.0
-wordToFloat "I" = 0.2
 wordToFloat w   = clamp $ (sum $ stringToDL w) / (realToFrac $ length w :: Float)
   where
     stringToDL w' = map charToFloat w' :: [Float]
@@ -1567,8 +1566,8 @@ nnInsert Fugly{wne=wne', aspell=aspell', nnet=nnet', nset=nset', nmap=nmap'} nse
       if (length x < 3) && (notElem (map toLower x) sWords) then fix xs a
         else if p /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then fix xs (x : a)
              else fix xs a
-    low a | map (map toLower) a == ["i"] = ["I"]
-    low a = map (map toLower) a
+    low [] = []
+    low a  = map (map toLower) a
     pad = take (fromIntegral nsize :: Int) $ cycle [" "]
     mKey w = floor $ (wordToFloat w) * msize
     nstop _ num = do
