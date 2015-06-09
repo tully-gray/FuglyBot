@@ -1039,31 +1039,9 @@ execCmd b chan nick' (x:xs) = do
                   replyMsgT st bot chan nick' (show n)
                   return bot
           _ -> replyMsgT st bot chan nick' "Usage: !isacronym <word>" >> return bot
-      -- | x == "!commas" = if length xs > 0 then do
-      --     m <- insertCommas wne' 0 $ return xs
-      --     replyMsgT st bot chan nick' (unwords m) >> return bot
-      --                    else replyMsgT st bot chan nick' "Usage: !commas <msg>" >> return bot
-      -- | x == "!asreplace" = case length xs of
-      --     0 -> replyMsgT st bot chan nick' "Usage: !asreplace <msg>" >> return bot
-      --     _ -> do ww <- asReplaceWords f xs ; replyMsgT st bot chan nick' (unwords ww) >> return bot
-      -- | x == "!wnreplace" = case length xs of
-      --     0 -> replyMsgT st bot chan nick' "Usage: !wnreplace <msg>" >> return bot
-      --     _ -> do ww <- wnReplaceWords f True randoms' xs ; replyMsgT st bot chan nick' (unwords ww) >> return bot
-      -- | x == "!gfcats" = case length xs of
-      --     0 -> return (unwords $ gfCategories pgf') >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
-      --     _ -> replyMsgT st bot chan nick' "Usage: !gfcats" >> return bot
-      -- | x == "!gflin" = case length xs of
-      --     0 -> replyMsgT st bot chan nick' "Usage: !gflin <msg>" >> return bot
-      --     _ -> replyMsgT st bot chan nick' (gfLin pgf' $ unwords xs) >> return bot
-      -- | x == "!gfshowexpr" = case length xs of
-      --     2 -> replyMsgT st bot chan nick' (gfShowExpr pgf' (xs!!0) (read(xs!!1))) >> return bot
-      --     _ -> replyMsgT st bot chan nick' "Usage: !gfshowexpr <type> <num>" >> return bot
-      -- | x == "!params" = if nick' == owner' then replyMsgT st bot chan nick' (init (concat $ map (++ " ")
-      --                                 $ map show $ init allParams)) >> return bot
-      --                    else return bot
-      -- | x == "!test" = if nick' == owner' then
-      --     replyMsgT st bot chan nick' (unwords $ map show $ take 750 $ iterate succ (0 :: Int)) >> return bot
-      --     else return bot
+      | x == "!params" = if nick' == owner' then replyMsgT st bot chan nick' (init (concat $ map (++ " ")
+                                      $ map show $ init allParams)) >> return bot
+                         else return bot
       | otherwise  = if nick' == owner' then replyMsgT st bot chan nick'
           ("Commands: !word !wordlist !insertword !name !namelist !insertname !acronym !acronymlist !insertacronym "
           ++ "!dropword !banword !matchword !insertdefault !dropdefault !dropafter !banafter "
