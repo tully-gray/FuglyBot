@@ -783,12 +783,6 @@ execCmd b chan nick' (x:xs) = do
           1 -> evalStateT ((\x' -> write s debug' "NICK" $ cleanStringWhite isAscii x') (xs!!0)) st >> return bot
           _ -> replyMsgT st bot chan nick' "Usage: !nick <nick>" >> return bot
                        else return bot
-      -- | x == "!readfile" = if nick' == owner' then case length xs of
-      --     1 -> catch (insertFromFile (getLock st) bot (xs!!0)) (\e -> do let err = show (e :: SomeException)
-      --                                                                    evalStateT (hPutStrLnLock stderr ("Exception in insertFromFile: " ++ err)) st
-      --                                                                    return bot)
-      --     _ -> replyMsgT st bot chan nick' "Usage: !readfile <file>" >> return bot
-      --                      else return bot
       | x == "!internalize" = if nick' == owner' then
           if length xs > 1 then do replyMsgT st bot chan nick' ("Internalizing...")
                                    internalize st bot (read (xs!!0)) $ unwords $ tail xs
@@ -1075,7 +1069,7 @@ execCmd b chan nick' (x:xs) = do
           ++ "!dropword !banword !matchword !insertdefault !dropdefault !dropafter !banafter "
           ++ "!ageword !listtopics !droptopic !droptopicwords !internalize "
           ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
-          ++ "!setparam !showparams !nick !join !part !talk !raw !quit !readfile !load !save") >> return bot
+          ++ "!setparam !showparams !nick !join !part !talk !raw !quit !load !save") >> return bot
                      else replyMsgT st bot chan nick'
           ("Commands: !word !wordlist !name !namelist !acronym !acronymlist !listtopics "
           ++ "!dict !closure !meet !related !forms !parts !isname !isacronym") >> return bot
@@ -1105,16 +1099,6 @@ replyMsg _ _ _ _ = return ()
 replyMsgT :: Fstate -> Bot -> String -> String -> String -> IO ()
 replyMsgT _  _   _    _     []  = return ()
 replyMsgT st bot chan nick' msg = evalStateT (replyMsg bot chan nick' msg) st
-
--- insertFromFile :: MVar () -> Bot -> FilePath -> IO Bot
--- insertFromFile _ b [] = return b
--- insertFromFile st bot@Bot{params=p@Parameter{autoname=a, Main.topic=t}, fugly=f} file = do
---     _    <- return p
---     ff   <- readFile file
---     fmsg <- asReplaceWords st f $ map cleanString $ words ff
---     n    <- insertWords st f a t fmsg
---     return bot{fugly=f{dict=n}}
--- insertFromFile _ b _ = return b
 
 internalize :: Fstate -> Bot -> Int -> String -> IO Bot
 internalize _  b 0 _   = return b
