@@ -398,7 +398,7 @@ changeParam bot@Bot{sock=s, params=p@Parameter{nick=botnick, owner=owner', fugly
       RejoinKick     -> replyMsg' (readInt 1 4096 value) "Rejoin kick time"   >>= (\x -> return bot{params=p{rejoinkick=x}})
       MaxChanMsg     -> replyMsg' (readInt 9 450 value) "Max channel message" >>= (\x -> return bot{params=p{maxchanmsg=x}})
       NumThreads     -> replyMsg' (readInt 1 50 value)   "Number of threads"  >>= (\x -> return bot{params=p{numthreads=x}})
-      NSetSize       -> replyMsg' (readInt 2 8192 value)   "NSet size"         >>= (\x -> return bot{params=p{nsetsize=x}})
+      NSetSize       -> replyMsg' (readInt 2 256 value)   "NSet size"         >>= (\x -> return bot{params=p{nsetsize=x}})
       SentenceTries  -> replyMsg' (readInt 1 4096 value) "Sentence tries"     >>= (\x -> return bot{params=p{stries=x}})
       SentenceLength -> replyMsg' (readInt 2 256 value) "Sentence length"     >>= (\x -> return bot{params=p{slength=x}})
       ParseLength    -> replyMsg' (readInt 0 256 value) "Parse length"        >>= (\x -> return bot{params=p{plength=x}})
@@ -675,12 +675,12 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
                               else sentenceReply st bot rr load chan chan fmsg >> return ()
                           else return ()
                         else sentenceReply st bot rr load chan nick' fmsg >> return ())
+    (nn, ns, nm) <- lift $ nnInsert f nsets lastm' fmsg
     if ((nick' == o && null chan) || parse) && l && not isaction && noban fmsg ban' then do
-      (nn, ns, nm) <- lift $ nnInsert f nsets lastm' fmsg
       nd           <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}, lastm=fmsg} else
-      return bot
+      return bot{lastm=fmsg}
   where
     nmsg _ _ []     = []
     nmsg n a (x:xs) = let x' = if n || a then x else map toLower x in
