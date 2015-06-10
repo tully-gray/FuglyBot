@@ -680,7 +680,7 @@ reply bot@Bot{sock=h, params=p@Parameter{nick=bn, owner=o, learning=l, plength=p
       nd           <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}, lastm=fmsg} else
-      return bot{lastm=fmsg}
+      return bot{fugly=f{nnet=nn, nset=ns, nmap=nm}, lastm=fmsg}
   where
     nmsg _ _ []     = []
     nmsg n a (x:xs) = let x' = if n || a then x else map toLower x in
