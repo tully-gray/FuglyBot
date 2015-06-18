@@ -1,15 +1,19 @@
 Name:            FuglyBot
-Version:         0.1.0
-Description:     FuglyBot is an IRC bot.
+Version:         0.2.0
+Synopsis:        FuglyBot is an IRC bot.
 Category:        IRC bot
-Synopsis:        FuglyBot is an IRC bot which features grammar checking,
-                 spell checking, and word cross-referencing.
+Description:     FuglyBot is an IRC bot which features grammar checking,
+                 spell checking, a neural network, and word cross-referencing.
 License:         MIT
 License-file:    src/LICENSE
 Author:          tully.gray@anapnea.net
 Maintainer:      tully.gray@anapnea.net
 Build-type:      Simple
 Cabal-version:   >= 1.8
+
+Source-Repository head
+    Type:     git
+    Location: https://github.com/shadowdaemon/FuglyBot.git
 
 Library
     Build-depends:   base == 4.*, array, bytestring, containers, edit-distance,
