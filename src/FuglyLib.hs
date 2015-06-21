@@ -1102,7 +1102,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
   r debug rwords stopic randoms stries slen topic' msg = do
     rr <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     let len = length msg
-    if len <= (fromIntegral nsize :: Int) && r < 70 then
+    if len > 3 && len <= (fromIntegral nsize :: Int) && r < 60 then
       let pad = take (fromIntegral nsize :: Int) $ cycle [" "] in
       nnReply st fugly debug (msg ++ pad)
       else do
