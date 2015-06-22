@@ -7,17 +7,17 @@ import           Data.Char
 import           Data.List
 import qualified Data.Map.Lazy                  as Map
 import           Data.Maybe
+import           FuglyLib                       hiding (hPutStrLnLock)
 import           Network.Socket                 hiding (Debug)
 import           Network.Socks5
+import           NLP.WordNet.PrimTypes          (allForm, allPOS)
 import           Prelude
+import           SentenceA
 import           System.Environment
 import           System.IO
 import           System.IO.Error
 import qualified System.Random                  as Random
 import           Text.Regex.Posix
-
-import           FuglyLib
-import           NLP.WordNet.PrimTypes          (allForm, allPOS)
 
 data Bot = Bot {
     handle :: Handle,
