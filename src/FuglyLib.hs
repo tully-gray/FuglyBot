@@ -189,10 +189,7 @@ emptyWord :: Word
 emptyWord = Word [] 0 Map.empty Map.empty [] [] [] UnknownEPos
 
 nsize :: Word16
-nsize = 16
-
-nsizehalf :: Word16
-nsizehalf = 8
+nsize = 8
 
 msize :: Float
 msize = 1000
@@ -217,15 +214,12 @@ initFugly fuglydir wndir gfdir dfile = do
                                 hPutStrLn stderr ("Exception in initFugly: " ++ err)
                                 return ([], Map.empty))
     g     <- Random.newStdGen
-    let newnet = fst $ randomNeuralNetwork g [nsize, nsizehalf, nsizehalf, nsize] [Tanh, Tanh, Tanh] 0.01
+    let newnet = fst $ randomNeuralNetwork g [nsize, nsize, nsize * 2, nsize] [Tanh, Tanh, Tanh] 0.01
     if null $ checkNSet nset' then
       return ((Fugly dict' defs' pgf' wne' aspell' ban' match' newnet nset' nmap'), params')
       else do
-        nnet' <- backpropagationBatchParallel newnet nset' 0.2 nstop :: IO (NeuralNetwork Float)
+        nnet' <- backpropagationBatchParallel newnet nset' 0.2 nnStop :: IO (NeuralNetwork Float)
         return ((Fugly dict' defs' pgf' wne' aspell' ban' match' nnet' nset' nmap'), params')
-  where
-    nstop n num = do
-      return $ nnTest n > 0.3 || num >= 1000
 
 stopFugly :: MVar () -> FilePath -> Fugly -> String -> [String] -> IO ()
 stopFugly st fuglydir fugly@Fugly{wne=wne'} dfile params = do
@@ -1549,6 +1543,10 @@ nnPad = take (fromIntegral nsize :: Int) $ cycle [" "]
 nnTest :: NeuralNetwork Float -> Float
 nnTest n = (sum $ map abs $ runNeuralNetwork n $ map wordToFloat nnPad) / (realToFrac $ length nnPad :: Float)
 
+nnStop :: NeuralNetwork Float -> Int -> IO Bool
+nnStop n num = do
+    return $ nnTest n > 0.55 || num >= 2000
+
 nnInsert :: Fugly -> Int -> [String] -> [String] -> IO (NeuralNetwork Float, NSet, NMap)
 nnInsert Fugly{nnet=nnet', nset=nset', nmap=nmap'} _ [] _ = return (nnet', nset', nmap')
 nnInsert Fugly{nnet=nnet', nset=nset', nmap=nmap'} _ _ [] = return (nnet', nset', nmap')
@@ -1560,11 +1558,11 @@ nnInsert Fugly{wne=wne', aspell=aspell', nnet=nnet', nset=nset', nmap=nmap'} nse
   if null ok then
     return (nnet', nset', nmap') else do
       g <- Random.newStdGen
-      let n1 = fst $ randomNeuralNetwork g [nsize, nsizehalf, nsizehalf, nsize] [Tanh, Tanh, Tanh] 0.01
+      let n1 = fst $ randomNeuralNetwork g [nsize, nsize, nsize * 2, nsize] [Tanh, Tanh, Tanh] 0.01
           n2 = if nnTest nnet' < 0.3 then head $ fst $ crossoverCommon g n1 nnet' else n1
           ns = take nsets $ nub $ new : nset'
           nm = foldr (\x -> Map.insert (mKey x) x) nmap' $ i' ++ o'
-      nn <- backpropagationBatchParallel n2 ns 0.2 nstop :: IO (NeuralNetwork Float)
+      nn <- backpropagationBatchParallel n2 ns 0.2 nnStop :: IO (NeuralNetwork Float)
       return (nn, ns, nm)
   where
     dList x = take (fromIntegral nsize :: Int) $ map wordToFloat $ x ++ nnPad
@@ -1578,8 +1576,6 @@ nnInsert Fugly{wne=wne', aspell=aspell', nnet=nnet', nset=nset', nmap=nmap'} nse
     low [] = []
     low a  = map (map toLower) a
     mKey w = floor $ (wordToFloat w) * msize
-    nstop n num = do
-      return $ nnTest n > 0.3 || num >= 1000
 
 nnReply :: MVar () -> Fugly -> Bool -> [String] -> IO String
 nnReply _  Fugly{nset=[]} _ _  = return []
@@ -1601,7 +1597,7 @@ nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', nnet=nnet', nma
       if debug then
         evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords (map show out))) st
         else return ()
-      return $ map (\x -> floatToWord nmap' True 0 25 x) out
+      return $ map (\x -> floatToWord nmap' True 0 10 x) out
     check :: [String] -> IO [String]
     check [] = return []
     check x = do
