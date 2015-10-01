@@ -126,8 +126,8 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
          1 -> "Sure, I can do that."
          2 -> "It depends..."
          3 -> "Why would I want to do something like that?"
-         4 -> "It is " ++ if r' < 20 then "boring" else if r' < 50 then
-                  "fun" else "certainly possible."
+         4 -> "It is " ++ if r' < 20 then "boring." else if r' < 50 then
+                  "fun." else "certainly possible."
          _ -> [])
       | l > 3 && l < 15 = do
           let ra = mod r 4
