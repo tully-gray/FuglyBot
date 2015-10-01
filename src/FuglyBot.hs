@@ -658,11 +658,10 @@ greeting line = do
         greet     = [de | (t, de) <- defs', t == Greeting]
         lenGreet  = length greet
     if who == n then
-      case mod r $ 6 + lenEnter of
+      case mod r $ 5 + lenEnter of
         0 -> replyMsg bot chan [] "Hello world."
         1 -> replyMsg bot chan [] "Good morning!"
         2 -> replyMsg bot chan [] "Hello friends."
-        3 -> replyMsg bot chan [] "\SOHACTION wonders if this is the right channel.\SOH"
         _ -> replyMsg bot chan [] $ if lenEnter == 0 then "Hello world." else
                                       fixAction [] top $ enter!!mod r lenEnter
       else if r < 600 then case mod r $ 6 + lenGreet of
@@ -688,7 +687,7 @@ processLine r line = do
     _ <- return p
     let bk = beenKicked n line
     if (not $ null bk) then do
-      (rejoinChannel h bk rk >>lift (putMVar b bot) >> return ())
+      (rejoinChannel h bk rk >> lift (putMVar b bot) >> return ())
       else if null msg then lift $ putMVar b bot >> return ()
          else if chan == n then do
              nb <- prvcmd bot ; lift $ putMVar b nb >> return ()
@@ -761,7 +760,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, owner=o,
       nd <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}, lastm=fmsg} else
-      return bot{fugly=f{nnet=nn, nset=ns, nmap=nm}, lastm=fmsg}
+      return bot
   where
     nmsg _ _ []     = []
     nmsg n a (x:xs) = let x' = if n || a then x else map toLower x in
@@ -807,7 +806,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{handle=h,
                        else if null nick' || nick' == chan || rr == 0 then
                                write h d "PRIVMSG" $ chan ++ " :" ++ ww
                             else write h d "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ ww) st
-      else replyMsgT st bot chan [] $ case mod r 13 of
+      else replyMsgT st bot chan [] $ case mod r 23 of
         1 -> nn ++ "I don't know if you're making any sense."
         2 -> nn ++ "I can't chat now, sorry."
         3 -> nn ++ "Let's discuss this later."

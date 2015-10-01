@@ -19,6 +19,7 @@ import           NLP.WordNet                    hiding (Word)
 import           NLP.WordNet.Prims              (indexLookup, senseCount, getSynset, getWords, getGloss)
 import           NLP.WordNet.PrimTypes
 import           PGF
+import           Prelude                        hiding (Word)
 import qualified System.Random                  as Random
 import           System.IO
 import           Text.EditDistance              as EditDistance
@@ -1307,7 +1308,7 @@ nnStop n num = do
 nnInsert :: Fugly -> Int -> [String] -> [String] -> IO (NeuralNetwork Float, NSet, NMap)
 nnInsert Fugly{nnet=nnet', nset=nset', nmap=nmap'} _ [] _ = return (nnet', nset', nmap')
 nnInsert Fugly{nnet=nnet', nset=nset', nmap=nmap'} _ _ [] = return (nnet', nset', nmap')
-nnInsert Fugly{wne=wne', aspell=aspell', nnet=nnet', nset=nset', nmap=nmap'} nsets input output = do
+nnInsert Fugly{wne=wne', aspell=aspell', ban=ban', nnet=nnet', nset=nset', nmap=nmap'} nsets input output = do
   i' <- fix (low input) []
   o' <- fix (low output) []
   let new = (dList i', dList o')
@@ -1328,8 +1329,9 @@ nnInsert Fugly{wne=wne', aspell=aspell', nnet=nnet', nset=nset', nmap=nmap'} nse
     fix (x:xs) a = do
       p <- wnPartPOS wne' x
       if (length x < 3) && (notElem (map toLower x) sWords) then fix xs a
-        else if p /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then fix xs (x : a)
-             else fix xs a
+        else if elem (map toLower x) ban' then fix xs a
+             else if p /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then fix xs (x : a)
+                  else fix xs a
     low [] = []
     low a  = map (map toLower) a
     mKey w = floor $ (wordToFloat w) * msize

@@ -79,6 +79,8 @@ module NLP.WordNet.Types
     )
     where
 
+import Prelude hiding (Word)
+
 import Data.List
 import Data.Maybe
 

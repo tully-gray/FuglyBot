@@ -108,7 +108,8 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
              "like|hate|love|have|want|need"] = do
         noun <- getNoun wne' r' w
         let nouns' = nouns noun
-        let s1b rr ww = ww!!2 Regex.=~ "like|hate|love|have|want|need" ++ " " ++
+            s1b :: Int -> [String] -> String
+            s1b rr ww = ww!!2 Regex.=~ "like|hate|love|have|want|need" ++ " " ++
                         if rr < 20 then "it" else
                           if rr < 40 then "that" else nouns' in
           return $ unwords $ toUpperSentence $ endSentence $ words
