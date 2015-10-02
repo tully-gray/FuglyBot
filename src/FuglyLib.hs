@@ -1146,19 +1146,20 @@ nouns n       = if last n == 'y' then (init n) ++ "ies" else n ++ "s"
 wnReplaceWords :: Fugly -> Bool -> Int -> [String] -> IO [String]
 wnReplaceWords _                               _     _       []  = return []
 wnReplaceWords _                               False _       msg = return msg
-wnReplaceWords fugly@Fugly{wne=wne'} True  randoms msg = do
+wnReplaceWords fugly@Fugly{wne=wne', ban=ban'} True  randoms msg = do
     cw <- chooseWord msg
     cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
     rr <- Random.getStdRandom (Random.randomR (0, 99))
-    w  <- findRelated wne' (cw!!cr)
-    let ww = if elem (map toLower w) sWords then cw!!cr else w
+    let w' = cw!!cr
+    w  <- findRelated wne' w'
+    let ww = if elem (map toLower w) sWords || elem (map toLower w) ban' then w' else w
     if randoms == 0 then
       return msg
       else if randoms == 100 then
              mapM (\x -> findRelated wne' x) msg
            else if rr + 20 < randoms then
                   wnReplaceWords fugly True randoms $ filter (not . null)
-                  ((takeWhile (/= (cw!!cr)) msg) ++ [ww] ++ (tail $ dropWhile (/= (cw!!cr)) msg))
+                  ((takeWhile (/= w') msg) ++ [ww] ++ (tail $ dropWhile (/= w') msg))
                 else
                   return msg
 
