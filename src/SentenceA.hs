@@ -104,6 +104,12 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
           w' <- s1r r' m'
           x' <- asReplaceWords st fugly w'
           return $ unwords $ toUpperSentence $ endSentence x'
+      | l > 3 && (s1l $ take 2 w) == ["does", "anybody"] =
+        return (case mod r' 3 of
+         0 -> "Not really."
+         1 -> "Nobody likes that stuff."
+         2 -> "Not this again..."
+         _ -> [])
       | l > 3 && (s1l $ take 3 w) == ["do", "you", w!!2 Regex.=~
              "like|hate|love|have|want|need"] = do
         noun <- getNoun wne' r' w

@@ -751,7 +751,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, owner=o,
            if isaction && rr - 60 < acts  || rr * 5 + 15 < acts then
              evalStateT (write h d "PRIVMSG"
                (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
-           else sentenceReply st bot rr load chan chan fmsg >> return ()
+           else sentenceReply st bot rr load chan (if r' < 65 then chan else nick') fmsg >> return ()
          else return ()
            else sentenceReply st bot rr load chan nick' fmsg >> return ())
     (nn, ns, nm) <- lift $ nnInsert f nsets lastm' fmsg
@@ -787,7 +787,7 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{handle=h,
     _   <- return p
     let fload = read $ fHead [] load :: Float
         r'    = 1 + mod r 7
-        rr    = mod r 5
+        rr    = mod r 6
         n'    = if nick' == chan then "somebody" else nick'
         nn    = if nick' == chan || null nick' then [] else nick' ++ ": "
     action <- ircAction False n' [] top defs'
