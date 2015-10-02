@@ -113,20 +113,22 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
                         if rr < 20 then "it" else
                           if rr < 40 then "that" else nouns' in
           return $ unwords $ toUpperSentence $ endSentence $ words
-          (case mod r' 4 of
+          (case mod r' 5 of
             0 -> "I don't " ++ s1b r' w
             1 -> "yeah, I " ++ s1b r' w
             2 -> "sometimes I " ++ s1b r' w
-            3 -> (noun ++ "s") ++ " are " ++ if r' < 50 then
+            3 -> "can you " ++ s1b r' w
+            4 -> (noun ++ "s") ++ " are " ++ if r' < 50 then
                   "not" else "" ++ " something I " ++ w!!2 Regex.=~
                         "like|hate|love|have|want|need"
             _ -> [])
-      | l > 2 && (s1l $ take 2 w) == ["can", "you"] = return (case mod r' 5 of
+      | l > 2 && (s1l $ take 2 w) == ["can", "you"] = return (case mod r' 6 of
          0 -> "No I can't."
          1 -> "Sure, I can do that."
          2 -> "It depends..."
-         3 -> "Why would I want to do something like that?"
-         4 -> "It is " ++ if r' < 20 then "boring." else if r' < 50 then
+         3 -> "Do you ever stop and ponder?"
+         4 -> "Why would I want to do something like that?"
+         5 -> "It is " ++ if r' < 20 then "boring." else if r' < 50 then
                   "fun." else "certainly possible."
          _ -> [])
       | l > 3 && l < 15 = do
@@ -152,12 +154,12 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
               return $ unwords mm
             2 -> do
               let s = sentenceB' st fugly r debug True rwords stopic randoms
-                      5 6 6 topic' ["tools"]
+                      5 6 6 topic' ["my"]
               mm <- fixIt st debug s [] 1 0 0 30
               return $ unwords mm
             3 -> do
               let s = sentenceB' st fugly r debug True rwords stopic randoms
-                      5 9 9 topic' ["abstract", b, "is"]
+                      5 9 9 topic' ["this", b, "is"]
               mm <- fixIt st debug s [] 1 0 0 45
               return $ unwords mm
             _ -> return []
