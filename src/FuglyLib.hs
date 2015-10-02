@@ -424,7 +424,8 @@ insertWord st fugly@Fugly{dict=dict', aspell=aspell', ban=ban'} autoname topic' 
                                 if elem (upperword after') ban' then []
                                 else if isJust wn && elem (upperword after') (wordGetBanAfter $ fromJust wn) then []
                                      else upperword after'
-                              else if elem (lowerword after') (wordGetBanAfter $ fromJust ww) then []
+                              else if isJust ww then if elem (lowerword after') (wordGetBanAfter $ fromJust ww) then []
+                                                     else lowerword after'
                                    else lowerword after'
     bi bn ba = if isJust b && elem word' (wordGetBanAfter $ fromJust b) then []
                else if (length before' < 3) && (notElem (map toLower before') sWords) then []
@@ -436,7 +437,8 @@ insertWord st fugly@Fugly{dict=dict', aspell=aspell', ban=ban'} autoname topic' 
                                 if elem (upperword before') ban' then []
                                 else if isJust bn' && elem (upperword word') (wordGetBanAfter $ fromJust bn') then []
                                      else upperword before'
-                              else if elem (lowerword word') (wordGetBanAfter $ fromJust bw') then []
+                              else if isJust bw' then if elem (lowerword word') (wordGetBanAfter $ fromJust bw') then []
+                                                      else lowerword before'
                                    else lowerword before'
     f st' bn an ba aa Word{}    = insertWordRaw' st' fugly False w  word'             (bi bn ba) (ai an aa) topic' pos'
     f st' bn an ba aa Name{}    = insertNameRaw' st' fugly True  w  word'             (bi bn ba) (ai an aa) topic'
