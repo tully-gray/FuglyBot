@@ -3,7 +3,7 @@ module SentenceA where
 import           Control.Concurrent             (MVar)
 import           Control.Monad.Trans.State.Lazy (evalStateT)
 import           Data.Char                      (toLower, toUpper)
-import qualified Data.Map.Strict                as Map (lookup)
+import qualified Data.Map.Strict                as Map (lookup, size)
 import           Data.Maybe
 import           FuglyLib
 import           NLP.WordNet                    hiding (Word)
@@ -15,7 +15,7 @@ import qualified Text.Regex.Posix               as Regex
 sentenceA :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
              -> Int -> Int -> String -> [String] -> IO String
 sentenceA _ _ _ _ _ _ _ _ _ _ [] = return []
-sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
+sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', dict=dict'}
   r debug rwords stopic randoms stries slen topic' msg = do
     rr <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     let len = length msg
@@ -28,15 +28,15 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
     sentenceA' :: Int -> Int -> [String] -> IO String
     sentenceA' _ _ [] = return []
     sentenceA' r' l w
-      | l < 7 && s2l w Regex.=~ "hi$|hello|greetings|welcome" =
-        return (case mod r' 6 of
-         0 -> "Hello my friend."
-         1 -> "Hi there."
-         2 -> "Thanks."
-         3 -> "Hey there pal."
-         4 -> "Good morning."
-         5 -> "Hey, what's going on?"
-         _ -> [])
+      -- | l < 7 && s2l w Regex.=~ "hi$|hello|greetings|welcome" =
+      --   return (case mod r' 6 of
+      --    0 -> "Hello my friend."
+      --    1 -> "Hi there."
+      --    2 -> "Thanks."
+      --    3 -> "Hey there pal."
+      --    4 -> "Good morning."
+      --    5 -> "Hey, what's going on?"
+      --    _ -> [])
       | l == 1 && r < 70 = do
           let s = sentenceB' st fugly r debug True rwords
                                 stopic 0 10 5 5 topic' w
@@ -65,28 +65,28 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
           mm <- fixIt st debug s [] 1 0 0 60
           return $ unwords mm
          _ -> return []
-      | l < 7 && r' < 31 && s2l w == "test" = return (case mod r' 4 of
-         0 -> "What are we testing?"
-         1 -> "But I don't want to test..."
-         2 -> "Is this just a test?"
-         3 -> "Test it yourself."
-         _ -> [])
-      | l < 8 && r' < 17 && (map toLower $ unwords w) Regex.=~ "really" =
-        return (case mod r' 3 of
-         0 -> "Not really."
-         1 -> "Yes really."
-         2 -> "Oh really."
-         _ -> [])
-      | l < 9 && r' < 65 && (map toLower $ unwords w) Regex.=~
-        "lol|haha|hehe|rofl|lmao|funny|humorous" = return (case mod r' 7 of
-         0 -> "Very funny."
-         1 -> "What's so funny?"
-         2 -> "It's not funny."
-         3 -> "Please don't laugh."
-         4 -> "Oh really."
-         5 -> "I'm glad you think this is funny."
-         6 -> "Seriously."
-         _ -> [])
+      -- | l < 7 && r' < 31 && s2l w == "test" = return (case mod r' 4 of
+      --    0 -> "What are we testing?"
+      --    1 -> "But I don't want to test..."
+      --    2 -> "Is this just a test?"
+      --    3 -> "Test it yourself."
+      --    _ -> [])
+      -- | l < 8 && r' < 17 && (map toLower $ unwords w) Regex.=~ "really" =
+      --   return (case mod r' 3 of
+      --    0 -> "Not really."
+      --    1 -> "Yes really."
+      --    2 -> "Oh really."
+      --    _ -> [])
+      -- | l < 9 && r' < 65 && (map toLower $ unwords w) Regex.=~
+      --   "lol|haha|hehe|rofl|lmao|funny|humorous" = return (case mod r' 7 of
+      --    0 -> "Very funny."
+      --    1 -> "What's so funny?"
+      --    2 -> "It's not funny."
+      --    3 -> "Please don't laugh."
+      --    4 -> "Oh really."
+      --    5 -> "I'm glad you think this is funny."
+      --    6 -> "Seriously."
+      --    _ -> [])
       | l > 2 && s2l w == "hey" = do
           let s = sentenceB' st fugly r debug False rwords stopic
                                 randoms stries slen 5 topic' (drop 2 w)
@@ -104,39 +104,33 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
           w' <- s1r r' m'
           x' <- asReplaceWords st fugly w'
           return $ unwords $ toUpperSentence $ endSentence x'
-      | l > 3 && (s1l $ take 2 w) == ["does", "anybody"] =
-        return (case mod r' 3 of
-         0 -> "Not really."
-         1 -> "Nobody likes that stuff."
-         2 -> "Not this again..."
-         _ -> [])
-      | l > 3 && (s1l $ take 3 w) == ["do", "you", w!!2 Regex.=~
-             "like|hate|love|have|want|need"] = do
-        noun <- getNoun wne' r' w
-        let nouns' = nouns noun
-            s1b :: Int -> [String] -> String
-            s1b rr ww = ww!!2 Regex.=~ "like|hate|love|have|want|need" ++ " " ++
-                        if rr < 20 then "it" else
-                          if rr < 40 then "that" else nouns' in
-          return $ unwords $ toUpperSentence $ endSentence $ words
-          (case mod r' 5 of
-            0 -> "I don't " ++ s1b r' w
-            1 -> "yeah, I " ++ s1b r' w
-            2 -> "sometimes I " ++ s1b r' w
-            3 -> "can you " ++ s1b r' w
-            4 -> (noun ++ "s") ++ " are " ++ if r' < 50 then
-                  "not" else "" ++ " something I " ++ w!!2 Regex.=~
-                        "like|hate|love|have|want|need"
-            _ -> [])
-      | l > 2 && (s1l $ take 2 w) == ["can", "you"] = return (case mod r' 6 of
-         0 -> "No I can't."
-         1 -> "Sure, I can do that."
-         2 -> "It depends..."
-         3 -> "Do you ever stop and ponder?"
-         4 -> "Why would I want to do something like that?"
-         5 -> "It is " ++ if r' < 20 then "boring." else if r' < 50 then
-                  "fun." else "certainly possible."
-         _ -> [])
+      -- | l > 3 && (s1l $ take 3 w) == ["do", "you", w!!2 Regex.=~
+      --        "like|hate|love|have|want|need"] = do
+      --   noun <- getNoun wne' r' w
+      --   let nouns' = nouns noun
+      --       s1b :: Int -> [String] -> String
+      --       s1b rr ww = ww!!2 Regex.=~ "like|hate|love|have|want|need" ++ " " ++
+      --                   if rr < 20 then "it" else
+      --                     if rr < 40 then "that" else nouns' in
+      --     return $ unwords $ toUpperSentence $ endSentence $ words
+      --     (case mod r' 5 of
+      --       0 -> "I don't " ++ s1b r' w
+      --       1 -> "yeah, I " ++ s1b r' w
+      --       2 -> "sometimes I " ++ s1b r' w
+      --       3 -> "can you " ++ s1b r' w
+      --       4 -> (noun ++ "s") ++ " are " ++ if r' < 50 then
+      --             "not" else "" ++ " something I " ++ w!!2 Regex.=~
+      --                   "like|hate|love|have|want|need"
+      --       _ -> [])
+      -- | l > 2 && (s1l $ take 2 w) == ["can", "you"] = return (case mod r' 6 of
+      --    0 -> "No I can't."
+      --    1 -> "Sure, I can do that."
+      --    2 -> "It depends..."
+      --    3 -> "Do you ever stop and ponder?"
+      --    4 -> "Why would I want to do something like that?"
+      --    5 -> "It is " ++ if r' < 20 then "boring." else if r' < 50 then
+      --             "fun." else "certainly possible."
+      --    _ -> [])
       | l > 3 && l < 15 = do
           let ra = mod r 4
           let t  = case ra of
@@ -170,6 +164,7 @@ sentenceA st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne'}
               return $ unwords mm
             _ -> return []
             else return []
+      | r' < 70 && Map.size dict' < 50 = gfRandom pgf' []
       | otherwise = return []
     s1l = map (\x -> map toLower x)
     s2l x = map toLower $ head x

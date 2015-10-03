@@ -579,27 +579,14 @@ timerLoop st = do
         let nicks = Map.lookup chan cn'
         load <- getLoad
         if isJust nicks && (read $ fHead [] load :: Float) < 2.5 then do
-          let n  = delete botnick $ fromJust nicks
-              m' = cleanStringBlack (\x -> x == '@' || x == '&' ||
-                     x == '~' || x == '+') $ n!!mod (r + 23) (length n)
-              n' = cleanStringBlack (\x -> x == '@' || x == '&' ||
-                     x == '~' || x == '+') $ n!!mod r (length n)
-              msg = case mod r $ 12 + lenNorm of
-                0 -> "It's quiet in here."
-                1 -> "Does anybody here like " ++ topic' ++ "?"
-                2 -> "Well, " ++ topic' ++ " is interesting, don't you think?"
-                3 -> "I've heard that " ++ m' ++ " likes " ++ topic' ++ "."
-                4 -> "I suspect that " ++ m' ++ " might know something about that."
-                5 -> "It's all the same to me."
-                6 -> "I wonder what " ++ m' ++ " thinks about that?"
-                7 -> "It's getting late..."
-                8 -> "Hmm..."
-                9 -> "Yes indeed."
-                _  -> if lenNorm == 0 then "Hmm..."
-                      else fixAction m' topic' $ norm!!mod r lenNorm
-          action <- ircAction False n' m' topic' defs'
-          let who = if mod (r + 11) 3 == 0 then n'
-                    else chan in if r < acts * 10 then
+          let n   = delete botnick $ fromJust nicks
+              n'  = cleanStringBlack (\x -> x == '@' || x == '&' ||
+                      x == '~' || x == '+') $ n!!mod r (length n)
+              msg = if lenNorm == 0 then "Well this is interesting..."
+                      else fixAction n' topic' $ norm!!mod r lenNorm
+              who = if mod (r + 11) 3 == 0 then n' else chan
+          action <- ircAction False n' topic' defs'
+          if (not $ null action) && r < acts * 10 then
             forkIO (evalStateT (write h d "PRIVMSG"
                    (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
             else if r < 850 then
@@ -609,30 +596,21 @@ timerLoop st = do
           else forkIO $ return ()
         else forkIO $ return ()
 
-ircAction :: Bool -> String -> String -> String -> [Default] -> IO String
-ircAction _     []    _     _      _     = return "panics."
-ircAction greet nick1 nick2 topic' defs' = do
+ircAction :: Bool -> String -> String -> [Default] -> IO String
+ircAction _     []    _      _     = return []
+ircAction _     _     _      []    = return []
+ircAction greet nick' topic' defs' = do
     r <- Random.getStdRandom (Random.randomR (0, 999)) :: IO Int
     let action     = [de | (type', de) <- defs', type' == Action]
     let lenAction  = length action
     let gaction    = [de | (type', de) <- defs', type' == GreetAction]
     let lenGaction = length gaction
-    let altnick    = if null nick2 then "" else " and " ++ nick2
-    return (if greet then case mod r $ 6 + lenGaction of
-                0 -> "waves to " ++ nick1 ++ "."
-                1 -> "greets " ++ nick1 ++ "."
-                2 -> "says hello to " ++ nick1 ++ "."
-                3 -> "welcomes " ++ nick1 ++ " to the channel."
-                _ -> if lenGaction == 0 then "waves."
-                     else fixAction nick1 topic' $ gaction!!mod r lenGaction
-            else case mod r $ 7 + lenAction of
-                0 -> "is bored."
-                1 -> "looks at " ++ nick1 ++ altnick ++ "."
-                2 -> "waves to " ++ nick1 ++ altnick ++ "."
-                3 -> "ponders."
-                4 -> "thinks deeply."
-                _  -> if lenAction == 0 then "yawns."
-                      else fixAction nick1 topic' $ action!!mod r lenAction)
+    return (if greet then
+              if lenGaction == 0 then []
+              else fixAction nick' topic' $ gaction!!mod r lenGaction
+            else
+              if lenAction == 0 then []
+              else fixAction nick' topic' $ action!!mod r lenAction)
 
 fixAction :: String -> String -> String -> String
 fixAction _  _ [] = []
@@ -652,26 +630,18 @@ greeting line = do
     _ <- return (p, f)
     r <- lift $ Random.getStdRandom (Random.randomR (0, 999)) :: StateT Fstate IO Int
     lift $ threadDelay (600000 * (mod r 8) + 2000000)
-    action <- lift $ ircAction True who [] top defs'
+    action <- lift $ ircAction True who top defs'
     let enter     = [de | (t, de) <- defs', t == Enter]
         lenEnter  = length enter
         greet     = [de | (t, de) <- defs', t == Greeting]
         lenGreet  = length greet
     if who == n then
-      case mod r $ 5 + lenEnter of
-        0 -> replyMsg bot chan [] "Hello world."
-        1 -> replyMsg bot chan [] "Good morning!"
-        2 -> replyMsg bot chan [] "Hello friends."
-        _ -> replyMsg bot chan [] $ if lenEnter == 0 then "Hello world." else
-                                      fixAction [] top $ enter!!mod r lenEnter
-      else if r < 600 then case mod r $ 6 + lenGreet of
-          0 -> replyMsg bot chan [] ("Hello " ++ who ++ ".")
-          1 -> replyMsg bot chan [] ("Welcome to the channel, " ++ who ++ ".")
-          2 -> replyMsg bot chan who "Greetings."
-          3 -> replyMsg bot chan who "Hello."
-          _ -> let l = if lenGreet == 0 then "Hello." else greet!!mod r lenGreet in
-            replyMsg bot chan (if elem "#nick" $ words l then [] else who) $
-              fixAction who top l
+      replyMsg bot chan [] $ if lenEnter == 0 then [] else
+        fixAction [] top $ enter!!mod r lenEnter
+      else if null action || r < 600 then
+             let l = if lenGreet == 0 then [] else greet!!mod r lenGreet in
+             replyMsg bot chan (if elem "#nick" $ words l then [] else who) $
+               fixAction who top l
            else
              write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")
     lift $ putMVar b bot >> return ()
@@ -740,7 +710,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, owner=o,
                    else True
         matchon  = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
         isaction = head msg == "\SOHACTION"
-    action <- lift $ ircAction False nick' [] top defs'
+    action <- lift $ ircAction False nick' top defs'
     if null fmsg then return () else lift $
       (if null chan then
          if apm && not isaction then
@@ -748,16 +718,16 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, owner=o,
          else return ()
        else if chanmsg then
          if (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchon then
-           if isaction && rr - 60 < acts  || rr * 5 + 15 < acts then
+           if isaction && (not $ null action) && (rr - 60 < acts  || rr * 5 + 15 < acts) then
              evalStateT (write h d "PRIVMSG"
                (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
            else sentenceReply st bot rr load chan (if r' < 65 then chan else nick') fmsg >> return ()
          else return ()
            else sentenceReply st bot rr load chan nick' fmsg >> return ())
-    (nn, ns, nm) <- lift $ nnInsert f nsets lastm' fmsg
-    if ((nick' == o && null chan) || parse) && l &&
+    if nick' == o && null chan || parse && l &&
        not isaction && noban fmsg ban' then do
-      nd <- lift $ insertWords lock f an top fmsg
+      nd           <- lift $ insertWords lock f an top fmsg
+      (nn, ns, nm) <- lift $ nnInsert f nsets lastm' fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}, lastm=fmsg} else
       return bot
@@ -773,12 +743,12 @@ reply bot _ _ _ _ _ = return bot
 sentenceReply :: Fstate -> Bot -> Int -> [String] -> String
                  -> String -> [String] -> IO ThreadId
 sentenceReply _ _ _ _ _ _ [] = forkIO $ return ()
-sentenceReply st@(_, lock, tc, _) bot@Bot{handle=h,
+sentenceReply st@(_, lock, tc, _) Bot{handle=h,
                 params=p@Parameter{numThreads=nt, sTries=str,
                                    sLength=slen, pLength=plen,
                                    Main.topic=top, randoms=rand, replaceWord=rw,
                                    strictTopic=stopic, debug=d, delay=dl},
-                fugly=fugly'@Fugly{defs=defs'}} r load chan nick' m = forkIO (do
+                fugly=fugly'} r load chan nick' msg = forkIO (do
     tId <- myThreadId
     tc' <- incT tc tId
     _   <- if d then evalStateT (hPutStrLnLock stdout
@@ -788,35 +758,22 @@ sentenceReply st@(_, lock, tc, _) bot@Bot{handle=h,
     let fload = read $ fHead [] load :: Float
         r'    = 1 + mod r 7
         rr    = mod r 6
-        n'    = if nick' == chan then "somebody" else nick'
-        nn    = if nick' == chan || null nick' then [] else nick' ++ ": "
-    action <- ircAction False n' [] top defs'
     if tc' < (nt + 2) && fload < 4.3 then do
       let d1     = dl * 1000000
           bdelay = (if dl < 4 then 0 else if r' - 3 > 0 then r' - 3 else 0) * 9
           sdelay = (if rr - 2 > 0 then rr - 2 else 0) * 3 in
             threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
-      let num    = if r' - 4 < 1 || str < 4 || length m < 7 then 1 else r' - 4
-      x <- sentenceA lock fugly' r d rw stopic rand str slen top m
+      let num    = if r' - 4 < 1 || str < 4 || length msg < 7 then 1 else r' - 4
+      x <- sentenceA lock fugly' r d rw stopic rand str slen top msg
       y <- if null x then sentenceB lock fugly' r d rw stopic rand str
-                          slen plen top num m
+                          slen plen top num msg
            else return []
       let ww = if null x then unwords y else x
       evalStateT (do if null ww then return ()
                        else if null nick' || nick' == chan || rr == 0 then
                                write h d "PRIVMSG" $ chan ++ " :" ++ ww
                             else write h d "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ ww) st
-      else replyMsgT st bot chan [] $ case mod r 23 of
-        1 -> nn ++ "I don't know if you're making any sense."
-        2 -> nn ++ "I can't chat now, sorry."
-        3 -> nn ++ "Let's discuss this later."
-        4 -> nn ++ "I'll get back to you on that."
-        5 -> "\SOHACTION " ++ action ++ "\SOH"
-        6 -> "\SOHACTION looks confused.\SOH"
-        7 -> "\SOHACTION is AFK for a bit.\SOH"
-        8 -> "\SOHACTION feels like ignoring " ++ n' ++ ".\SOH"
-        9 -> "All this chat is making me thirsty."
-        _ -> []
+      else return ()
     decT tc tId)
 sentenceReply _ _ _ _ _ _ _ = forkIO $ return ()
 

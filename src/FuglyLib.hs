@@ -1019,22 +1019,22 @@ gfCategories pgf' = map showCId (categories pgf')
 gfRandom :: Maybe PGF -> String -> IO String
 gfRandom pgf' [] = do
     if isJust pgf' then do
-      r  <- gfRandom' $ fromJust pgf'
+      r <- gfRandom' $ fromJust pgf'
       let rr = filter (\x -> x Regex.=~ "NP") $ words r
       gfRandom pgf' (if rr == (\\) rr (words r) then r else [])
-      else do
-        r <- Random.getStdRandom (Random.randomR (0, 9)) :: IO Int
-        return $ case r of
-          0 -> "I'm not really sure what to make of that."
-          1 -> "Well this is interesting..."
-          2 -> "It's too quiet in here."
-          3 -> "Nice weather today."
-          4 -> "This conversation is so boring."
-          5 -> "They can't even afford a television."
-          6 -> "So much for our so-called leaders."
-          7 -> "All they do is complain..."
-          8 -> "I was told not to speak about this, but..."
-          _ -> ""
+      else return [] -- do
+        -- r <- Random.getStdRandom (Random.randomR (0, 9)) :: IO Int
+        -- return $ case r of
+        --   0 -> "I'm not really sure what to make of that."
+        --   1 -> "Well this is interesting..."
+        --   2 -> "It's too quiet in here."
+        --   3 -> "Nice weather today."
+        --   4 -> "This conversation is so boring."
+        --   5 -> "They can't even afford a television."
+        --   6 -> "So much for our so-called leaders."
+        --   7 -> "All they do is complain..."
+        --   8 -> "I was told not to speak about this, but..."
+        --   _ -> ""
 gfRandom _ msg' = return msg'
 
 gfRandom' :: PGF -> IO String
