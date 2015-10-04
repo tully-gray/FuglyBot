@@ -721,7 +721,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, owner=o,
            if isaction && (not $ null action) && (rr - 60 < acts  || rr * 5 + 15 < acts) then
              evalStateT (write h d "PRIVMSG"
                (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
-           else sentenceReply st bot rr load chan (if r' < 65 then chan else nick') fmsg >> return ()
+           else sentenceReply st bot rr load chan (if r' < 55 then chan else nick') fmsg >> return ()
          else return ()
            else sentenceReply st bot rr load chan nick' fmsg >> return ())
     if nick' == o && null chan || parse && l &&
@@ -770,7 +770,7 @@ sentenceReply st@(_, lock, tc, _) Bot{handle=h,
            else return []
       let ww = if null x then unwords y else x
       evalStateT (do if null ww then return ()
-                       else if null nick' || nick' == chan || rr == 0 then
+                       else if null nick' || nick' == chan || rr == 0 || rr == 2 then
                                write h d "PRIVMSG" $ chan ++ " :" ++ ww
                             else write h d "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ ww) st
       else return ()
