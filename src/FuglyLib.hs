@@ -370,7 +370,7 @@ insertWords st fugly@Fugly{dict=dict'} autoname topic' msg =
             insertWord st fugly{dict=ff} autoname topic' my mx [] []
     _ -> insertWords' fugly autoname topic' 0 len dmsg
   where
-    dmsg = dedup msg
+    dmsg = dedupD msg
     len  = length dmsg
     insertWords' :: Fugly -> Bool -> String -> Int -> Int -> [String] -> IO Dict
     insertWords' (Fugly{dict=d}) _ _ _ _ [] = return d
@@ -711,6 +711,17 @@ dedup [x] = [x]
 dedup (x:xs)
     | x == head xs = x : dedup (dropWhile (\y -> y == x) xs)
     | otherwise    = x : dedup xs
+
+dedupD :: [String] -> [String]
+dedupD m = let n  = dedup m
+               f1 = filter (not . null) . concat . map (\i -> [fst i,snd i]) . dedup
+               x1 = f1 $ fz [] n
+               x2 = f1 $ fz [] ("" : n) in
+           if length x1 <= length x2 then x1 else x2
+  where
+    fz a []       = a
+    fz a [x]      = a ++ [(x, [])]
+    fz a (x:y:xs) = fz (a ++ [(x, y)]) xs
 
 joinWords :: Char -> [String] -> [String]
 joinWords _ [] = []
@@ -1338,7 +1349,7 @@ nnInsert Fugly{wne=wne', aspell=aspell', ban=ban', nnet=nnet', nset=nset', nmap=
   where
     dList x = take (fromIntegral nsize :: Int) $ map wordToFloat $ x ++ nnPad
     fix :: [String] -> [String] -> IO [String]
-    fix []     a = return $ dedup $ filter (not . null) $ reverse a
+    fix []     a = return $ dedupD $ filter (not . null) $ reverse a
     fix (x:xs) a = do
       p <- wnPartPOS wne' x
       if (length x < 3) && (notElem (map toLower x) sWords) then fix xs a
@@ -1357,7 +1368,7 @@ nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', nnet=nnet', nma
     let b = filter (not . null) $ replace "i" "I" a
     c <- acroName [] $ check b
     if null $ concat c then return [] else do
-      out <- insertCommas wne' 0 $ toUpperSentence $ endSentence $ dedup c
+      out <- insertCommas wne' 0 $ toUpperSentence $ endSentence $ dedupD c
       if debug then
         evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords out)) st
         else return ()

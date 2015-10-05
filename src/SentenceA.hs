@@ -226,7 +226,7 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     s1b f n i noun msg' = do
       ww <- msg'
       if null $ concat ww then return []
-        else if i >= n then return $ dedup ww else do
+        else if i >= n then return $ dedupD ww else do
                www <- findNextWord f i randoms False stopic topic' noun
                         $ fLast [] ww
                s1b f n (i + 1) noun (return $ ww ++ www)
