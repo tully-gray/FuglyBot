@@ -998,6 +998,7 @@ gfLin pgf' msg
     expr = readExpr msg
 
 gfParseBool :: Maybe PGF -> Int -> String -> Bool
+gfParseBool _    _   []                 = False
 gfParseBool pgf' len msg
     | elem (map toLower lw) badEndWords = False
     | elem '\'' (map toLower lw)        = False
