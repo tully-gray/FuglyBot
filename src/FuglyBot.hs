@@ -682,10 +682,9 @@ processLine r line = do
 reply :: Bot -> Int -> Bool -> String -> String -> [String]
          -> StateT Fstate IO Bot
 reply bot _ _ _ _ [] = return bot
-reply bot@Bot{handle=h, params=p@Parameter{nick=bn, owner=o,
-              learning=l, pLength=plen, strictLearn=sl,
+reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=l, pLength=plen,
               autoName=an, allowPM=apm, debug=d, Main.topic=top,
-              nSetSize=nsets, actions=acts},
+              nSetSize=nsets, actions=acts, strictLearn=sl},
               fugly=f@Fugly{defs=defs', pgf=pgf', aspell=aspell',
                             dict=dict', FuglyLib.match=match',
                             ban=ban'}, lastm=lastm'}
@@ -724,8 +723,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, owner=o,
            else sentenceReply st bot rr load chan (if r' < 55 then chan else nick') fmsg >> return ()
          else return ()
            else sentenceReply st bot rr load chan nick' fmsg >> return ())
-    if nick' == o && null chan || parse && l &&
-       not isaction && noban fmsg ban' then do
+    if l && parse && not isaction && noban fmsg ban' then do
       nd           <- lift $ insertWords lock f an top fmsg
       (nn, ns, nm) <- lift $ nnInsert f nsets lastm' fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
