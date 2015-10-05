@@ -1388,14 +1388,24 @@ nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell',
       if debug then
         evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords (map show out))) st
         else return ()
-      return $ map (\x -> floatToWord nmap' True 0 10 x) out
+      return $ map (\x -> floatToWord nmap' True 0 5 x) out
     check :: [String] -> IO [String]
     check [] = return []
     check x = do
       p <- wnPartPOS wne' $ cleanString $ last x
       let x' = filter (\y -> (not $ null y) && notElem y ban') $ replace "i" "I" x
-      if gfParseBool pgf' 0 (unwords x') && p /= POS Adj then return x'
+      if gfParseBool pgf' 0 (unwords x') && p /= POS Adj && bannedS x' then return x'
         else return []
+    banned :: String -> String -> Bool
+    banned w a = let w' = Map.lookup w dict' in
+      if isJust w' then
+         elem a (wordGetBanAfter $ fromJust w')
+         else False
+    bannedS :: [String] -> Bool
+    bannedS []     = False
+    bannedS [_]    = True
+    bannedS (x:xs) = if banned x $ head xs then False
+                     else bannedS xs
     acroName :: [String] -> IO [String] -> IO [String]
     acroName o w = do
       m <- w
