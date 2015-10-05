@@ -205,8 +205,9 @@ sentenceB' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
                   stopic topic' b x
           ww <- s1b fugly slen 0 b $ return msg
           let d  = if first then ww else [yy] ++ [zz] ++ [s1h n a x] ++ w
-          wnReplaceWords fugly rwords randoms $ filter (not . null)
-            $ take (stries * slen) d
+          o <- wnReplaceWords fugly rwords randoms $ filter (not . null)
+                 $ take (stries * slen) d
+          return $ dedupD o
     let s1d x = do
           w <- x
           if null w then return []

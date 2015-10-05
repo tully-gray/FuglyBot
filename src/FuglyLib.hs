@@ -1363,10 +1363,10 @@ nnInsert Fugly{wne=wne', aspell=aspell', ban=ban', nnet=nnet', nset=nset', nmap=
 nnReply :: MVar () -> Fugly -> Bool -> [String] -> IO String
 nnReply _  Fugly{nset=[]} _ _  = return []
 nnReply _  _              _ [] = return []
-nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', nnet=nnet', nmap=nmap'} debug msg = do
+nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell',
+                 ban=ban', nnet=nnet', nmap=nmap'} debug msg = do
     a <- nnReply'
-    let b = filter (not . null) $ replace "i" "I" a
-    c <- acroName [] $ check b
+    c <- acroName [] $ check a
     if null $ concat c then return [] else do
       out <- insertCommas wne' 0 $ toUpperSentence $ endSentence $ dedupD c
       if debug then
@@ -1385,7 +1385,8 @@ nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell', nnet=nnet', nma
     check [] = return []
     check x = do
       p <- wnPartPOS wne' $ cleanString $ last x
-      if gfParseBool pgf' 0 (unwords x) && p /= POS Adj then return x
+      let x' = filter (\y -> (not $ null y) && notElem y ban') $ replace "i" "I" x
+      if gfParseBool pgf' 0 (unwords x') && p /= POS Adj then return x'
         else return []
     acroName :: [String] -> IO [String] -> IO [String]
     acroName o w = do
