@@ -995,6 +995,19 @@ execCmd b chan nick' (x:xs) = do
                     replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.") >> return bot
           _ -> replyMsgT st bot chan nick' "Usage: !ageword <word> <number>" >> return bot
                           else return bot
+      | x == "!forcelearn" = if nick' == owner' then let lenxs = length xs in
+          if lenxs == 0 || lenxs == 1 || lenxs == 2 then
+            replyMsgT st bot chan nick' "Usage: !forcelearn <number> <msg>" >> return bot
+            else do
+               num <- catch (if (read (xs!!0) :: Int) > 50 then return 50 else return (read (xs!!0) :: Int))
+                              {-- This has to be caught here? --}
+                              (\e -> do let err = show (e :: SomeException)
+                                        evalStateT (hPutStrLnLock stderr ("Exception in forcelearn command: read: " ++ err)) st
+                                        return 0)
+               nd  <- insertWordsN (getLock st) f autoName' topic' num $ tail xs
+               replyMsgT st bot chan nick' ("Message learned " ++ (xs!!0) ++ " times.") >>
+                 return bot{fugly=f{dict=nd}}
+                             else return bot
       | x == "!banword" = if nick' == owner' then case length xs of
           2 -> if (xs!!0) == "add" then
                  if elem (xs!!1) ban' then
@@ -1089,7 +1102,7 @@ execCmd b chan nick' (x:xs) = do
       | otherwise  = if nick' == owner' then replyMsgT st bot chan nick'
           ("Commands: !word !wordlist !insertword !name !namelist !insertname !acronym !acronymlist !insertacronym "
           ++ "!dropword !banword !matchword !insertdefault !dropdefault !dropafter !banafter "
-          ++ "!ageword !topiclist !droptopic !droptopicwords !internalize "
+          ++ "!ageword !topiclist !droptopic !droptopicwords !internalize !forcelearn "
           ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
           ++ "!setparam !showparams !nick !join !part !talk !raw !quit !load !save") >> return bot
                      else replyMsgT st bot chan nick'

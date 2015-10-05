@@ -383,6 +383,14 @@ insertWords st fugly@Fugly{dict=dict'} autoname topic' msg =
       | otherwise  = do ff <- insertWord st f a t (m!!i) (m!!(i-1)) (m!!(i+1)) []
                         insertWords' f{dict=ff} a t (i+1) l m
 
+insertWordsN :: MVar () -> Fugly -> Bool -> String -> Int -> [String] -> IO Dict
+insertWordsN _ Fugly{dict=d} _ _ _ []   = return d
+insertWordsN st f@(Fugly{dict=d}) an top num msg = f1 0 d
+  where
+    f1 n d' = do
+      nd <- insertWords st f{dict=d'} an top msg
+      if n < num then f1 (n + 1) nd else return nd
+
 insertWord :: MVar () -> Fugly -> Bool -> String -> String -> String -> String -> String -> IO Dict
 insertWord _  Fugly{dict=d}                                     _        _      []    _       _      _    = return d
 insertWord st fugly@Fugly{dict=dict', aspell=aspell', ban=ban'} autoname topic' word' before' after' pos' = do
