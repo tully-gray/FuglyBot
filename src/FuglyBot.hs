@@ -936,9 +936,9 @@ execCmd b chan nick' (x:xs) = do
                    return bot{fugly=f{dict=dropAllAfter dict' (xs!!0)}}
           _ -> replyMsgT st bot chan nick' "Usage: !dropafter <word> [after-word]" >> return bot
                             else return bot
-      | x == "!listtopics" = case length xs of
+      | x == "!topiclist" = case length xs of
           0 -> replyMsgT st bot chan nick' ("topics: " ++ (unwords $ listTopics dict')) >> return bot
-          _ -> replyMsgT st bot chan nick' ("Usage: !listtopics") >> return bot
+          _ -> replyMsgT st bot chan nick' ("Usage: !topiclist") >> return bot
       | x == "!droptopic" = if nick' == owner' then case length xs of
           1 -> if elem (xs!!0) $ listTopics dict' then
                  replyMsgT st bot chan nick' ("Dropped topic " ++ (xs!!0) ++ ".") >>
@@ -1089,11 +1089,11 @@ execCmd b chan nick' (x:xs) = do
       | otherwise  = if nick' == owner' then replyMsgT st bot chan nick'
           ("Commands: !word !wordlist !insertword !name !namelist !insertname !acronym !acronymlist !insertacronym "
           ++ "!dropword !banword !matchword !insertdefault !dropdefault !dropafter !banafter "
-          ++ "!ageword !listtopics !droptopic !droptopicwords !internalize "
+          ++ "!ageword !topiclist !droptopic !droptopicwords !internalize "
           ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
           ++ "!setparam !showparams !nick !join !part !talk !raw !quit !load !save") >> return bot
                      else replyMsgT st bot chan nick'
-          ("Commands: !word !wordlist !name !namelist !acronym !acronymlist !listtopics "
+          ("Commands: !word !wordlist !name !namelist !acronym !acronymlist !topiclist "
           ++ "!dict !closure !meet !related !forms !parts !isname !isacronym") >> return bot
     execCmd' bot _ = return bot
 
