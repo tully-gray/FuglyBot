@@ -201,8 +201,8 @@ start = do
     (f, p) <- initFugly fDir wnDir gfDir topic'
     let b = if null p then
               Bot sh (Parameter nick' owner' fDir dFile False 10 400 4 50 20 7
-                      0 True False False True False False topic' 50 False 0 2
-                      40 5) f []
+                      0 False False False True False False topic' 50 False 0 2
+                      0 0) f []
               else Bot sh ((readParamsFromList p){nick=nick', owner=owner',
                       fuglyDir=fDir, dictFile=dFile}) f []
     bot  <- newMVar b
@@ -987,10 +987,11 @@ execCmd b chan nick' (x:xs) = do
                                         evalStateT (hPutStrLnLock stderr ("Exception in ageword command: read: " ++ err)) st
                                         return 0)
                   if isJust $ Map.lookup (xs!!0) dict' then
-                    replyMsgT st bot chan nick' ("Aged word " ++ (xs!!0) ++ ".") >>
-                      return bot{fugly=f{dict=ageWord dict' (xs!!0) num}}
-                    else
-                    replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.") >> return bot
+                    if num > 0 then
+                      replyMsgT st bot chan nick' ("Aged word " ++ (xs!!0) ++ ".") >>
+                        return bot{fugly=f{dict=ageWord dict' (xs!!0) num}}
+                      else replyMsgT st bot chan nick' "Number not in range." >> return bot
+                    else replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.") >> return bot
           _ -> replyMsgT st bot chan nick' "Usage: !ageword <word> <number>" >> return bot
                           else return bot
       | x == "!forcelearn" = if nick' == owner' then let lenxs = length xs in
@@ -1003,8 +1004,10 @@ execCmd b chan nick' (x:xs) = do
                                         evalStateT (hPutStrLnLock stderr ("Exception in forcelearn command: read: " ++ err)) st
                                         return 0)
                nd  <- insertWordsN (getLock st) f autoName' topic' num $ tail xs
-               replyMsgT st bot chan nick' ("Message learned " ++ (xs!!0) ++ " times.") >>
-                 return bot{fugly=f{dict=nd}}
+               if num > 0 then
+                 replyMsgT st bot chan nick' ("Message learned " ++ (xs!!0) ++ " times.") >>
+                   return bot{fugly=f{dict=nd}}
+                 else replyMsgT st bot chan nick' "Number not in range." >> return bot
                              else return bot
       | x == "!banword" = if nick' == owner' then case length xs of
           2 -> if (xs!!0) == "add" then
