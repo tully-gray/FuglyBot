@@ -793,7 +793,8 @@ execCmd b chan nick' (x:xs) = do
                                        sTries' slen plen learn slearn stopic
                                        autoName' allowPM' debug' topic' randoms'
                                        replaceWord' timer' delay' greets actions'),
-                     fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match' _ _ _)} st
+                     fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match' _ _ _),
+                    lastm=lastm'} st
       | userCmd' == False && nick' /= owner' = return bot
       | x == "!quit" = if nick' == owner' then case length xs of
           0 -> do evalStateT (write h debug' "QUIT" ":Bye") st >> return bot
@@ -1004,9 +1005,10 @@ execCmd b chan nick' (x:xs) = do
                                         evalStateT (hPutStrLnLock stderr ("Exception in forcelearn command: read: " ++ err)) st
                                         return 0)
                nd  <- insertWordsN (getLock st) f autoName' topic' num $ tail xs
+               (nn, ns, nm) <- nnInsert f nsets lastm' $ tail xs
                if num > 0 then
                  replyMsgT st bot chan nick' ("Message learned " ++ (xs!!0) ++ " times.") >>
-                   return bot{fugly=f{dict=nd}}
+                   return bot{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}, lastm=tail xs}
                  else replyMsgT st bot chan nick' "Number not in range." >> return bot
                              else return bot
       | x == "!banword" = if nick' == owner' then case length xs of
