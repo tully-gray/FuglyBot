@@ -200,7 +200,7 @@ start = do
     hSetBuffering sh NoBuffering
     (f, p) <- initFugly fDir wnDir gfDir topic'
     let b = if null p then
-              Bot sh (Parameter nick' owner' fDir dFile False 10 400 4 50 20 7
+              Bot sh (Parameter nick' owner' fDir dFile False 10 400 8 16 10 7
                       0 False False False True False False topic' 50 False 0 2
                       0 0) f []
               else Bot sh ((readParamsFromList p){nick=nick', owner=owner',
