@@ -218,15 +218,7 @@ start = do
                                      ("IDENTIFY " ++ passwd)) fState
                          else return ()
                       evalStateT (joinChannel sh "JOIN" channels) fState)
-    pId <- forkIO $ pingLoop lock sh
-    _   <- incT tc pId
     return fState
-  where
-    pingLoop l sh = forever $ do
-      lock <- takeMVar l
-      hPutStrLn sh "PING :foo\r"
-      putMVar l lock
-      threadDelay 60000000
 
 stop :: Fstate -> IO ()
 stop (bot, lock, tc, _) = do
@@ -246,13 +238,12 @@ run = do
     _   <- lift $ incT (getTCount st) tId
     forever $ lift $ getLine' st h d
     where
-      getLine' st h d = if d then do
-        hGetLine h >>=
-          (\l -> do evalStateT
-                      (hPutStrLnLock stdout ("> debug: IRC msg: " ++ l)) st >>
-                      return l) >>= (\ll -> listenIRC st h ll)
-                    else do
-                      hGetLine h >>= (\ll -> listenIRC st h ll)
+      getLine' st h d = do
+        l <- hGetLine h
+        if d then
+          evalStateT (hPutStrLnLock stdout ("> debug: IRC msg: " ++ l)) st
+          else return ()
+        listenIRC st h l
 
 listenIRC :: Fstate -> Handle -> String -> IO ()
 listenIRC st h l = do
