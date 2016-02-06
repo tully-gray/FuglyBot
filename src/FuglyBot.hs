@@ -12,7 +12,7 @@ import           Network.Socket                 hiding (Debug)
 import           Network.Socks5
 import           NLP.WordNet.PrimTypes          (allForm, allPOS)
 import           Prelude
-import           SentenceA
+import           Sentence
 import           System.Environment
 import           System.IO
 import           System.IO.Error
@@ -200,8 +200,8 @@ start = do
     hSetBuffering sh NoBuffering
     (f, p) <- initFugly fDir wnDir gfDir topic'
     let b = if null p then
-              Bot sh (Parameter nick' owner' fDir dFile False 10 400 8 16 10 7
-                      0 False False False True False False topic' 50 False 0 2
+              Bot sh (Parameter nick' owner' fDir dFile False 10 400 8 64 10 7
+                      0 False False False True False True topic' 10 False 0 2
                       0 0) f []
               else Bot sh ((readParamsFromList p){nick=nick', owner=owner',
                       fuglyDir=fDir, dictFile=dFile}) f []
@@ -241,9 +241,9 @@ run = do
       getLine' st h d = do
         l <- hGetLine h
         if d then
-          evalStateT (hPutStrLnLock stdout ("> debug: IRC msg: " ++ l)) st
-          else return ()
-        listenIRC st h l
+          evalStateT (hPutStrLnLock stdout ("> debug: IRC msg: " ++ l)) st >>
+            listenIRC st h l
+          else listenIRC st h l
 
 listenIRC :: Fstate -> Handle -> String -> IO ()
 listenIRC st h l = do
@@ -497,7 +497,7 @@ getMsg msg
     | p == "PRIVMSG" = (drop 1 (msg!!3)) : (drop 4 msg)
     | otherwise      = []
   where
-    p = if (length $ drop 1 msg) > 0 then head $ drop 1 msg else "FOO"
+    p = if (length $ drop 1 msg) > 0 then head $ drop 1 msg else ""
 
 getNick :: [String] -> String
 getNick []  = []
@@ -753,15 +753,16 @@ sentenceReply st@(_, lock, tc, _) Bot{handle=h,
           sdelay = (if rr - 2 > 0 then rr - 2 else 0) * 3 in
             threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
       let num    = if r' - 4 < 1 || str < 4 || length msg < 7 then 1 else r' - 4
-      x <- sentenceA lock fugly' r d rw stopic rand str slen top msg
-      y <- if null x then sentenceB lock fugly' r d rw stopic rand str
-                          slen plen top num msg
-           else return []
-      let ww = if null x then unwords y else x
-      evalStateT (do if null ww then return ()
+      w <- sentenceA lock fugly' d msg
+      x <- if null w then sentenceB lock fugly' r d rw stopic rand str
+                          slen top msg else return []
+      y <- if null x then sentenceC lock fugly' r d rw stopic rand str
+                          slen plen top num msg else return []
+      let s = if null w then if null x then unwords y else x else w
+      evalStateT (do if null s then return ()
                        else if null nick' || nick' == chan || rr == 0 || rr == 2 then
-                               write h d "PRIVMSG" $ chan ++ " :" ++ ww
-                            else write h d "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ ww) st
+                               write h d "PRIVMSG" $ chan ++ " :" ++ s
+                            else write h d "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ s) st
       else return ()
     decT tc tId)
 sentenceReply _ _ _ _ _ _ _ = forkIO $ return ()
@@ -1156,7 +1157,7 @@ internalize st b n msg = internalize' st b n 0 msg
       num i imsg = do
       _   <- return p
       r   <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
-      sen <- getSentence $ sentenceB' (getLock st') f r d False rw stopic
+      sen <- getSentence $ sentenceC' (getLock st') f r d False rw stopic
              rands tries slen plen topic' $ words imsg
       nd  <- insertWords (getLock st') f aname topic' $ words sen
       if i >= num then return bot
