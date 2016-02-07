@@ -12,7 +12,7 @@ import           Network.Socket                 hiding (Debug)
 import           Network.Socks5
 import           NLP.WordNet.PrimTypes          (allForm, allPOS)
 import           Prelude
-import           Sentence
+import           Reply
 import           System.Environment
 import           System.IO
 import           System.IO.Error
@@ -581,7 +581,7 @@ timerLoop st = do
             forkIO (evalStateT (write h d "PRIVMSG"
                    (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
             else if r < 850 then
-              sentenceReply st bot r load chan who $ words msg
+              forkReply st bot r load chan who $ words msg
                  else
                    forkIO $ replyMsgT st bot chan who msg
           else forkIO $ return ()
@@ -695,16 +695,16 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=l, pLength=plen,
     if null fmsg then return () else lift $
       (if null chan then
          if apm && not isaction then
-           sentenceReply st bot rr load nick' [] fmsg >> return ()
+           forkReply st bot rr load nick' [] fmsg >> return ()
          else return ()
        else if chanmsg then
          if (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchon then
            if isaction && (not $ null action) && (rr - 60 < acts  || rr * 5 + 15 < acts) then
              evalStateT (write h d "PRIVMSG"
                (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
-           else sentenceReply st bot rr load chan (if r' < 55 then chan else nick') fmsg >> return ()
+           else forkReply st bot rr load chan (if r' < 55 then chan else nick') fmsg >> return ()
          else return ()
-           else sentenceReply st bot rr load chan nick' fmsg >> return ())
+           else forkReply st bot rr load chan nick' fmsg >> return ())
     if l && parse && not isaction && noban fmsg ban' then do
       nd           <- lift $ insertWords lock f an top fmsg
       (nn, ns, nm) <- lift $ nnInsert f nsets lastm' fmsg
@@ -720,10 +720,10 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=l, pLength=plen,
                      else noban xs b
 reply bot _ _ _ _ _ = return bot
 
-sentenceReply :: Fstate -> Bot -> Int -> [String] -> String
+forkReply :: Fstate -> Bot -> Int -> [String] -> String
                  -> String -> [String] -> IO ThreadId
-sentenceReply _ _ _ _ _ _ [] = forkIO $ return ()
-sentenceReply st@(_, lock, tc, _) Bot{handle=h,
+forkReply _ _ _ _ _ _ [] = forkIO $ return ()
+forkReply st@(_, lock, tc, _) Bot{handle=h,
                 params=p@Parameter{numThreads=nt, sTries=str,
                                    sLength=slen, pLength=plen,
                                    Main.topic=top, randoms=rand, replaceWord=rw,
@@ -744,12 +744,12 @@ sentenceReply st@(_, lock, tc, _) Bot{handle=h,
           sdelay = (if rr - 2 > 0 then rr - 2 else 0) * 3 in
             threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
       let num    = if r' - 4 < 1 || str < 4 || length msg < 7 then 1 else r' - 4
-      w <- sentenceA lock fugly' d msg
-      x <- if null w then sentenceB lock fugly' r d rw stopic rand str
+      w <- replyNeural lock fugly' d msg
+      x <- if null w then replyMixed lock fugly' r d rw stopic rand str
                           slen top msg else return []
-      y <- if null x then sentenceC lock fugly' r d rw stopic rand str
+      y <- if null x then replyRandom lock fugly' r d rw stopic rand str
                           slen plen top num msg else return []
-      z <- if null y then sentenceZ fugly' r top else return []
+      z <- if null y then replyDefault fugly' r top else return []
       let s = if null w then if null x then if null y then z else unwords y else x else w
       evalStateT (do if null s then return ()
                        else if null nick' || nick' == chan || rr == 0 || rr == 2 then
@@ -757,7 +757,7 @@ sentenceReply st@(_, lock, tc, _) Bot{handle=h,
                             else write h d "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ s) st
       else return ()
     decT tc tId)
-sentenceReply _ _ _ _ _ _ _ = forkIO $ return ()
+forkReply _ _ _ _ _ _ _ = forkIO $ return ()
 
 execCmd :: Bot -> String -> String -> [String] -> StateT Fstate IO Bot
 execCmd b _ _ [] = lift $ return b
@@ -1046,7 +1046,7 @@ execCmd b chan nick' (x:xs) = do
             if length xs > 2 then do
               r'   <- Random.getStdRandom (Random.randomR (0, 99))
               load <- getLoad
-              sentenceReply st bot r' load (xs!!0) (xs!!1) (drop 2 xs) >> return bot
+              forkReply st bot r' load (xs!!0) (xs!!1) (drop 2 xs) >> return bot
             else replyMsgT st bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
             else return bot
       | x == "!raw" = if isOwner then
@@ -1149,7 +1149,7 @@ internalize st b n msg = internalize' st b n 0 msg
       num i imsg = do
       _   <- return p
       r   <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
-      sen <- getSentence $ sentenceC' (getLock st') f r d False rw stopic
+      sen <- getSentence $ replyRandom' (getLock st') f r d False rw stopic
              rands tries slen plen topic' $ words imsg
       nd  <- insertWords (getLock st') f aname topic' $ words sen
       if i >= num then return bot

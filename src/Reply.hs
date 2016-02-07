@@ -1,4 +1,4 @@
-module Sentence where
+module Reply where
 
 import           Control.Concurrent             (MVar)
 import           Control.Monad.Trans.State.Lazy (evalStateT)
@@ -12,53 +12,53 @@ import           System.IO                      (stdout)
 import qualified System.Random                  as Random
 import qualified Text.Regex.Posix               as Regex
 
-sentenceA :: MVar () -> Fugly -> Bool -> [String] -> IO String
-sentenceA st fugly debug msg =
+replyNeural :: MVar () -> Fugly -> Bool -> [String] -> IO String
+replyNeural st fugly debug msg =
     let pad = take (fromIntegral nsize :: Int) $ cycle [" "] in
     nnReply st fugly debug (msg ++ pad)
 
-sentenceB :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
+replyMixed :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
              -> Int -> Int -> String -> [String] -> IO String
-sentenceB _ _ _ _ _ _ _ _ _ _ [] = return []
-sentenceB st fugly@Fugly{aspell=aspell', wne=wne'}
+replyMixed _ _ _ _ _ _ _ _ _ _ [] = return []
+replyMixed st fugly@Fugly{aspell=aspell', wne=wne'}
   r debug rwords stopic randoms stries slen topic' msg = do
     rr <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     let len = length msg
-    sentenceB' rr len msg
+    replyMixed' rr len msg
   where
-    sentenceB' :: Int -> Int -> [String] -> IO String
-    sentenceB' _ _ [] = return []
-    sentenceB' r' l w
+    replyMixed' :: Int -> Int -> [String] -> IO String
+    replyMixed' _ _ [] = return []
+    replyMixed' r' l w
       | l == 1 && r < 70 = do
-          let s = sentenceC' st fugly r debug True rwords
+          let s = replyRandom' st fugly r debug True rwords
                                 stopic 0 10 5 5 topic' w
           mm <- fixIt st debug s [] 1 0 0 50
           return $ unwords mm
       | l < 4 && r < 60 || r + r' < 20 = case mod r' 4 of
          0 -> do
-          let s = sentenceC' st fugly r debug True rwords stopic 5
+          let s = replyRandom' st fugly r debug True rwords stopic 5
                   10 4 4 topic' [topic']
           mm <- fixIt st debug (return ("Do you like " ++ topic' ++
                                         "?") : s) [] 2 0 0 40
           return $ unwords mm
          1 -> do
-          let s = sentenceC' st fugly r debug True rwords stopic randoms
+          let s = replyRandom' st fugly r debug True rwords stopic randoms
                   10 6 6 topic' (words "perhaps you")
           mm <- fixIt st debug (return ("Not really.") : s) [] 2 0 0 60
           return $ unwords mm
          2 -> do
-          let s = sentenceC' st fugly r debug True rwords stopic 75 10
+          let s = replyRandom' st fugly r debug True rwords stopic 75 10
                   7 7 topic' $ words "can you"
           mm <- fixIt st debug s [] 1 0 0 70
           return $ unwords mm
          3 -> do
-          let s = sentenceC' st fugly r debug True rwords stopic randoms
+          let s = replyRandom' st fugly r debug True rwords stopic randoms
                   10 6 6 topic' $ words "I think that"
           mm <- fixIt st debug s [] 1 0 0 60
           return $ unwords mm
          _ -> return []
       | l > 2 && s2l w == "hey" = do
-          let s = sentenceC' st fugly r debug False rwords stopic
+          let s = replyRandom' st fugly r debug False rwords stopic
                                 randoms stries slen 5 topic' (drop 2 w)
           m' <- fixIt st debug s [] 1 0 0 $ stries * slen
           w' <- s1r r' m'
@@ -66,7 +66,7 @@ sentenceB st fugly@Fugly{aspell=aspell', wne=wne'}
           return $ unwords $ toUpperSentence $ endSentence x'
       | (map toLower $ unwords w) Regex.=~
          "rhyme|rhymes|sing.*|song|songs" || r' > 87 = do
-          let s = sentenceC' st fugly r debug False rwords stopic
+          let s = replyRandom' st fugly r debug False rwords stopic
                                 randoms stries slen 5 topic' w
           m' <- fixIt st debug s [] 1 0 0 (stries * slen)
           w' <- s1r r' m'
@@ -110,23 +110,23 @@ sentenceB st fugly@Fugly{aspell=aspell', wne=wne'}
           (a, b) <- evalStateT (sentenceMeet wne' t w) st
           if a then case ra of
             0 -> do
-              let s = sentenceC' st fugly r debug True rwords stopic randoms
+              let s = replyRandom' st fugly r debug True rwords stopic randoms
                       5 9 9 topic' [b, "is", "tasty", "and"]
               mm <- fixIt st debug (return ("Oh yes, " ++ b ++ ".") : s)
                       [] 2 0 0 45
               return $ unwords mm
             1 -> do
-              let s = sentenceC' st fugly r debug True rwords stopic randoms
+              let s = replyRandom' st fugly r debug True rwords stopic randoms
                       8 5 5 topic' [b, "is"]
               mm <- fixIt st debug s [] 1 0 0 40
               return $ unwords mm
             2 -> do
-              let s = sentenceC' st fugly r debug True rwords stopic randoms
+              let s = replyRandom' st fugly r debug True rwords stopic randoms
                       5 6 6 topic' ["my"]
               mm <- fixIt st debug s [] 1 0 0 30
               return $ unwords mm
             3 -> do
-              let s = sentenceC' st fugly r debug True rwords stopic randoms
+              let s = replyRandom' st fugly r debug True rwords stopic randoms
                       5 9 9 topic' ["this", b, "is"]
               mm <- fixIt st debug s [] 1 0 0 45
               return $ unwords mm
@@ -139,20 +139,20 @@ sentenceB st fugly@Fugly{aspell=aspell', wne=wne'}
                                if null ry then return []
                                  else return $ ry!!(mod rr (length ry))) mm
 
-sentenceC :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int
+replyRandom :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int
              -> Int -> Int -> String -> Int -> [String] -> IO [String]
-sentenceC st fugly r debug rwords stopic randoms stries
+replyRandom st fugly r debug rwords stopic randoms stries
                slen plen topic' num msg = do
     m <- chooseWord msg
     let mm = if length msg < 4 || mod (length $ concat msg) 3 == 0 then
                 msg else m
-    fixIt st debug (sentenceC' st fugly r debug False rwords stopic
+    fixIt st debug (replyRandom' st fugly r debug False rwords stopic
                     randoms stries slen plen topic' mm) [] num 0 0 (stries * slen)
 
-sentenceC' :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Bool -> Int
+replyRandom' :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Bool -> Int
                -> Int -> Int -> Int -> String -> [String] -> [IO String]
-sentenceC' _ _ _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
-sentenceC' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
+replyRandom' _ _ _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
+replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
   r debug first rwords stopic randoms stries slen plen topic' msg = do
     let s1h n a x = let out = if a then map toUpper x else
                                 if n then x else map toLower x in
@@ -215,8 +215,8 @@ sentenceC' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     s1f _ _ []     = []
     s1f i f (x:xs) = f i x : s1f (i + 1) f xs
 
-sentenceZ :: Fugly -> Int -> String -> IO String
-sentenceZ Fugly{defs=defs', pgf=pgf'} r topic' = do
+replyDefault :: Fugly -> Int -> String -> IO String
+replyDefault Fugly{defs=defs', pgf=pgf'} r topic' = do
     let d    = [de | (t, de) <- defs', t == Default]
         lenD = length d
     if lenD == 0 then gfRandom pgf' []
