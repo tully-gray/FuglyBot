@@ -3,7 +3,7 @@ module Sentence where
 import           Control.Concurrent             (MVar)
 import           Control.Monad.Trans.State.Lazy (evalStateT)
 import           Data.Char                      (toLower, toUpper)
-import qualified Data.Map.Strict                as Map (lookup, size)
+import           Data.Map.Strict                as Map (lookup)
 import           Data.Maybe
 import           FuglyLib
 import           NLP.WordNet                    hiding (Word)
@@ -20,7 +20,7 @@ sentenceA st fugly debug msg =
 sentenceB :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
              -> Int -> Int -> String -> [String] -> IO String
 sentenceB _ _ _ _ _ _ _ _ _ _ [] = return []
-sentenceB st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', dict=dict'}
+sentenceB st fugly@Fugly{aspell=aspell', wne=wne'}
   r debug rwords stopic randoms stries slen topic' msg = do
     rr <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     let len = length msg
@@ -60,7 +60,6 @@ sentenceB st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', dict=dict'}
       | l > 2 && s2l w == "hey" = do
           let s = sentenceC' st fugly r debug False rwords stopic
                                 randoms stries slen 5 topic' (drop 2 w)
-                                ++ [gfRandom pgf' []]
           m' <- fixIt st debug s [] 1 0 0 $ stries * slen
           w' <- s1r r' m'
           x' <- asReplaceWords st fugly w'
@@ -69,7 +68,6 @@ sentenceB st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', dict=dict'}
          "rhyme|rhymes|sing.*|song|songs" || r' > 87 = do
           let s = sentenceC' st fugly r debug False rwords stopic
                                 randoms stries slen 5 topic' w
-                                ++ [gfRandom pgf' []]
           m' <- fixIt st debug s [] 1 0 0 (stries * slen)
           w' <- s1r r' m'
           x' <- asReplaceWords st fugly w'
@@ -134,7 +132,6 @@ sentenceB st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', dict=dict'}
               return $ unwords mm
             _ -> return []
             else return []
-      | r' < 70 && Map.size dict' < 50 = gfRandom pgf' []
       | otherwise = return []
     s1l = map (\x -> map toLower x)
     s2l x = map toLower $ head x
@@ -144,14 +141,13 @@ sentenceB st fugly@Fugly{pgf=pgf', aspell=aspell', wne=wne', dict=dict'}
 
 sentenceC :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int
              -> Int -> Int -> String -> Int -> [String] -> IO [String]
-sentenceC st fugly@Fugly{pgf=pgf'} r debug rwords stopic randoms stries
+sentenceC st fugly r debug rwords stopic randoms stries
                slen plen topic' num msg = do
     m <- chooseWord msg
     let mm = if length msg < 4 || mod (length $ concat msg) 3 == 0 then
                 msg else m
     fixIt st debug (sentenceC' st fugly r debug False rwords stopic
-                    randoms stries slen plen topic' mm ++
-                    [gfRandom pgf' []]) [] num 0 0 (stries * slen)
+                    randoms stries slen plen topic' mm) [] num 0 0 (stries * slen)
 
 sentenceC' :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Bool -> Int
                -> Int -> Int -> Int -> String -> [String] -> [IO String]
@@ -218,3 +214,10 @@ sentenceC' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
                   else return []
     s1f _ _ []     = []
     s1f i f (x:xs) = f i x : s1f (i + 1) f xs
+
+sentenceZ :: Fugly -> Int -> String -> IO String
+sentenceZ Fugly{defs=defs', pgf=pgf'} r topic' = do
+    let d    = [de | (t, de) <- defs', t == Default]
+        lenD = length d
+    if lenD == 0 then gfRandom pgf' []
+      else return $ defsReplaceWords [] topic' $ d!!mod r lenD

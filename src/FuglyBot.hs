@@ -574,7 +574,7 @@ timerLoop st = do
               n'  = cleanStringBlack (\x -> x == '@' || x == '&' ||
                       x == '~' || x == '+') $ n!!mod r (length n)
               msg = if lenNorm == 0 then "Well this is interesting..."
-                      else fixAction n' topic' $ norm!!mod r lenNorm
+                      else defsReplaceWords n' topic' $ norm!!mod r lenNorm
               who = if mod (r + 11) 3 == 0 then n' else chan
           action <- ircAction False n' topic' defs'
           if (not $ null action) && r < acts * 10 then
@@ -598,19 +598,10 @@ ircAction greet nick' topic' defs' = do
     let lenGaction = length gaction
     return (if greet then
               if lenGaction == 0 then []
-              else fixAction nick' topic' $ gaction!!mod r lenGaction
+              else defsReplaceWords nick' topic' $ gaction!!mod r lenGaction
             else
               if lenAction == 0 then []
-              else fixAction nick' topic' $ action!!mod r lenAction)
-
-fixAction :: String -> String -> String -> String
-fixAction _  _ [] = []
-fixAction [] t m  = dePlenk $ unwords $ replace "#topic" t $
-                    replace "#nick" "somebody" $ words m
-fixAction n [] m  = dePlenk $ unwords $ replace "#topic" "stuff" $
-                    replace "#nick" n $ words m
-fixAction n  t m  = dePlenk $ unwords $ replace "#topic" t $
-                    replace "#nick" n $ words m
+              else defsReplaceWords nick' topic' $ action!!mod r lenAction)
 
 greeting :: [String] -> StateT Fstate IO ()
 greeting []   = return ()
@@ -628,11 +619,11 @@ greeting line = do
         lenGreet  = length greet
     if who == n then
       replyMsg bot chan [] $ if lenEnter == 0 then [] else
-        fixAction [] top $ enter!!mod r lenEnter
+        defsReplaceWords [] top $ enter!!mod r lenEnter
       else if null action || r < 600 then
              let l = if lenGreet == 0 then [] else greet!!mod r lenGreet in
              replyMsg bot chan (if elem "#nick" $ words l then [] else who) $
-               fixAction who top l
+               defsReplaceWords who top l
            else
              write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")
     lift $ putMVar b bot >> return ()
@@ -758,7 +749,8 @@ sentenceReply st@(_, lock, tc, _) Bot{handle=h,
                           slen top msg else return []
       y <- if null x then sentenceC lock fugly' r d rw stopic rand str
                           slen plen top num msg else return []
-      let s = if null w then if null x then unwords y else x else w
+      z <- if null y then sentenceZ fugly' r top else return []
+      let s = if null w then if null x then if null y then z else unwords y else x else w
       evalStateT (do if null s then return ()
                        else if null nick' || nick' == chan || rr == 0 || rr == 2 then
                                write h d "PRIVMSG" $ chan ++ " :" ++ s
@@ -896,14 +888,14 @@ execCmd b chan nick' (x:xs) = do
                                                           show ((read $ head xs) :: DType) ++ " " ++ (unwords $ tail xs) ++ ".") >>
                                                         return bot{fugly=f{defs=defs' ++ [(read $ head xs, unwords $ tail xs)]}}
                                   else
-                                    replyMsgT st bot chan nick' "Usage: !insertdefault <Normal|Action|GreetAction|Greeting|Enter> <default>" >> return bot
+                                    replyMsgT st bot chan nick' "Usage: !insertdefault <Default|Normal|Action|GreetAction|Greeting|Enter> <default>" >> return bot
                                 else return bot
       | x == "!dropdefault" = if isOwner then
                                 if length xs > 1 then replyMsgT st bot chan nick' ("Dropped default " ++
                                                         show ((read $ head xs) :: DType) ++ " " ++ (unwords $ tail xs) ++ ".") >>
                                                       return bot{fugly=f{defs=filter (\(t, d) -> not (t == read (head xs) && d == unwords (tail xs))) defs'}}
                                 else
-                                  replyMsgT st bot chan nick' "Usage: !dropdefault <Normal|Action|GreetAction|Greeting|Enter> <default>" >> return bot
+                                  replyMsgT st bot chan nick' "Usage: !dropdefault <Default|Normal|Action|GreetAction|Greeting|Enter> <default>" >> return bot
                               else return bot
       | x == "!dropword" = if isOwner then case length xs of
           1 -> if isJust $ Map.lookup (xs!!0) dict' then

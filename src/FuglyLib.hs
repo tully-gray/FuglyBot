@@ -113,7 +113,7 @@ instance Word_ Word where
   wordGetwc (Name n c _ _ _ _)        = (c, n)
   wordGetwc (Acronym a c _ _ _ _ _)   = (c, a)
 
-data DType = Normal | Action | GreetAction | Greeting | Enter deriving (Eq, Read, Show)
+data DType = Default | Normal | Action | GreetAction | Greeting | Enter deriving (Eq, Read, Show)
 
 emptyWord :: Word
 emptyWord = Word [] 0 Map.empty Map.empty [] [] [] UnknownEPos
@@ -220,19 +220,17 @@ saveDict :: MVar () -> Fugly -> FilePath -> String
 saveDict st Fugly{dict=dict', defs=defs', ban=ban', match=match'}
   fuglydir dfile params = do
     let d = Map.toList dict'
-    if null d then evalStateT (hPutStrLnLock stderr "> Empty dict!") st
-      else do
-        h <- openFile (fuglydir ++ "/" ++ dfile ++ "-dict.txt") WriteMode
-        hSetBuffering h LineBuffering
-        evalStateT (hPutStrLnLock stdout "Saving dict file...") st
-        saveDict' h d
-        evalStateT (hPutStrLnLock h ">END<") st
-        _ <- evalStateT (mapM (\(t, m) -> hPutStrLnLock h (show t ++ " " ++ m)) defs') st
-        evalStateT (hPutStrLnLock h ">END<") st
-        evalStateT (hPutStrLnLock h $ unwords $ sort ban') st
-        evalStateT (hPutStrLnLock h $ unwords $ sort match') st
-        evalStateT (hPutStrLnLock h $ unwords params) st
-        hClose h
+    h <- openFile (fuglydir ++ "/" ++ dfile ++ "-dict.txt") WriteMode
+    hSetBuffering h LineBuffering
+    evalStateT (hPutStrLnLock stdout "Saving dict file...") st
+    saveDict' h d
+    evalStateT (hPutStrLnLock h ">END<") st
+    _ <- evalStateT (mapM (\(t, m) -> hPutStrLnLock h (show t ++ " " ++ m)) defs') st
+    evalStateT (hPutStrLnLock h ">END<") st
+    evalStateT (hPutStrLnLock h $ unwords $ sort ban') st
+    evalStateT (hPutStrLnLock h $ unwords $ sort match') st
+    evalStateT (hPutStrLnLock h $ unwords params) st
+    hClose h
   where
     saveDict' :: Handle -> [(String, Word)] -> IO ()
     saveDict' _ [] = return ()
@@ -1045,19 +1043,7 @@ gfRandom pgf' [] = do
       r <- gfRandom' $ fromJust pgf'
       let rr = filter (\x -> x Regex.=~ "NP") $ words r
       gfRandom pgf' (if rr == (\\) rr (words r) then r else [])
-      else return [] -- do
-        -- r <- Random.getStdRandom (Random.randomR (0, 9)) :: IO Int
-        -- return $ case r of
-        --   0 -> "I'm not really sure what to make of that."
-        --   1 -> "Well this is interesting..."
-        --   2 -> "It's too quiet in here."
-        --   3 -> "Nice weather today."
-        --   4 -> "This conversation is so boring."
-        --   5 -> "They can't even afford a television."
-        --   6 -> "So much for our so-called leaders."
-        --   7 -> "All they do is complain..."
-        --   8 -> "I was told not to speak about this, but..."
-        --   _ -> ""
+      else return []
 gfRandom _ msg' = return msg'
 
 gfRandom' :: PGF -> IO String
@@ -1165,6 +1151,16 @@ nouns "guy"   = "guys"
 nouns "okay"  = "okays"
 nouns "stuff" = "stuff"
 nouns n       = if last n == 'y' then (init n) ++ "ies" else n ++ "s"
+
+defsReplaceWords :: String -> String -> String -> String
+defsReplaceWords _  _ [] = []
+defsReplaceWords [] [] m = m
+defsReplaceWords [] t  m = dePlenk $ unwords $ replace "#topic" t $
+                    replace "#nick" "somebody" $ words m
+defsReplaceWords n []  m = dePlenk $ unwords $ replace "#topic" "stuff" $
+                    replace "#nick" n $ words m
+defsReplaceWords n  t  m = dePlenk $ unwords $ replace "#topic" t $
+                    replace "#nick" n $ words m
 
 wnReplaceWords :: Fugly -> Bool -> Int -> [String] -> IO [String]
 wnReplaceWords _                               _     _       []  = return []
