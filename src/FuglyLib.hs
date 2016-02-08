@@ -113,7 +113,7 @@ instance Word_ Word where
   wordGetwc (Name n c _ _ _ _)        = (c, n)
   wordGetwc (Acronym a c _ _ _ _ _)   = (c, a)
 
-data DType = Default | Normal | Action | GreetAction | Greeting | Enter deriving (Eq, Read, Show)
+data DType = Default | Normal | Response | Action | GreetAction | Greeting | Enter deriving (Eq, Read, Show)
 
 emptyWord :: Word
 emptyWord = Word [] 0 Map.empty Map.empty [] [] [] UnknownEPos
@@ -223,7 +223,7 @@ saveDict st Fugly{dict=dict', defs=defs', ban=ban', match=match'}
     h <- openFile (fuglydir ++ "/" ++ dfile ++ "-dict.txt") WriteMode
     hSetBuffering h LineBuffering
     evalStateT (hPutStrLnLock stdout "Saving dict file...") st
-    saveDict' h d
+    if null d then return () else saveDict' h d
     evalStateT (hPutStrLnLock h ">END<") st
     _ <- evalStateT (mapM (\(t, m) -> hPutStrLnLock h (show t ++ " " ++ m)) defs') st
     evalStateT (hPutStrLnLock h ">END<") st
@@ -574,10 +574,10 @@ dropBefore m word' before' = Map.adjust del' word' m
 dropTopic :: Dict -> String -> Dict
 dropTopic m t = Map.map del' m
     where
-      del' w = w{topic=sort $ nub ("default" : (delete t $ wordGetTopic w))}
+      del' w = w{topic=sort $ nub ("stuff" : (delete t $ wordGetTopic w))}
 
 dropTopicWords :: Dict -> String -> Dict
-dropTopicWords m t = del' (filter (\w -> [t] == (delete "default" $ wordGetTopic w)) $ Map.elems m) m
+dropTopicWords m t = del' (filter (\w -> [t] == (delete "stuff" $ wordGetTopic w)) $ Map.elems m) m
     where
       del' []     m' = m'
       del' (x:xs) m' = del' xs (dropWord m' $ wordGetWord x)
@@ -1218,6 +1218,30 @@ rhymesWith st aspell' word' = do
     let out = filter (\x -> (notElem '\'' x) && length x > 2 && length l > 2 &&
                        x Regex.=~ (end ++ "$") && levenshteinDistance defaultEditCosts l x < 4) asw
     return $ if null out then [word'] else out
+
+bestLevenshtein :: String -> [String] -> (String, Int)
+bestLevenshtein _   []    = ([], maxBound :: Int)
+bestLevenshtein []  _     = ([], maxBound :: Int)
+bestLevenshtein msg defs' = best' ([], maxBound :: Int) $ dists [] defs'
+  where
+    dists :: [(String, Int)] -> [String] -> [(String, Int)]
+    dists o []     = o
+    dists o (x:xs) = dists ((x, levenshteinDistance defaultEditCosts msg x) : o) xs
+    best' :: (String, Int) -> [(String, Int)] -> (String, Int)
+    best' d []     = d
+    best' d (x:xs) = if snd x <= snd d then best' x xs else best' d xs
+
+bestLevenshtein2 :: String -> [(String, String)] -> ((String, String), Int)
+bestLevenshtein2 _   []    = (([], []), maxBound :: Int)
+bestLevenshtein2 []  _     = (([], []), maxBound :: Int)
+bestLevenshtein2 msg defs' = best' (([], []), maxBound :: Int) $ dists [] defs'
+  where
+    dists :: [((String, String), Int)] -> [(String, String)] -> [((String, String), Int)]
+    dists o []     = o
+    dists o (x:xs) = dists ((x, levenshteinDistance defaultEditCosts msg $ fst x) : o) xs
+    best' :: ((String, String), Int) -> [((String, String), Int)] -> ((String, String), Int)
+    best' d []     = d
+    best' d (x:xs) = if snd x <= snd d then best' x xs else best' d xs
 
 findNextWord :: Fugly -> Int -> Int -> Bool -> Bool -> String -> String -> String -> IO [String]
 findNextWord _                 _ _       _    _      _      _    []    = return []

@@ -198,7 +198,7 @@ start = do
              (addrAddress $ head serv)
     sh <- socketToHandle s ReadWriteMode
     hSetBuffering sh NoBuffering
-    (f, p) <- initFugly fDir wnDir gfDir topic'
+    (f, p) <- initFugly fDir wnDir gfDir dFile
     let b = if null p then
               Bot sh (Parameter nick' owner' fDir dFile False 10 400 8 64 10 7
                       0 False False False True False True topic' 10 False 0 2
@@ -318,7 +318,7 @@ cmdLine = do
                           args !! channelPos else "#fuglybot"
         topicPos     = (maximum' $ elemIndices "-topic" args) + 1
         topic'       = if l > topicPos then
-                          args !! topicPos else "default"
+                          args !! topicPos else "stuff"
         fuglyDirPos  = (maximum' $ elemIndices "-fuglydir" args) + 1
         fuglyDir'    = if l > fuglyDirPos then
                           args !! fuglyDirPos else "fugly"
@@ -739,18 +739,21 @@ forkReply st@(_, lock, tc, _) Bot{handle=h,
         r'    = 1 + mod r 7
         rr    = mod r 6
     if tc' < (nt + 2) && fload < 4.3 then do
-      let d1     = dl * 1000000
-          bdelay = (if dl < 4 then 0 else if r' - 3 > 0 then r' - 3 else 0) * 9
-          sdelay = (if rr - 2 > 0 then rr - 2 else 0) * 3 in
-            threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
       let num    = if r' - 4 < 1 || str < 4 || length msg < 7 then 1 else r' - 4
-      w <- replyNeural lock fugly' d msg
-      x <- if null w then replyMixed lock fugly' r d rw stopic rand str
+          d1     = dl * 1000000
+          bdelay = (if dl < 4 then 0 else if r' - 3 > 0 then r' - 3 else 0) * 9
+          sdelay = (if rr - 2 > 0 then rr - 2 else 0) * 3
+      threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
+      v <- replyResponse fugly' 7 nick' top $ unwords msg
+      w <- if null v then replyNeural lock fugly' d msg else return []
+      x <- if null $ v ++ w then replyMixed lock fugly' r d rw stopic rand str
                           slen top msg else return []
-      y <- if null x then replyRandom lock fugly' r d rw stopic rand str
-                          slen plen top num msg else return []
-      z <- if null y then replyDefault fugly' r top else return []
-      let s = if null w then if null x then if null y then z else unwords y else x else w
+      y <- if null $ v ++ w ++ x then replyRandom lock fugly' r d rw stopic
+                          rand str slen plen top num msg else return []
+      let y' = unwords y
+      z <- if null $ v ++ w ++ x ++ y' then replyDefault fugly' r nick' top
+           else return []
+      let s = if null v then if null w then if null x then if null y' then z else unwords y else x else w else v
       evalStateT (do if null s then return ()
                        else if null nick' || nick' == chan || rr == 0 || rr == 2 then
                                write h d "PRIVMSG" $ chan ++ " :" ++ s
@@ -888,14 +891,16 @@ execCmd b chan nick' (x:xs) = do
                                                           show ((read $ head xs) :: DType) ++ " " ++ (unwords $ tail xs) ++ ".") >>
                                                         return bot{fugly=f{defs=defs' ++ [(read $ head xs, unwords $ tail xs)]}}
                                   else
-                                    replyMsgT st bot chan nick' "Usage: !insertdefault <Default|Normal|Action|GreetAction|Greeting|Enter> <default>" >> return bot
+                                    replyMsgT st bot chan nick'
+                                      "Usage: !insertdefault <Default|Normal|Response|Action|GreetAction|Greeting|Enter> <default>" >> return bot
                                 else return bot
       | x == "!dropdefault" = if isOwner then
                                 if length xs > 1 then replyMsgT st bot chan nick' ("Dropped default " ++
                                                         show ((read $ head xs) :: DType) ++ " " ++ (unwords $ tail xs) ++ ".") >>
                                                       return bot{fugly=f{defs=filter (\(t, d) -> not (t == read (head xs) && d == unwords (tail xs))) defs'}}
                                 else
-                                  replyMsgT st bot chan nick' "Usage: !dropdefault <Default|Normal|Action|GreetAction|Greeting|Enter> <default>" >> return bot
+                                  replyMsgT st bot chan nick'
+                                    "Usage: !dropdefault <Default|Normal|Response|Action|GreetAction|Greeting|Enter> <default>" >> return bot
                               else return bot
       | x == "!dropword" = if isOwner then case length xs of
           1 -> if isJust $ Map.lookup (xs!!0) dict' then
@@ -994,7 +999,7 @@ execCmd b chan nick' (x:xs) = do
                let txs = tail xs
                nd  <- insertWordsN (getLock st) f autoName' topic' num txs
                let msg' = unwords txs
-                   f'   = \x' -> x' /= '.' && x' /= '?'
+                   f'   = \x' -> x' /= '.' && x' /= '?' && x' /= '!'
                    inM  = words $ takeWhile f' msg'
                    outM = words $ dropWhile f' msg'
                (nn, ns, nm) <- nnInsert f nsets inM outM

@@ -12,6 +12,22 @@ import           System.IO                      (stdout)
 import qualified System.Random                  as Random
 import qualified Text.Regex.Posix               as Regex
 
+replyResponse :: Fugly -> Int -> String -> String -> String -> IO String
+replyResponse _                 _       _     _      []  = return []
+replyResponse Fugly{defs=defs'} maxDist nick' topic' msg = do
+    let r = [de | (t, de) <- defs', t == Response]
+        l = map f2 r
+        ((_, o), d) = bestLevenshtein2 msg l
+    if d <= maxDist then return $ defsReplaceWords nick' topic' o else return []
+  where
+    f1 = \x' -> x' /= '.' && x' /= '?' && x' /= '!'
+    f2 :: String -> (String, String)
+    f2 x = let q1 = takeWhile f1 x
+               a1 = dropWhile f1 x
+               q2 = q1 ++ [fHead ' ' a1]
+               a2 = dropWhile (\x' -> x' == ' ') $ drop 1 a1 in
+           (q2, a2)
+
 replyNeural :: MVar () -> Fugly -> Bool -> [String] -> IO String
 replyNeural st fugly debug msg =
     let pad = take (fromIntegral nsize :: Int) $ cycle [" "] in
@@ -177,7 +193,7 @@ replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     let s1d x = do
           w <- x
           if null w then return []
-            else return (init w ++ (cleanString (last w) ++ if elem
+            else return (init w ++ (cleanString (fLast [] w) ++ if elem
               (map toLower $ head w) qWords then "?" else ".") : [])
     let s1e x = do
           w <- x
@@ -215,9 +231,9 @@ replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     s1f _ _ []     = []
     s1f i f (x:xs) = f i x : s1f (i + 1) f xs
 
-replyDefault :: Fugly -> Int -> String -> IO String
-replyDefault Fugly{defs=defs', pgf=pgf'} r topic' = do
+replyDefault :: Fugly -> Int -> String -> String -> IO String
+replyDefault Fugly{defs=defs', pgf=pgf'} r nick' topic' = do
     let d    = [de | (t, de) <- defs', t == Default]
         lenD = length d
     if lenD == 0 then gfRandom pgf' []
-      else return $ defsReplaceWords [] topic' $ d!!mod r lenD
+      else return $ defsReplaceWords nick' topic' $ d!!mod r lenD
