@@ -1392,11 +1392,11 @@ nnInsert Fugly{wne=wne', aspell=aspell', ban=ban', nnet=nnet', nset=nset', nmap=
     low a  = map (map toLower) a
     mKey w = floor $ (wordToFloat w) * msize
 
-nnReply :: MVar () -> Fugly -> Bool -> [String] -> IO String
-nnReply _  Fugly{nset=[]} _ _  = return []
-nnReply _  _              _ [] = return []
+nnReply :: MVar () -> Fugly -> Int -> Bool -> [String] -> IO String
+nnReply _  Fugly{nset=[]} _ _ _  = return []
+nnReply _  _              _ _ [] = return []
 nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell',
-                 ban=ban', nnet=nnet', nmap=nmap'} debug msg = do
+                 ban=ban', nnet=nnet', nmap=nmap'} plen debug msg = do
     a <- nnReply'
     c <- acroName [] $ check a
     if null $ concat c then return [] else do
@@ -1406,7 +1406,7 @@ nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell',
         else return ()
       return $ unwords out
   where
-    sw = 5 -- search width
+    sw = 1 -- search width
     nnReply' :: IO [String]
     nnReply' = do
       let out = runNeuralNetwork nnet' $ map wordToFloat $ take (fromIntegral nsize :: Int) msg
@@ -1419,7 +1419,7 @@ nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell',
     check x = do
       p <- wnPartPOS wne' $ cleanString $ last x
       let x' = filter (\y -> (not $ null y) && notElem y ban') $ replace "i" "I" x
-      if gfParseBool pgf' 0 (unwords x') && p /= POS Adj && bannedS x' then return x'
+      if gfParseBool pgf' plen (unwords x') && p /= POS Adj && bannedS x' then return x'
         else return []
     banned :: String -> String -> Bool
     banned w a = let w' = Map.lookup w dict' in

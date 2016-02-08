@@ -745,7 +745,7 @@ forkReply st@(_, lock, tc, _) Bot{handle=h,
           sdelay = (if rr - 2 > 0 then rr - 2 else 0) * 3
       threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
       v <- replyResponse fugly' 7 nick' top $ unwords msg
-      w <- if null v then replyNeural lock fugly' d msg else return []
+      w <- if null v then replyNeural lock fugly' plen d msg else return []
       x <- if null $ v ++ w then replyMixed lock fugly' r d rw stopic rand str
                           slen top msg else return []
       y <- if null $ v ++ w ++ x then replyRandom lock fugly' r d rw stopic

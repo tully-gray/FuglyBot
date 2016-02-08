@@ -28,10 +28,11 @@ replyResponse Fugly{defs=defs'} maxDist nick' topic' msg = do
                a2 = dropWhile (\x' -> x' == ' ') $ drop 1 a1 in
            (q2, a2)
 
-replyNeural :: MVar () -> Fugly -> Bool -> [String] -> IO String
-replyNeural st fugly debug msg =
+replyNeural :: MVar () -> Fugly -> Int -> Bool -> [String] -> IO String
+replyNeural _  _     _    _     []  = return []
+replyNeural st fugly plen debug msg =
     let pad = take (fromIntegral nsize :: Int) $ cycle [" "] in
-    nnReply st fugly debug (msg ++ pad)
+    nnReply st fugly plen debug (msg ++ pad)
 
 replyMixed :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
              -> Int -> Int -> String -> [String] -> IO String
