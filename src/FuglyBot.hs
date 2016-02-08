@@ -36,17 +36,17 @@ data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick
                  owner       :: String,
                  fuglyDir    :: FilePath,
                  dictFile    :: String,
-                 userCmd     :: Bool, -- allow users to issue commands
-                 rejoinKick  :: Int,  -- rejoin channels after being kicked
-                 maxChanMsg  :: Int,  -- maximum words in a single message
-                 numThreads  :: Int,  -- maximum number of threads
-                 nSetSize    :: Int,  -- neural network set size
-                 sTries      :: Int,  -- sentence tries
-                 sLength     :: Int,  -- sentence length
-                 pLength     :: Int,  -- parse length
-                 learning    :: Bool, -- allow learning
-                 strictLearn :: Bool, -- strict learning using GF
-                 strictTopic :: Bool, -- stay on topic or not
+                 userCmd     :: Bool,   -- allow users to issue commands
+                 rejoinKick  :: Int,    -- rejoin channels after being kicked
+                 maxChanMsg  :: Int,    -- maximum words in a single message
+                 numThreads  :: Int,    -- maximum number of threads
+                 nSetSize    :: Int,    -- neural network set size
+                 sTries      :: Int,    -- sentence tries
+                 sLength     :: Int,    -- sentence length
+                 pLength     :: Int,    -- parse length
+                 learning    :: String, -- allowed learning regexp
+                 strictLearn :: Bool,   -- strict learning using GF
+                 strictTopic :: Bool,   -- stay on topic or not
                  autoName    :: Bool,
                  allowPM     :: Bool,
                  debug       :: Bool,
@@ -201,7 +201,7 @@ start = do
     (f, p) <- initFugly fDir wnDir gfDir dFile
     let b = if null p then
               Bot sh (Parameter nick' owner' fDir dFile False 10 400 8 64 10 7
-                      0 False False False True False True topic' 10 False 0 2
+                      0 [] False False True False True topic' 10 False 0 2
                       0 0) f []
               else Bot sh ((readParamsFromList p){nick=nick', owner=owner',
                       fuglyDir=fDir, dictFile=dFile}) f []
@@ -391,7 +391,7 @@ readParamsFromList a = Parameter
     {nick="", owner="", fuglyDir="", dictFile="",
      userCmd=read (a!!0), rejoinKick=read (a!!1), maxChanMsg=read (a!!2),
      numThreads=read (a!!3), nSetSize=read (a!!4), sTries=read (a!!5),
-     sLength=read (a!!6), pLength=read (a!!7), learning=read (a!!8),
+     sLength=read (a!!6), pLength=read (a!!7), learning=(a!!8),
      strictLearn=read (a!!9), strictTopic=read (a!!10), autoName=read (a!!11),
      allowPM=read (a!!12), debug=read (a!!13), Main.topic=(a!!14),
      randoms=read (a!!15), replaceWord=read (a!!16), timer=read (a!!17),
@@ -401,7 +401,7 @@ paramsToList :: Parameter -> [String]
 paramsToList (Parameter _ _ _ _ uc rk mcm nt ss st sl
               pl l stl stt an apm d t r rw ti dl g a) =
   [show uc, show rk, show mcm, show nt, show ss, show st, show sl,
-   show pl, show l, show stl, show stt, show an, show apm, show d,
+   show pl, l, show stl, show stt, show an, show apm, show d,
    t, show r, show rw, show ti, show dl, show g, show a]
 paramsToList _ = []
 
@@ -435,7 +435,7 @@ changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owner=owner',
                         >>= (\x -> return bot{params=p{sLength=x}})
       ParseLength    -> replyMsg' (readInt 0 256 value) "Parse length"
                         >>= (\x -> return bot{params=p{pLength=x}})
-      Learning       -> replyMsg' (readBool value) "Learning"
+      Learning       -> replyMsg' value "Learning"
                         >>= (\x -> return bot{params=p{learning=x}})
       StrictLearn    -> replyMsg' (readBool value) "Strict learn"
                         >>= (\x -> return bot{params=p{strictLearn=x}})
@@ -664,7 +664,7 @@ processLine r line = do
 reply :: Bot -> Int -> Bool -> String -> String -> [String]
          -> StateT Fstate IO Bot
 reply bot _ _ _ _ [] = return bot
-reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=l, pLength=plen,
+reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=plen,
               autoName=an, allowPM=apm, debug=d, Main.topic=top,
               nSetSize=nsets, actions=acts, strictLearn=sl},
               fugly=f@Fugly{defs=defs', pgf=pgf', aspell=aspell',
@@ -691,6 +691,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=l, pLength=plen,
                    else True
         matchon  = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
         isaction = head msg == "\SOHACTION"
+        l        = nick' =~ learn' || chan =~ learn'
     action <- lift $ ircAction False nick' top defs'
     if null fmsg then return () else lift $
       (if null chan then
@@ -829,7 +830,7 @@ execCmd b chan nick' (x:xs) = do
                    ++ "  numthreads: " ++ show numt ++ "  nsetsize: " ++ show nsets
                    ++ "  sentencetries: " ++ show sTries' ++ "  sentencelength: "
                    ++ show slen ++ "  parselength: " ++ show plen ++ "  dictfile: " ++ dfile
-                   ++ "  learning: " ++ show learn ++ "  strictlearn: " ++ show slearn
+                   ++ "  learning: " ++ learn ++ "  strictlearn: " ++ show slearn
                    ++ "  stricttopic: " ++ show stopic ++ "  debug: " ++ show debug'
                    ++ "  autoname: " ++ show autoName' ++ "  allowpm: " ++ show allowPM'
                    ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms'
