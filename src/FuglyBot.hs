@@ -745,7 +745,7 @@ forkReply st@(_, lock, tc, _) Bot{handle=h,
           bdelay = (if dl < 4 then 0 else if r' - 3 > 0 then r' - 3 else 0) * 9
           sdelay = (if rr - 2 > 0 then rr - 2 else 0) * 3
       threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
-      v <- replyResponse fugly' 7 nick' top $ unwords msg
+      v <- replyResponse lock fugly' r d rw stopic rand 7 nick' top $ unwords msg
       w <- if null v then replyNeural lock fugly' plen d msg else return []
       x <- if null $ v ++ w then replyMixed lock fugly' r d rw stopic rand str
                           slen top msg else return []
@@ -1155,7 +1155,7 @@ internalize st b n msg = internalize' st b n 0 msg
       num i imsg = do
       _   <- return p
       r   <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
-      sen <- getSentence $ replyRandom' (getLock st') f r d False rw stopic
+      sen <- getSentence $ replyRandom' (getLock st') f r d False True rw stopic
              rands tries slen plen topic' $ words imsg
       nd  <- insertWords (getLock st') f aname topic' $ words sen
       if i >= num then return bot

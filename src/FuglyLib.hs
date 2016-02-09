@@ -929,7 +929,7 @@ asIsName _ _ []    = return False
 asIsName _ _ "i"   = return True
 asIsName _ _ "I"   = return True
 asIsName st aspell' word' = do
-    let n = ["Can", "He", "Male"]
+    let n = ["Can", "Fool", "He", "Male"]
     let l = map toLower word'
     let u = toUpperWord l
     let b = toUpperLast l
@@ -1061,16 +1061,6 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
     head $ filter (not . null) $ map (\x -> fromMaybe [] (unStr x))
       (generateRandomDepth (Random.mkStdGen num) pgf' c (Just num))
                             else "Not a GF type."
-
-fixIt :: MVar () -> Bool -> [IO String] -> [String] -> Int -> Int
-         -> Int -> Int -> IO [String]
-fixIt _  _ []     a _ _ _ _ = return a
-fixIt st d (x:xs) a n i j s = do
-    xx <- x
-    _  <- if d then evalStateT (hPutStrLnLock stdout ("> debug: fixIt try: " ++ show j)) st else return ()
-    if i >= n || j > s * n then return a
-      else if null xx then fixIt st d xs a n i (j + 1) s
-      else fixIt st d xs (a ++ [(if null a then [] else " ") ++ xx]) n (i + 1) j s
 
 insertCommas :: WordNetEnv -> Int -> [String] -> IO [String]
 insertCommas wne' i w = do

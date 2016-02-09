@@ -12,13 +12,18 @@ import           System.IO                      (stdout)
 import qualified System.Random                  as Random
 import qualified Text.Regex.Posix               as Regex
 
-replyResponse :: Fugly -> Int -> String -> String -> String -> IO String
-replyResponse _                 _       _     _      []  = return []
-replyResponse Fugly{defs=defs'} maxDist nick' topic' msg = do
-    let r = [de | (t, de) <- defs', t == Response]
-        l = map f2 r
+replyResponse :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
+                 -> Int -> String -> String -> String -> IO String
+replyResponse _ _ _ _ _ _ _ _ _ _ []  = return []
+replyResponse st fugly@Fugly{defs=defs'} r debug rwords stopic randoms
+                 maxDist nick' topic' msg = do
+    let r' = [de | (t, de) <- defs', t == Response]
+        l  = map f2 r'
         ((_, o), d) = bestLevenshtein2 msg l
-    if d <= maxDist then return $ defsReplaceWords nick' topic' o else return []
+    if d <= maxDist then do
+      o' <- if o Regex.=~ "#random" then defsRandom st fugly r debug rwords stopic
+                                   randoms topic' o else return o
+      return $ defsReplaceWords nick' topic' o' else return []
   where
     f1 = \x' -> x' /= '.' && x' /= '?' && x' /= '!'
     f2 :: String -> (String, String)
@@ -40,42 +45,42 @@ replyMixed _ _ _ _ _ _ _ _ _ _ [] = return []
 replyMixed st fugly@Fugly{aspell=aspell', wne=wne'}
   r debug rwords stopic randoms stries slen topic' msg = do
     rr <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
-    let len = length msg
-    replyMixed' rr len msg
+    replyMixed' rr msg
   where
-    replyMixed' :: Int -> Int -> [String] -> IO String
-    replyMixed' _ _ [] = return []
-    replyMixed' r' l w
+    l = length msg
+    replyMixed' :: Int -> [String] -> IO String
+    replyMixed' _  [] = return []
+    replyMixed' r' w
       | l == 1 && r < 70 = do
-          let s = replyRandom' st fugly r debug True rwords
+          let s = replyRandom' st fugly r debug True True rwords
                                 stopic 0 10 5 5 topic' w
           mm <- fixIt st debug s [] 1 0 0 50
           return $ unwords mm
-      | l < 4 && r < 60 || r + r' < 20 = case mod r' 4 of
+      | l < 6 && r < 60 || r + r' < 50 = case mod r' 4 of
          0 -> do
-          let s = replyRandom' st fugly r debug True rwords stopic 5
+          let s = replyRandom' st fugly r debug True True rwords stopic 5
                   10 4 4 topic' [topic']
           mm <- fixIt st debug (return ("Do you like " ++ topic' ++
                                         "?") : s) [] 2 0 0 40
           return $ unwords mm
          1 -> do
-          let s = replyRandom' st fugly r debug True rwords stopic randoms
+          let s = replyRandom' st fugly r debug True True rwords stopic randoms
                   10 6 6 topic' (words "perhaps you")
           mm <- fixIt st debug (return ("Not really.") : s) [] 2 0 0 60
           return $ unwords mm
          2 -> do
-          let s = replyRandom' st fugly r debug True rwords stopic 75 10
+          let s = replyRandom' st fugly r debug True True rwords stopic 75 10
                   7 7 topic' $ words "can you"
           mm <- fixIt st debug s [] 1 0 0 70
           return $ unwords mm
          3 -> do
-          let s = replyRandom' st fugly r debug True rwords stopic randoms
+          let s = replyRandom' st fugly r debug True True rwords stopic randoms
                   10 6 6 topic' $ words "I think that"
           mm <- fixIt st debug s [] 1 0 0 60
           return $ unwords mm
          _ -> return []
       | l > 2 && s2l w == "hey" = do
-          let s = replyRandom' st fugly r debug False rwords stopic
+          let s = replyRandom' st fugly r debug False True rwords stopic
                                 randoms stries slen 5 topic' (drop 2 w)
           m' <- fixIt st debug s [] 1 0 0 $ stries * slen
           w' <- s1r r' m'
@@ -83,7 +88,7 @@ replyMixed st fugly@Fugly{aspell=aspell', wne=wne'}
           return $ unwords $ toUpperSentence $ endSentence x'
       | (map toLower $ unwords w) Regex.=~
          "rhyme|rhymes|sing.*|song|songs" || r' > 87 = do
-          let s = replyRandom' st fugly r debug False rwords stopic
+          let s = replyRandom' st fugly r debug False True rwords stopic
                                 randoms stries slen 5 topic' w
           m' <- fixIt st debug s [] 1 0 0 (stries * slen)
           w' <- s1r r' m'
@@ -127,23 +132,23 @@ replyMixed st fugly@Fugly{aspell=aspell', wne=wne'}
           (a, b) <- evalStateT (sentenceMeet wne' t w) st
           if a then case ra of
             0 -> do
-              let s = replyRandom' st fugly r debug True rwords stopic randoms
+              let s = replyRandom' st fugly r debug True True rwords stopic randoms
                       5 9 9 topic' [b, "is", "tasty", "and"]
               mm <- fixIt st debug (return ("Oh yes, " ++ b ++ ".") : s)
                       [] 2 0 0 45
               return $ unwords mm
             1 -> do
-              let s = replyRandom' st fugly r debug True rwords stopic randoms
+              let s = replyRandom' st fugly r debug True True rwords stopic randoms
                       8 5 5 topic' [b, "is"]
               mm <- fixIt st debug s [] 1 0 0 40
               return $ unwords mm
             2 -> do
-              let s = replyRandom' st fugly r debug True rwords stopic randoms
+              let s = replyRandom' st fugly r debug True True rwords stopic randoms
                       5 6 6 topic' ["my"]
               mm <- fixIt st debug s [] 1 0 0 30
               return $ unwords mm
             3 -> do
-              let s = replyRandom' st fugly r debug True rwords stopic randoms
+              let s = replyRandom' st fugly r debug True True rwords stopic randoms
                       5 9 9 topic' ["this", b, "is"]
               mm <- fixIt st debug s [] 1 0 0 45
               return $ unwords mm
@@ -163,14 +168,14 @@ replyRandom st fugly r debug rwords stopic randoms stries
     m <- chooseWord msg
     let mm = if length msg < 4 || mod (length $ concat msg) 3 == 0 then
                 msg else m
-    fixIt st debug (replyRandom' st fugly r debug False rwords stopic
+    fixIt st debug (replyRandom' st fugly r debug False True rwords stopic
                     randoms stries slen plen topic' mm) [] num 0 0 (stries * slen)
 
-replyRandom' :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Bool -> Int
+replyRandom' :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Int
                -> Int -> Int -> Int -> String -> [String] -> [IO String]
-replyRandom' _ _ _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
+replyRandom' _ _ _ _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
 replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
-  r debug first rwords stopic randoms stries slen plen topic' msg = do
+  r debug first punc rwords stopic randoms stries slen plen topic' msg = do
     let s1h n a x = let out = if a then map toUpper x else
                                 if n then x else map toLower x in
           if isJust $ Map.lookup out dict' then out else []
@@ -194,13 +199,15 @@ replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     let s1d x = do
           w <- x
           if null w then return []
-            else return (init w ++ (cleanString (fLast [] w) ++ if elem
-              (map toLower $ head w) qWords then "?" else ".") : [])
+            else if not punc then x
+              else return (init w ++ (cleanString (fLast [] w) ++ if elem
+                (map toLower $ head w) qWords then "?" else ".") : [])
     let s1e x = do
           w <- x
           n <- isName st aspell' dict' $ fHead [] w
-          if null w || n then return []
-            else return ([s1c w] ++ tail w)
+          if null w then return []
+            else if not punc && not n then x
+              else return ([s1c w] ++ tail w)
     let s1g = map (\x -> do y <- x ; z <- insertCommas wne' 0 y
                             return $ dePlenk $ unwords z)
               (map (s1e . s1d . s1a) (msg ++ sWords))
@@ -238,3 +245,24 @@ replyDefault Fugly{defs=defs', pgf=pgf'} r nick' topic' = do
         lenD = length d
     if lenD == 0 then gfRandom pgf' []
       else return $ defsReplaceWords nick' topic' $ d!!mod r lenD
+
+defsRandom :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
+              -> String -> String -> IO String
+defsRandom _  _     _ _     _      _      _       _     [] = return []
+defsRandom st fugly r debug rwords stopic randoms topic' m = do
+    let s = replyRandom' st fugly r debug False False rwords stopic randoms
+            5 3 3 topic' [topic']
+    mm <- fixIt st debug s [] 1 0 0 15
+    let m' = unwords mm
+    if null m' then return m else
+      return $ dePlenk $ unwords $ replace "#random" m' $ words m
+
+fixIt :: MVar () -> Bool -> [IO String] -> [String] -> Int -> Int
+         -> Int -> Int -> IO [String]
+fixIt _  _ []     a _ _ _ _ = return a
+fixIt st d (x:xs) a n i j s = do
+    xx <- x
+    _  <- if d then evalStateT (hPutStrLnLock stdout ("> debug: fixIt try: " ++ show j)) st else return ()
+    if i >= n || j > s * n then return a
+      else if null xx then fixIt st d xs a n i (j + 1) s
+      else fixIt st d xs (a ++ [(if null a then [] else " ") ++ xx]) n (i + 1) j s
