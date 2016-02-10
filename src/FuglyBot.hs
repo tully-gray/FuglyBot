@@ -3,14 +3,15 @@ import           Control.Exception              hiding (handle)
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State.Lazy
-import           Data.Char
+import           Data.Char                      (isAscii, toLower)
 import           Data.List
 import qualified Data.Map.Lazy                  as Map
 import           Data.Maybe
-import           FuglyLib                       hiding (hPutStrLnLock)
+import           FuglyLib                       hiding (hPutStrLnLock, topic)
 import           Network.Socket                 hiding (Debug)
 import           Network.Socks5
 import           NLP.WordNet.PrimTypes          (allForm, allPOS)
+import           Parameter
 import           Prelude
 import           Reply
 import           System.Environment
@@ -25,136 +26,6 @@ data Bot = Bot {
     fugly  :: Fugly,
     lastm  :: [String]
     }
-
-data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick
-               | MaxChanMsg | NumThreads | NSetSize | SentenceTries
-               | SentenceLength | ParseLength | Learning | StrictLearn
-               | StrictTopic | Autoname | AllowPM | Debug
-               | Topic | Randoms | ReplaceWords | Timer | Delay
-               | Greetings | Actions | UnknownParam | Parameter {
-                 nick        :: String,
-                 owner       :: String,
-                 fuglyDir    :: FilePath,
-                 dictFile    :: String,
-                 userCmd     :: Bool,   -- allow users to issue commands
-                 rejoinKick  :: Int,    -- rejoin channels after being kicked
-                 maxChanMsg  :: Int,    -- maximum words in a single message
-                 numThreads  :: Int,    -- maximum number of threads
-                 nSetSize    :: Int,    -- neural network set size
-                 sTries      :: Int,    -- sentence tries
-                 sLength     :: Int,    -- sentence length
-                 pLength     :: Int,    -- parse length
-                 learning    :: String, -- allowed learning regexp
-                 strictLearn :: Bool,   -- strict learning using GF
-                 strictTopic :: Bool,   -- stay on topic or not
-                 autoName    :: Bool,
-                 allowPM     :: Bool,
-                 debug       :: Bool,
-                 topic       :: String,
-                 randoms     :: Int,
-                 replaceWord :: Bool,
-                 timer       :: Int,
-                 delay       :: Int,
-                 greetings   :: Int,
-                 actions     :: Int
-                 }
-               deriving (Eq, Ord, Show)
-
-allParams :: [Parameter]
-allParams = [Nick ..]
-
-instance Enum Parameter where
-    toEnum 1  = Nick
-    toEnum 2  = Owner
-    toEnum 3  = DictFile
-    toEnum 4  = UserCommands
-    toEnum 5  = RejoinKick
-    toEnum 6  = MaxChanMsg
-    toEnum 7  = NumThreads
-    toEnum 8  = NSetSize
-    toEnum 9  = SentenceTries
-    toEnum 10 = SentenceLength
-    toEnum 11 = ParseLength
-    toEnum 12 = Learning
-    toEnum 13 = StrictLearn
-    toEnum 14 = StrictTopic
-    toEnum 15 = Autoname
-    toEnum 16 = AllowPM
-    toEnum 17 = Debug
-    toEnum 18 = Topic
-    toEnum 19 = Randoms
-    toEnum 20 = ReplaceWords
-    toEnum 21 = Timer
-    toEnum 22 = Delay
-    toEnum 23 = Greetings
-    toEnum 24 = Actions
-    toEnum 25 = UnknownParam
-    toEnum _  = UnknownParam
-    fromEnum Nick           = 1
-    fromEnum Owner          = 2
-    fromEnum DictFile       = 3
-    fromEnum UserCommands   = 4
-    fromEnum RejoinKick     = 5
-    fromEnum MaxChanMsg     = 6
-    fromEnum NumThreads     = 7
-    fromEnum NSetSize       = 8
-    fromEnum SentenceTries  = 9
-    fromEnum SentenceLength = 10
-    fromEnum ParseLength    = 11
-    fromEnum Learning       = 12
-    fromEnum StrictLearn    = 13
-    fromEnum StrictTopic    = 14
-    fromEnum Autoname       = 15
-    fromEnum AllowPM        = 16
-    fromEnum Debug          = 17
-    fromEnum Topic          = 18
-    fromEnum Randoms        = 19
-    fromEnum ReplaceWords   = 20
-    fromEnum Timer          = 21
-    fromEnum Delay          = 22
-    fromEnum Greetings      = 23
-    fromEnum Actions        = 24
-    fromEnum UnknownParam   = 25
-    fromEnum _              = 25
-    enumFrom i = enumFromTo i UnknownParam
-    enumFromThen i j = enumFromThenTo i j UnknownParam
-
-readParam :: String -> Parameter
-readParam a | (map toLower a) == "nick"            = Nick
-readParam a | (map toLower a) == "owner"           = Owner
-readParam a | (map toLower a) == "dictfile"        = DictFile
-readParam a | (map toLower a) == "usercmd"         = UserCommands
-readParam a | (map toLower a) == "usercmds"        = UserCommands
-readParam a | (map toLower a) == "usercommands"    = UserCommands
-readParam a | (map toLower a) == "rejoinkick"      = RejoinKick
-readParam a | (map toLower a) == "maxchanmsg"      = MaxChanMsg
-readParam a | (map toLower a) == "numthreads"      = NumThreads
-readParam a | (map toLower a) == "nsetsize"        = NSetSize
-readParam a | (map toLower a) == "stries"          = SentenceTries
-readParam a | (map toLower a) == "sentencetries"   = SentenceTries
-readParam a | (map toLower a) == "slen"            = SentenceLength
-readParam a | (map toLower a) == "slength"         = SentenceLength
-readParam a | (map toLower a) == "sentencelength"  = SentenceLength
-readParam a | (map toLower a) == "plen"            = ParseLength
-readParam a | (map toLower a) == "plength"         = ParseLength
-readParam a | (map toLower a) == "parselength"     = ParseLength
-readParam a | (map toLower a) == "learning"        = Learning
-readParam a | (map toLower a) == "strictlearn"     = StrictLearn
-readParam a | (map toLower a) == "slearn"          = StrictLearn
-readParam a | (map toLower a) == "stricttopic"     = StrictTopic
-readParam a | (map toLower a) == "stopic"          = StrictTopic
-readParam a | (map toLower a) == "autoname"        = Autoname
-readParam a | (map toLower a) == "allowpm"         = AllowPM
-readParam a | (map toLower a) == "debug"           = Debug
-readParam a | (map toLower a) == "topic"           = Topic
-readParam a | (map toLower a) == "randoms"         = Randoms
-readParam a | (map toLower a) == "rwords"          = ReplaceWords
-readParam a | (map toLower a) == "replacewords"    = ReplaceWords
-readParam a | (map toLower a) == "timer"           = Timer
-readParam a | (map toLower a) == "delay"           = Delay
-readParam a | (map toLower a) == "greetings"       = Greetings
-readParam a | (map toLower a) == "actions"         = Actions
-readParam _                                        = UnknownParam
 
 type ChanNicks = Map.Map String [String]
 type Fstate = (MVar Bot, MVar (), MVar [ThreadId], MVar ChanNicks)
@@ -394,7 +265,7 @@ readParamsFromList a = Parameter
      numThreads=read (a!!3), nSetSize=read (a!!4), sTries=read (a!!5),
      sLength=read (a!!6), pLength=read (a!!7), learning=(a!!8),
      strictLearn=read (a!!9), strictTopic=read (a!!10), autoName=read (a!!11),
-     allowPM=read (a!!12), debug=read (a!!13), Main.topic=(a!!14),
+     allowPM=read (a!!12), debug=read (a!!13), topic=(a!!14),
      randoms=read (a!!15), replaceWord=read (a!!16), timer=read (a!!17),
      delay=read (a!!18), greetings=read (a!!19), actions=read (a!!20)}
 
@@ -419,7 +290,7 @@ changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owner=owner',
       Owner          -> replyMsg' value "Owner"
                         >>= (\x -> return bot{params=p{owner=x}})
       Topic          -> replyMsg' value "Topic"
-                        >>= (\x -> return bot{params=p{Main.topic=x}})
+                        >>= (\x -> return bot{params=p{topic=x}})
       UserCommands   -> replyMsg' (readBool value) "User commands"
                         >>= (\x -> return bot{params=p{userCmd=x}})
       RejoinKick     -> replyMsg' (readInt 1 4096 value) "Rejoin kick time"
@@ -557,7 +428,7 @@ timerLoop st = do
       threadDelay timer'
       if t > 4 then do
         bot@Bot{handle=h, params=pp@Parameter{nick=botnick,
-                Main.topic=topic', debug=d, actions=acts},
+                topic=topic', debug=d, actions=acts},
                 fugly=f@Fugly{defs=defs'}} <- readMVar b
         _ <- return (pp, f)
         let norm    = [de | (type', de) <- defs', type' == Normal]
@@ -608,7 +479,7 @@ greeting :: [String] -> StateT Fstate IO ()
 greeting []   = return ()
 greeting line = do
     b <- gets getBot
-    bot@Bot{handle=h, params=p@Parameter{nick=n, debug=d, Main.topic=top},
+    bot@Bot{handle=h, params=p@Parameter{nick=n, debug=d, topic=top},
             fugly=f@Fugly{defs=defs'}} <- lift $ takeMVar b
     _ <- return (p, f)
     r <- lift $ Random.getStdRandom (Random.randomR (0, 999)) :: StateT Fstate IO Int
@@ -666,7 +537,7 @@ reply :: Bot -> Int -> Bool -> String -> String -> [String]
          -> StateT Fstate IO Bot
 reply bot _ _ _ _ [] = return bot
 reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=plen,
-              autoName=an, allowPM=apm, debug=d, Main.topic=top,
+              autoName=an, allowPM=apm, debug=d, topic=top,
               nSetSize=nsets, actions=acts, strictLearn=sl},
               fugly=f@Fugly{defs=defs', pgf=pgf', aspell=aspell',
                             dict=dict', FuglyLib.match=match',
@@ -728,7 +599,7 @@ forkReply _ _ _ _ _ _ [] = forkIO $ return ()
 forkReply st@(_, lock, tc, _) Bot{handle=h,
                 params=p@Parameter{numThreads=nt, sTries=str,
                                    sLength=slen, pLength=plen,
-                                   Main.topic=top, randoms=rand, replaceWord=rw,
+                                   topic=top, randoms=rand, replaceWord=rw,
                                    strictTopic=stopic, debug=d, delay=dl},
                 fugly=fugly'} r load chan nick' msg = forkIO (do
     tId <- myThreadId
@@ -1149,7 +1020,7 @@ internalize st b n msg = internalize' st b n 0 msg
     internalize' :: Fstate -> Bot -> Int -> Int -> String -> IO Bot
     internalize' _ bot _ _ [] = return bot
     internalize' st' bot@Bot{params=p@Parameter{autoName=aname,
-                             Main.topic=topic', sTries=tries,
+                             topic=topic', sTries=tries,
                              sLength=slen, debug=d, pLength=plen,
                              replaceWord=rw, strictTopic=stopic,
                              randoms=rands}, fugly=f}
