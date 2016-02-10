@@ -7,18 +7,20 @@ import           Data.Char                      (isAscii, toLower)
 import           Data.List
 import qualified Data.Map.Lazy                  as Map
 import           Data.Maybe
-import           FuglyLib                       hiding (hPutStrLnLock, topic)
+import           Fugly.Neural
+import           Fugly.Parameter
+import           Fugly.Reply
+import           Fugly.Types                    hiding (topic)
+import           FuglyLib                       hiding (hPutStrLnLock)
 import           Network.Socket                 hiding (Debug)
 import           Network.Socks5
 import           NLP.WordNet.PrimTypes          (allForm, allPOS)
-import           Parameter
 import           Prelude
-import           Reply
 import           System.Environment
 import           System.IO
 import           System.IO.Error
 import qualified System.Random                  as Random
-import           Text.Regex.Posix
+import           Text.Regex.Posix               hiding (match)
 
 data Bot = Bot {
     handle :: Handle,
@@ -282,7 +284,7 @@ changeParam :: Bot -> String -> String -> String -> String
 changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owner=owner',
                     fuglyDir=fDir, dictFile=dFile, debug=debug'},
                     fugly=f@Fugly{dict=dict', defs=defs', ban=ban',
-                    FuglyLib.match=match'}} chan nick' param value = do
+                    match=match'}} chan nick' param value = do
     lock <- gets getLock
     case readParam param of
       Nick           -> (write h debug' "NICK" $
@@ -340,7 +342,7 @@ changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owner=owner',
                      _ <- lift $ saveDict lock f fDir dFile (paramsToList p)
                      let pp = (readParamsFromList pl){nick=botNick, owner=owner', fuglyDir=fDir}
                      replyMsg' value "Dict file" >>= (\x -> return bot{params=pp{dictFile=x},
-                       fugly=f{dict=d, defs=de, ban=b, FuglyLib.match=m}})
+                       fugly=f{dict=d, defs=de, ban=b, match=m}})
       _ -> return bot
   where
     replyMsg' v msg = do replyMsg bot chan nick' (msg ++ " set to " ++ show v ++ ".")
@@ -540,7 +542,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=ple
               autoName=an, allowPM=apm, debug=d, topic=top,
               nSetSize=nsets, actions=acts, strictLearn=sl},
               fugly=f@Fugly{defs=defs', pgf=pgf', aspell=aspell',
-                            dict=dict', FuglyLib.match=match',
+                            dict=dict', match=match',
                             ban=ban'}, lastm=lastm'}
   r chanmsg chan nick' msg = do
     st@(_, lock, _, _) <- get :: StateT Fstate IO Fstate
@@ -677,7 +679,7 @@ execCmd b chan nick' (x:xs) = do
                                   return ([], Map.empty))
            replyMsgT st bot chan nick' "Loaded bot state!"
            return bot{params=(readParamsFromList np){nick=botnick, owner=owner', fuglyDir=fdir, dictFile=dfile},
-                      fugly=f{dict=nd, defs=nde, pgf=pgf', wne=wne', aspell=aspell', ban=nb, FuglyLib.match=nm, nset=ns, nmap=nm'}}
+                      fugly=f{dict=nd, defs=nde, pgf=pgf', wne=wne', aspell=aspell', ban=nb, match=nm, nset=ns, nmap=nm'}}
                        else return bot
       | x == "!join" = if isOwner then evalStateT (joinChannel h "JOIN" xs) st >> return bot else return bot
       | x == "!part" = if isOwner then evalStateT (do
@@ -906,13 +908,13 @@ execCmd b chan nick' (x:xs) = do
                    replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " already matched.") >> return bot
                  else
                    replyMsgT st bot chan nick' ("Matching word " ++ (xs!!1) ++ ".") >>
-                     return bot{fugly=f{FuglyLib.match=nub $ match' ++ [(xs!!1)]}}
+                     return bot{fugly=f{match=nub $ match' ++ [(xs!!1)]}}
                else if (xs!!0) == "delete" then
                  if notElem (xs!!1) match' then
                    replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " not in match list.") >> return bot
                  else
                    replyMsgT st bot chan nick' ("No longer matching word " ++ (xs!!1) ++ ".") >>
-                     return bot{fugly=f{FuglyLib.match=nub $ delete (xs!!1) match'}}
+                     return bot{fugly=f{match=nub $ delete (xs!!1) match'}}
                  else replyMsgT st bot chan nick' "Usage: !matchword <list|add|delete> <word>" >> return bot
           1 -> if (xs!!0) == "list" then
                  replyMsgT st bot chan nick' ("Matched word list: " ++ unwords match') >> return bot

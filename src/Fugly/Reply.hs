@@ -1,12 +1,14 @@
-module Reply where
+module Fugly.Reply where
 
 import           Control.Concurrent             (MVar)
 import           Control.Monad.Trans.State.Lazy (evalStateT)
 import           Data.Char                      (toLower, toUpper)
 import           Data.Map.Strict                as Map (lookup)
 import           Data.Maybe
+import           Fugly.Neural                   (nnReply)
+import           Fugly.Types
 import           FuglyLib
-import           NLP.WordNet                    hiding (Word)
+-- import           NLP.WordNet                    hiding (Word)
 import           NLP.WordNet.PrimTypes
 import           System.IO                      (stdout)
 import qualified System.Random                  as Random

@@ -1,4 +1,4 @@
-module Parameter where
+module Fugly.Parameter where
 
 import           Data.Char    (toLower)
 
