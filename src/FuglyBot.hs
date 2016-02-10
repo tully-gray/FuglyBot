@@ -261,25 +261,6 @@ joinChannel h a (x:xs) = do
       joinChannel h a xs
         else return ()
 
-readParamsFromList :: [String] -> Parameter
-readParamsFromList a = Parameter
-    {nick="", owner="", fuglyDir="", dictFile="",
-     userCmd=read (a!!0), rejoinKick=read (a!!1), maxChanMsg=read (a!!2),
-     numThreads=read (a!!3), nSetSize=read (a!!4), sTries=read (a!!5),
-     sLength=read (a!!6), pLength=read (a!!7), learning=(a!!8),
-     strictLearn=read (a!!9), strictTopic=read (a!!10), autoName=read (a!!11),
-     allowPM=read (a!!12), debug=read (a!!13), topic=(a!!14),
-     randoms=read (a!!15), replaceWord=read (a!!16), timer=read (a!!17),
-     delay=read (a!!18), greetings=read (a!!19), actions=read (a!!20)}
-
-paramsToList :: Parameter -> [String]
-paramsToList (Parameter _ _ _ _ uc rk mcm nt ss st sl
-              pl l stl stt an apm d t r rw ti dl g a) =
-  [show uc, show rk, show mcm, show nt, show ss, show st, show sl,
-   show pl, l, show stl, show stt, show an, show apm, show d,
-   t, show r, show rw, show ti, show dl, show g, show a]
-paramsToList _ = []
-
 changeParam :: Bot -> String -> String -> String -> String
                -> StateT Fstate IO Bot
 changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owner=owner',
