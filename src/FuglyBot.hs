@@ -7,6 +7,7 @@ import           Data.Char                      (isAscii, toLower)
 import           Data.List
 import qualified Data.Map.Lazy                  as Map
 import           Data.Maybe
+import           Fugly.LoadSave
 import           Fugly.Neural
 import           Fugly.Parameter
 import           Fugly.Reply

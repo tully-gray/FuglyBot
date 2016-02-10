@@ -4,16 +4,26 @@ import           AI.NeuralNetworks.Simple
 import           Control.Concurrent             (MVar)
 import           Control.Monad.Trans.State.Lazy (evalStateT)
 import qualified Data.ByteString.Char8          as ByteString (pack)
-import           Data.Char                      (toLower, toUpper)
+import           Data.Char                      (ord, toLower, toUpper)
 import           Data.List                      (nub)
-import qualified Data.Map                       as Map (insert, lookup)
+import qualified Data.Map.Lazy                  as Map (insert, lookup)
 import           Data.Maybe
+import           Data.Word                      (Word16)
 import           Fugly.Types
 import           FuglyLib
 import qualified Language.Aspell                as Aspell (check)
 import           NLP.WordNet.PrimTypes
 import           System.IO                      (stdout)
 import qualified System.Random                  as Random
+
+nsize :: Word16
+nsize = 8
+
+msize :: Float
+msize = 200
+
+randNN :: (Fractional a, Ord a, Random.Random a, Random.RandomGen b) => b -> a -> NeuralNetwork a
+randNN r s = fst $ randomNeuralNetwork r [nsize, nsize * 3, nsize * 2, nsize] [Tanh, Tanh, Tanh] s
 
 floatToWord :: NMap -> Bool -> Int -> Int -> Float -> String
 floatToWord nmap' b j k d = let i = (j * u) + (floor $ d * msize)
@@ -24,23 +34,56 @@ floatToWord nmap' b j k d = let i = (j * u) + (floor $ d * msize)
     if isJust r then fromJust r else if j < k then
       floatToWord nmap' s (j + t) k d else []
 
+wordToFloat :: String -> Float
+wordToFloat []  = 0.0
+wordToFloat " " = 0.0
+wordToFloat "a" = 1.0
+wordToFloat w   = clamp $ (sum $ stringToDL w) / (realToFrac $ length w :: Float)
+  where
+    stringToDL w' = map charToFloat w' :: [Float]
+
+charToFloat :: Char -> Float
+charToFloat a = let c = realToFrac $ ord a in
+    clamp $ (c - 109.5) / 12.5
+
+clamp :: (Ord a, Num a) => a -> a
+clamp n
+    | n > 1     = 1
+    | n < -1    = -1
+    | otherwise = n
+
+nnPad :: [String]
+nnPad = take (fromIntegral nsize :: Int) $ cycle [" "]
+
+nnTest :: NeuralNetwork Float -> Float
+nnTest n = (sum $ map abs $ runNeuralNetwork n $ map wordToFloat nnPad) / (realToFrac $ length nnPad :: Float)
+
+nnStop :: NeuralNetwork Float -> Int -> IO Bool
+nnStop n num = do
+    return $ nnTest n > 0.8 || num >= 100
+
+checkNSet :: NSet -> NSet
+checkNSet n = [(i, o) | (i, o) <- n, length i == (fromIntegral nsize :: Int)
+                                  && length o == (fromIntegral nsize :: Int),
+                                  sum (map abs i) > 0 && sum (map abs o) > 0, i /= o]
+
 nnInsert :: Fugly -> Int -> [String] -> [String] -> IO (NeuralNetwork Float, NSet, NMap)
 nnInsert Fugly{nnet=nnet', nset=nset', nmap=nmap'} _ [] _ = return (nnet', nset', nmap')
 nnInsert Fugly{nnet=nnet', nset=nset', nmap=nmap'} _ _ [] = return (nnet', nset', nmap')
 nnInsert Fugly{wne=wne', aspell=aspell', ban=ban', nnet=nnet', nset=nset', nmap=nmap'} nsets input output = do
-  i' <- fix (low input) []
-  o' <- fix (low output) []
-  let new = (dList i', dList o')
-      ok  = checkNSet [new]
-  if null ok then
-    return (nnet', nset', nmap') else do
-      g <- Random.newStdGen
-      let nr = randNN g 0.5
-          nn = if nnTest nnet' > 0.7 then nr else nnet'
-          ns = take nsets $ nub $ new : nset'
-          nm = foldr (\x -> Map.insert (mKey x) x) nmap' $ i' ++ o'
-      newN <- backpropagationBatchParallel nn ns 0.007 nnStop :: IO (NeuralNetwork Float)
-      return (newN, ns, nm)
+    i' <- fix (low input) []
+    o' <- fix (low output) []
+    let new = (dList i', dList o')
+        ok  = checkNSet [new]
+    if null ok then
+      return (nnet', nset', nmap') else do
+        g <- Random.newStdGen
+        let nr = randNN g 0.5
+            nn = if nnTest nnet' > 0.7 then nr else nnet'
+            ns = take nsets $ nub $ new : nset'
+            nm = foldr (\x -> Map.insert (mKey x) x) nmap' $ i' ++ o'
+        newN <- backpropagationBatchParallel nn ns 0.007 nnStop :: IO (NeuralNetwork Float)
+        return (newN, ns, nm)
   where
     dList x = take (fromIntegral nsize :: Int) $ map wordToFloat $ x ++ nnPad
     fix :: [String] -> [String] -> IO [String]

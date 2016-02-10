@@ -5,7 +5,7 @@ import           Control.Monad.Trans.State.Lazy (evalStateT)
 import           Data.Char                      (toLower, toUpper)
 import           Data.Map.Strict                as Map (lookup)
 import           Data.Maybe
-import           Fugly.Neural                   (nnReply)
+import           Fugly.Neural
 import           Fugly.Types
 import           FuglyLib
 -- import           NLP.WordNet                    hiding (Word)
