@@ -253,31 +253,32 @@ listenIRC st h l = do
     r   <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     cn' <- readMVar cn
     let rr  = mod (r + length l + length (Map.toList cn') + 50) 100
-        ll  = words l
-        lll = take 2 $ drop 1 ll
-        lm  = unwords $ drop 1 ll
-    if "PING :" `isPrefixOf` l then
-      evalStateT (write h d "PONG" (':' : drop 6 l)) st >> return ()
-      else if "433 " `isPrefixOf` lm then
-        evalStateT (write h d "NICK" (bn ++ "_")) st >>
+    listenIRC' bot p b d bn o g cn cn' rr
+  where
+    ll  = words l
+    lll = take 2 $ drop 1 ll
+    lm  = unwords $ drop 1 ll
+    getNicks' cn cn' = let
+      cnicks = words $ drop 1 $ dropWhile (\x -> x /= ':') $ drop 1 l
+      chan   = takeWhile (\x -> x /= ' ') $ dropWhile (\x -> x /= '#') l in
+      if null cnicks then return ()
+        else swapMVar cn (Map.insert chan cnicks cn') >> return ()
+    listenIRC' bot p b d bn o g cn cn' rr
+      | "PING :" `isPrefixOf` l = evalStateT (write h d "PONG" (':' : drop 6 l)) st >> return ()
+      | "433 " `isPrefixOf` lm = evalStateT (write h d "NICK" (bn ++ "_")) st >>
           swapMVar b bot{params=p{nick=(bn ++ "_")}} >>
           return ("Nickname is already in use.") >>=
           (\x -> evalStateT (replyMsg bot o [] x) st)
-        else if "353 " `isPrefixOf` lm then
-          let cnicks = words $ drop 1 $ dropWhile (\x -> x /= ':') $ drop 1 l
-              chan   = takeWhile (\x -> x /= ' ') $ dropWhile (\x -> x /= '#') l in
-          if null cnicks then return ()
-            else swapMVar cn (Map.insert chan cnicks cn') >> return ()
-          else if (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == bn then
-            (do nb <- evalStateT (changeNick lll) st ; swapMVar b nb) >> return ()
-            else if (length ll > 2) && (fHead [] lll) == "JOIN" && rr < g then
-              evalStateT (greeting $ words l) st >> return ()
-               else
-                 (catch (evalStateT (processLine rr $ words l) st >> return ())
-                  (\e -> do let err = show (e :: SomeException)
-                            evalStateT (hPutStrLnLock stderr ("Exception in processLine: " ++ err)) st
-                            putMVar b bot
-                            return ()))
+      | "353 " `isPrefixOf` lm = getNicks' cn cn'
+      | (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == bn =
+          (do nb <- evalStateT (changeNick lll) st ; swapMVar b nb) >> return ()
+      | (length ll > 2) && (fHead [] lll) == "JOIN" && rr < g =
+          evalStateT (greeting $ words l) st >> return ()
+      | otherwise = (catch (evalStateT (processLine rr $ words l) st >> return ())
+          (\e -> do let err = show (e :: SomeException)
+                    evalStateT (hPutStrLnLock stderr ("Exception in processLine: " ++ err)) st
+                    putMVar b bot
+                    return ()))
 
 getBot :: Fstate -> MVar Bot
 getBot (b, _, _, _) = b
