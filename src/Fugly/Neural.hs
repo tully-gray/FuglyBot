@@ -9,7 +9,7 @@ import           Data.List                      (nub)
 import qualified Data.Map.Lazy                  as Map (insert, lookup)
 import           Data.Maybe
 import           Data.Word                      (Word16)
-import           Fugly.Types
+import           Fugly.Types                    hiding (fugly)
 import           FuglyLib
 import qualified Language.Aspell                as Aspell (check)
 import           NLP.WordNet.PrimTypes

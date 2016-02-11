@@ -6,9 +6,8 @@ import           Data.Char                      (toLower, toUpper)
 import           Data.Map.Strict                as Map (lookup)
 import           Data.Maybe
 import           Fugly.Neural
-import           Fugly.Types
+import           Fugly.Types                    hiding (fugly)
 import           FuglyLib
--- import           NLP.WordNet                    hiding (Word)
 import           NLP.WordNet.PrimTypes
 import           System.IO                      (stdout)
 import qualified System.Random                  as Random

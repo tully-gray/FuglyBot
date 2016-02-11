@@ -10,7 +10,7 @@ import           Data.List
 import qualified Data.Map.Lazy                  as Map
 import           Data.Maybe
 import           Data.Tree                      (flatten)
-import           Fugly.Types
+import           Fugly.Types                    hiding (fugly)
 import qualified Language.Aspell                as Aspell
 import           NLP.WordNet                    hiding (Word)
 import           NLP.WordNet.Prims              (indexLookup, senseCount, getSynset, getWords, getGloss)

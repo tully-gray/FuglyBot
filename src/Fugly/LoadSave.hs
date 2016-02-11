@@ -10,7 +10,7 @@ import           Data.List                      (elemIndex, nub, sort)
 import qualified Data.Map.Lazy                  as Map
 import           Data.Maybe
 import           Fugly.Neural
-import           Fugly.Types
+import           Fugly.Types                    hiding (fugly, params)
 import           FuglyLib
 import qualified Language.Aspell                as Aspell
 import qualified Language.Aspell.Options        as Aspell.Options

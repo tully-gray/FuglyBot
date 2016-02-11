@@ -23,16 +23,6 @@ import           System.IO.Error
 import qualified System.Random                  as Random
 import           Text.Regex.Posix               hiding (match)
 
-data Bot = Bot {
-    handle :: Handle,
-    params :: Parameter,
-    fugly  :: Fugly,
-    lastm  :: [String]
-    }
-
-type ChanNicks = Map.Map String [String]
-type Fstate = (MVar Bot, MVar (), MVar [ThreadId], MVar ChanNicks)
-
 main :: IO ()
 main = do
     bracket start stop loop
