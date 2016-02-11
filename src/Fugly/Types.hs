@@ -13,7 +13,7 @@ import           System.IO                      (Handle)
 type ChanNicks = Map String [String]
 type Default   = (DType, String)
 type Dict      = Map String Fugly.Types.Word
-type Fstate    = (MVar Bot, MVar (), MVar [ThreadId], MVar ChanNicks)
+type FState    = (MVar Bot, MVar (), MVar [ThreadId], MVar ChanNicks)
 type NMap      = Map Int String
 type NSet      = [([Float], [Float])]
 
@@ -66,3 +66,15 @@ data Word = Word {
     }
 
 data DType = Default | Normal | Response | Action | GreetAction | Greeting | Enter deriving (Eq, Read, Show)
+
+getBot :: FState -> MVar Bot
+getBot (b, _, _, _) = b
+
+getLock :: FState -> MVar ()
+getLock (_, l, _, _) = l
+
+getTCount :: FState -> MVar [ThreadId]
+getTCount (_, _, tc, _) = tc
+
+getChanNicks :: FState -> MVar (Map String [String])
+getChanNicks (_, _, _, cn) = cn
