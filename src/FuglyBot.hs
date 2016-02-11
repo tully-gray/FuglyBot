@@ -618,23 +618,14 @@ execCmd b chan nick' (x:xs) = do
                                        replaceWord' timer' delay' greets actions'),
                      fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match' _ _ _)} st
       | userCmd' == False && nick' /= owner' = return bot
-      | x == "!quit" = if isOwner then case length xs of
-          0 -> do evalStateT (write h debug' "QUIT" ":Bye") st >> return bot
-          _ -> do evalStateT (write h debug' "QUIT" (":" ++ unwords xs)) st >> return bot
-                       else return bot
+      | x == "!quit" = Cmd.quit bot st isOwner write' xs
       | x == "!save" = Cmd.save bot st isOwner showRep showErr fdir dfile
       | x == "!load" = Cmd.load bot st isOwner showRep showErr fdir dfile nsets
                        botnick owner' pgf' wne' aspell'
-      | x == "!join" = if isOwner then evalStateT (joinChannel h "JOIN" xs) st >> return bot else return bot
-      | x == "!part" = if isOwner then evalStateT (do
-                                                       cn' <- lift $ readMVar cn
-                                                       joinChannel h "PART" xs
-                                                       lift $ swapMVar cn (Map.delete (unwords xs) cn')) st
+      | x == "!join" = if isOwner then evalStateT (joinChannel h "JOIN" xs) st
                                        >> return bot else return bot
-      | x == "!nick" = if isOwner then case length xs of
-          1 -> evalStateT ((\x' -> write h debug' "NICK" $ cleanStringWhite isAscii x') (xs!!0)) st >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !nick <nick>" >> return bot
-                       else return bot
+      | x == "!part" = Cmd.part bot st isOwner cn (joinChannel h) xs
+      | x == "!nick" = Cmd.nick bot st isOwner showRep write' xs
       | x == "!internalize" = if isOwner then
           if length xs > 1 then do replyMsgT st bot chan nick' ("Internalizing...")
                                    internalize st bot (read (xs!!0)) $ unwords $ tail xs
@@ -930,6 +921,7 @@ execCmd b chan nick' (x:xs) = do
       where
         showRep = replyMsgT st bot chan nick'
         showErr = hPutStrLnLock stderr
+        write'  = write h debug'
         cn      = getChanNicks st
         isOwner = nick' == owner'
     execCmd' bot _ = return bot
@@ -991,7 +983,7 @@ internalize st b n msg = internalize' st b n 0 msg
       if null ww then getSentence xs
         else return ww
 
-write :: Handle -> Bool -> [Char] -> [Char] -> StateT FState IO ()
+write :: Handle -> Bool -> String -> String -> StateT FState IO ()
 write _     _ [] _  = return ()
 write h d s []  = do
     hPutStrLnLock h (s ++ "\r")
