@@ -611,37 +611,19 @@ execCmd b chan nick' (x:xs) = do
                 return b)
   where
     execCmd' :: Bot -> FState -> IO Bot
-    execCmd' bot@Bot{handle=h, params=p@(Parameter botnick owner' fdir
-                                       dfile userCmd' rkick maxcmsg numt nsets
-                                       sTries' slen plen learn slearn stopic
-                                       autoName' allowPM' debug' topic' randoms'
-                                       replaceWord' timer' delay' greets actions'),
-                     fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match' _ _ _)} st
+    execCmd' bot@Bot{handle=h, params=p@Parameter{owner=owner', userCmd=userCmd',
+               nSetSize=nsets, autoName=autoName',
+               debug=debug', topic=topic'},
+               fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match' _ _ _)} st
       | userCmd' == False && nick' /= owner' = return bot
       | x == "!quit" = Cmd.quit bot st isOwner write' xs
-      | x == "!save" = Cmd.save bot st isOwner showRep showErr fdir dfile
-      | x == "!load" = Cmd.load bot st isOwner showRep showErr fdir dfile nsets
-                       botnick owner' pgf' wne' aspell'
+      | x == "!save" = Cmd.save bot st isOwner showRep showErr
+      | x == "!load" = Cmd.load bot st isOwner showRep showErr
       | x == "!join" = if isOwner then evalStateT (joinChannel h "JOIN" xs) st
                                        >> return bot else return bot
       | x == "!part" = Cmd.part bot st isOwner cn (joinChannel h) xs
       | x == "!nick" = Cmd.nick bot st isOwner showRep write' xs
-      | x == "!showparams" = if isOwner then case length xs of
-          0 -> replyMsgT st bot chan nick' ("nick: " ++ botnick ++ "  owner: " ++ owner' ++
-                   "  usercommands: " ++ show userCmd' ++ "  rejoinkick: "
-                   ++ show rkick ++ "  maxchanmsg: " ++ show maxcmsg
-                   ++ "  numthreads: " ++ show numt ++ "  nsetsize: " ++ show nsets
-                   ++ "  sentencetries: " ++ show sTries' ++ "  sentencelength: "
-                   ++ show slen ++ "  parselength: " ++ show plen ++ "  dictfile: " ++ dfile
-                   ++ "  learning: " ++ learn ++ "  strictlearn: " ++ show slearn
-                   ++ "  stricttopic: " ++ show stopic ++ "  debug: " ++ show debug'
-                   ++ "  autoname: " ++ show autoName' ++ "  allowpm: " ++ show allowPM'
-                   ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms'
-                   ++ "  replacewords: " ++ show replaceWord'
-                   ++ "  timer: " ++ show timer' ++ "  delay: " ++ show delay'
-                   ++ "  greetings: " ++ show greets ++ "  actions: " ++ show actions') >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !showparams" >> return bot
-                             else return bot
+      | x == "!showparams" = Cmd.showParams bot p isOwner showRep xs
       | x == "!setparam" = if isOwner then case length xs of
           2 -> evalStateT (changeParam bot chan nick' (xs!!0) (xs!!1)) st
           _ -> replyMsgT st bot chan nick' "Usage: !setparam <parameter> <value>" >> return bot
