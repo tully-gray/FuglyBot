@@ -626,12 +626,6 @@ execCmd b chan nick' (x:xs) = do
                                        >> return bot else return bot
       | x == "!part" = Cmd.part bot st isOwner cn (joinChannel h) xs
       | x == "!nick" = Cmd.nick bot st isOwner showRep write' xs
-      | x == "!internalize" = if isOwner then
-          if length xs > 1 then do replyMsgT st bot chan nick' ("Internalizing...")
-                                   internalize st bot (read (xs!!0)) $ unwords $ tail xs
-          else
-            replyMsgT st bot chan nick' "Usage: !internalize <tries> <msg>" >> return bot
-                              else return bot
       | x == "!showparams" = if isOwner then case length xs of
           0 -> replyMsgT st bot chan nick' ("nick: " ++ botnick ++ "  owner: " ++ owner' ++
                    "  usercommands: " ++ show userCmd' ++ "  rejoinkick: "
@@ -912,7 +906,7 @@ execCmd b chan nick' (x:xs) = do
       | otherwise  = if isOwner then replyMsgT st bot chan nick'
           ("Commands: !word !wordlist !insertword !name !namelist !insertname !acronym !acronymlist !insertacronym "
           ++ "!dropword !banword !matchword !insertdefault !dropdefault !dropafter !banafter "
-          ++ "!ageword !topiclist !droptopic !droptopicwords !internalize !forcelearn "
+          ++ "!ageword !topiclist !droptopic !droptopicwords !forcelearn "
           ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
           ++ "!setparam !showparams !nick !join !part !talk !raw !quit !load !save") >> return bot
                      else replyMsgT st bot chan nick'
@@ -951,37 +945,6 @@ replyMsg _ _ _ _ = return ()
 replyMsgT :: FState -> Bot -> String -> String -> String -> IO ()
 replyMsgT _  _   _    _     []  = return ()
 replyMsgT st bot chan nick' msg = evalStateT (replyMsg bot chan nick' msg) st
-
-internalize :: FState -> Bot -> Int -> String -> IO Bot
-internalize _  b 0 _   = return b
-internalize _  b _ []  = return b
-internalize st b n msg = internalize' st b n 0 msg
-  where
-    internalize' :: FState -> Bot -> Int -> Int -> String -> IO Bot
-    internalize' _ bot _ _ [] = return bot
-    internalize' st' bot@Bot{params=p@Parameter{autoName=aname,
-                             topic=topic', sTries=tries,
-                             sLength=slen, debug=d, pLength=plen,
-                             replaceWord=rw, strictTopic=stopic,
-                             randoms=rands}, fugly=f}
-      num i imsg = do
-      _   <- return p
-      r   <- Random.getStdRandom (Random.randomR (0, 2)) :: IO Int
-      sen <- getSentence $ replyRandom' (getLock st') f r d False True rw stopic
-             rands tries slen plen topic' $ words imsg
-      nd  <- insertWords (getLock st') f aname topic' $ words sen
-      if i >= num then return bot
-        else if r == 0 then evalStateT (hPutStrLnLock stdout
-          ("> internalize: " ++ msg)) st >>
-          internalize' st bot{fugly=f{dict=nd}} num (i + 1) msg
-          else evalStateT (hPutStrLnLock stdout ("> internalize: " ++ sen)) st >>
-               internalize' st bot{fugly=f{dict=nd}} num (i + 1) sen
-    internalize' _ bot _ _ _ = return bot
-    getSentence []     = return []
-    getSentence (x:xs) = do
-      ww <- x
-      if null ww then getSentence xs
-        else return ww
 
 write :: Handle -> Bool -> String -> String -> StateT FState IO ()
 write _     _ [] _  = return ()
