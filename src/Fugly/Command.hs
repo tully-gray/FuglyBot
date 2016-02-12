@@ -10,6 +10,7 @@ import           Fugly.Parameter                as P
 import           Fugly.Types                    hiding (topic)
 import           Fugly.LoadSave
 import           FuglyLib
+import           Text.Regex.Posix               hiding (match)
 
 quit :: Bot -> FState -> Bool -> (String -> String -> StateT FState IO ())
         -> [String] -> IO Bot
@@ -55,6 +56,10 @@ load b@Bot{fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match' _ _ _),
     else return b
 load b _ _ _ _ = return b
 
+join :: Bot -> FState -> Bool -> (String -> [String] -> StateT FState IO ())
+        -> [String] -> IO Bot
+join b st o f m = if o then evalStateT (f "JOIN" m) st >> return b else return b
+
 part :: Bot -> FState -> Bool -> MVar (Map.Map String [String])
         -> (String -> [String] -> StateT FState IO ()) -> [String] -> IO Bot
 part b st o cn f m = if o then evalStateT (do
@@ -91,3 +96,29 @@ showParams b (Parameter nick' owner' _ dfile uCmd rkick maxcmsg numt nsets
       _ -> f "Usage: !showparams" >> return b
     else return b
 showParams b _ _ _ _ = return b
+
+setParam :: Bot -> FState -> Bool -> (String -> IO ())
+            -> (String -> String -> StateT FState IO Bot) -> [String] -> IO Bot
+setParam b st o f1 f2 m = if o then
+    case length m of
+      2 -> evalStateT (f2 (m!!0) (m!!1)) st
+      _ -> f1 "Usage: !setparam <parameter> <value>" >> return b
+    else return b
+
+word :: Bot -> String -> (String -> IO ()) -> [String] -> IO Bot
+word b@Bot{fugly=f@Fugly{dict=d}} x f1 m = case length m of
+    1 -> f1 (listWordFull d (m!!0)) >> return b
+    _ -> f1 ("Usage: " ++ x ++ " <" ++ (tail x) ++ ">") >> return b
+
+wordlist :: Bot -> String -> (String -> IO ()) -> [String] -> IO Bot
+wordlist b@Bot{fugly=f@Fugly{dict=d}} x f1 m =
+    let num = if read (m!!0) > (100 :: Int) then 100 :: Int else read (m!!0)
+        re  = "word|name|acronym" in
+    case length m of
+      2 -> f1 (unwords $ listWordsCountSort d num (x =~ re) (m!!1)) >>
+             f1 ("Total " ++ (x =~ re) ++ " count with topic " ++ (m!!1) ++ ": " ++
+             (show $ numWords d (x =~ re) (m!!1))) >> return b
+      1 -> f1 (unwords $ listWordsCountSort d num (x =~ re) []) >>
+             f1 ("Total " ++ (x =~ re) ++ " count: " ++
+             (show $ numWords d (x =~ re) [])) >> return b
+      _ -> f1 ("Usage: " ++ x ++ " <number> [topic]") >> return b

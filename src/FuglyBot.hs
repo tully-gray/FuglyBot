@@ -619,28 +619,13 @@ execCmd b chan nick' (x:xs) = do
       | x == "!quit" = Cmd.quit bot st isOwner write' xs
       | x == "!save" = Cmd.save bot st isOwner showRep showErr
       | x == "!load" = Cmd.load bot st isOwner showRep showErr
-      | x == "!join" = if isOwner then evalStateT (joinChannel h "JOIN" xs) st
-                                       >> return bot else return bot
+      | x == "!join" = Cmd.join bot st isOwner (joinChannel h) xs
       | x == "!part" = Cmd.part bot st isOwner cn (joinChannel h) xs
       | x == "!nick" = Cmd.nick bot st isOwner showRep write' xs
       | x == "!showparams" = Cmd.showParams bot p isOwner showRep xs
-      | x == "!setparam" = if isOwner then case length xs of
-          2 -> evalStateT (changeParam bot chan nick' (xs!!0) (xs!!1)) st
-          _ -> replyMsgT st bot chan nick' "Usage: !setparam <parameter> <value>" >> return bot
-                           else return bot
-      | x == "!word" || x == "!name" || x == "!acronym" = case length xs of
-          1 -> replyMsgT st bot chan nick' (listWordFull dict' (xs!!0)) >> return bot
-          _ -> replyMsgT st bot chan nick' ("Usage: " ++ x ++ " <" ++ (tail x) ++ ">") >> return bot
-      | x == "!wordlist" || x == "!namelist" || x == "!acronymlist" =
-          let num = if read (xs!!0) > (100 :: Int) then 100 :: Int else read (xs!!0) in
-          case length xs of
-            2 -> replyMsgT st bot chan nick' (unwords $ listWordsCountSort dict' num (x =~ "word|name|acronym") (xs!!1)) >>
-                   replyMsgT st bot chan nick' ("Total " ++ (x =~ "word|name|acronym") ++ " count with topic " ++ (xs!!1) ++ ": " ++
-                                            (show $ numWords dict' (x =~ "word|name|acronym") (xs!!1))) >> return bot
-            1 -> replyMsgT st bot chan nick' (unwords $ listWordsCountSort dict' num (x =~ "word|name|acronym") []) >>
-                   replyMsgT st bot chan nick' ("Total " ++ (x =~ "word|name|acronym") ++ " count: " ++
-                                            (show $ numWords dict' (x =~ "word|name|acronym") [])) >> return bot
-            _ -> replyMsgT st bot chan nick' ("Usage: " ++ x ++ " <number> [topic]") >> return bot
+      | x == "!setparam" = Cmd.setParam bot st isOwner showRep (changeParam bot chan nick') xs
+      | x == "!word" || x == "!name" || x == "!acronym" = Cmd.word bot x showRep xs
+      | x == "!wordlist" || x == "!namelist" || x == "!acronymlist" = Cmd.wordlist bot x showRep xs
       | x == "!insertword" = if isOwner then case length xs of
           2 -> do ww <- insertWordRaw (getLock st) f True (xs!!0) [] [] topic' (xs!!1)
                   if isJust $ Map.lookup (xs!!0) dict' then
