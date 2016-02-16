@@ -635,41 +635,8 @@ execCmd b chan nick' (x:xs) = do
       | x == "!dropafter" = Cmd.dropAfter bot isOwner showRep xs
       | x == "!topiclist" = Cmd.topicList bot showRep xs
       | x == "!droptopic" = Cmd.dropTopic bot isOwner showRep xs
-      | x == "!droptopicwords" = if isOwner then case length xs of
-          1 -> if elem (xs!!0) $ listTopics dict' then let nd = dropTopicWords dict' (xs!!0) in
-                 replyMsgT st bot chan nick' ("Dropped all words in topic " ++ (xs!!0) ++ ".") >>
-                   return bot{fugly=f{dict=dropTopic nd (xs!!0)}}
-               else
-                 replyMsgT st bot chan nick' ("Topic " ++ (xs!!0) ++ " not in dict.") >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !droptopicwords <topic>" >> return bot
-                            else return bot
-      | x == "!banafter" = if isOwner then case length xs of
-          3 -> if (xs!!0) == "add" then let w = Map.lookup (xs!!1) dict' in
-                 if isJust w then let nd1 = Map.insert (xs!!1) (addBanAfter (fromJust w) (xs!!2)) dict'
-                                      nd2 = dropBefore nd1 (xs!!2) (xs!!1) in
-                   if elem (xs!!2) $ wordGetBanAfter $ fromJust w then
-                     replyMsgT st bot chan nick' ("Word " ++ (xs!!2) ++ " after word " ++ (xs!!1) ++ " already banned.") >>
-                       return bot{fugly=f{dict=dropAfter nd2 (xs!!1) (xs!!2)}}
-                     else {-- Drop the association anyway, but report errors. --}
-                       replyMsgT st bot chan nick' ("Banned word " ++ (xs!!2) ++ " after word " ++ (xs!!1) ++ ".") >>
-                         return bot{fugly=f{dict=dropAfter nd2 (xs!!1) (xs!!2)}}
-                   else replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " not in dict.") >> return bot
-               else if (xs!!0) == "delete" then let w = Map.lookup (xs!!1) dict' in
-                 if isJust w then
-                   if notElem (xs!!2) $ wordGetBanAfter $ fromJust w then
-                     replyMsgT st bot chan nick' ("Word " ++ (xs!!2) ++ " not in ban list.") >> return bot
-                     else
-                       replyMsgT st bot chan nick' ("Unbanned word " ++ (xs!!2) ++ " after word " ++ (xs!!1) ++ ".") >>
-                         return bot{fugly=f{dict=Map.insert (xs!!1) (deleteBanAfter (fromJust w) (xs!!2)) dict'}}
-                   else replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " not in dict.") >> return bot
-               else replyMsgT st bot chan nick' "Usage: !banafter <list|add|delete> <word> <after-word>" >> return bot
-          2 -> if (xs!!0) == "list" then let w = Map.lookup (xs!!1) dict' in
-                 if isJust w then
-                   replyMsgT st bot chan nick' ("Banned after word list: " ++ (unwords $ wordGetBanAfter $ fromJust w)) >> return bot
-                   else replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " not in dict.") >> return bot
-               else replyMsgT st bot chan nick' "Usage: !banafter <list|add|delete> <word> <after-word>" >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !banafter <list|add|delete> <word> <after-word>" >> return bot
-                           else return bot
+      | x == "!droptopicwords" = Cmd.dropTopicWords bot isOwner showRep xs
+      | x == "!banafter" = Cmd.banAfter bot isOwner showRep xs
       | x == "!ageword" = if isOwner then case length xs of
           2 -> do num <- catch (if (read (xs!!1) :: Int) > 50 then return 50 else return (read (xs!!1) :: Int))
                               {-- This has to be caught here? --}
