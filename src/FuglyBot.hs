@@ -614,7 +614,7 @@ execCmd b chan nick' (x:xs) = do
     execCmd' bot@Bot{handle=h, params=p@Parameter{owner=owner', userCmd=userCmd',
                nSetSize=nsets, autoName=autoName',
                debug=debug', topic=topic'},
-               fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match' _ _ _)} st
+               fugly=f@(Fugly dict' _ pgf' wne' aspell' ban' match' _ _ _)} st
       | userCmd' == False && nick' /= owner' = return bot
       | x == "!quit" = Cmd.quit bot st isOwner write' xs
       | x == "!save" = Cmd.save bot st isOwner showRep showErr
@@ -625,90 +625,16 @@ execCmd b chan nick' (x:xs) = do
       | x == "!showparams" = Cmd.showParams bot p isOwner showRep xs
       | x == "!setparam" = Cmd.setParam bot st isOwner showRep (changeParam bot chan nick') xs
       | x == "!word" || x == "!name" || x == "!acronym" = Cmd.word bot x showRep xs
-      | x == "!wordlist" || x == "!namelist" || x == "!acronymlist" = Cmd.wordlist bot x showRep xs
-      | x == "!insertword" = if isOwner then case length xs of
-          2 -> do ww <- insertWordRaw (getLock st) f True (xs!!0) [] [] topic' (xs!!1)
-                  if isJust $ Map.lookup (xs!!0) dict' then
-                    replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " already in dict.") >> return bot
-                    else
-                    replyMsgT st bot chan nick' ("Inserted word " ++ (xs!!0) ++ ".") >> return bot{fugly=f{dict=ww}}
-          1 -> do ww <- insertWordRaw (getLock st) f True (xs!!0) [] [] topic' []
-                  if isJust $ Map.lookup (xs!!0) dict' then
-                    replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " already in dict.") >> return bot
-                    else
-                    replyMsgT st bot chan nick' ("Inserted word " ++ (xs!!0) ++ ".") >> return bot{fugly=f{dict=ww}}
-          _ -> replyMsgT st bot chan nick' "Usage: !insertword <word> [pos]" >> return bot
-                             else return bot
-      | x == "!insertname" = if isOwner then case length xs of
-          1 -> do ww <- insertNameRaw (getLock st) f True (xs!!0) [] [] topic'
-                  if isJust $ Map.lookup (xs!!0) dict' then
-                    replyMsgT st bot chan nick' ("Name " ++ (xs!!0) ++ " already in dict.") >> return bot
-                    else
-                    replyMsgT st bot chan nick' ("Inserted name " ++ (xs!!0) ++ ".") >> return bot{fugly=f{dict=ww}}
-          _ -> replyMsgT st bot chan nick' "Usage: !insertname <name>" >> return bot
-                             else return bot
-      | x == "!insertacronym" = if isOwner then
-            if length xs > 1 then do
-              ww <- insertAcroRaw (getLock st) f (xs!!0) [] [] topic' (unwords $ tail xs)
-              if isJust $ Map.lookup (xs!!0) dict' then
-                replyMsgT st bot chan nick' ("Acronym " ++ (xs!!0) ++ " already in dict.") >> return bot
-                else
-                replyMsgT st bot chan nick' ("Inserted acronym " ++ (xs!!0) ++ ".") >> return bot{fugly=f{dict=ww}}
-              else
-              replyMsgT st bot chan nick' "Usage: !insertacronym <acronym> <definition>" >> return bot
-                                else return bot
-      | x == "!insertdefault" = if isOwner then
-                                  if length xs > 1 then replyMsgT st bot chan nick' ("Inserted default " ++
-                                                          show ((read $ head xs) :: DType) ++ " " ++ (unwords $ tail xs) ++ ".") >>
-                                                        return bot{fugly=f{defs=defs' ++ [(read $ head xs, unwords $ tail xs)]}}
-                                  else
-                                    replyMsgT st bot chan nick'
-                                      "Usage: !insertdefault <Default|Normal|Response|Action|GreetAction|Greeting|Enter> <default>" >> return bot
-                                else return bot
-      | x == "!dropdefault" = if isOwner then
-                                if length xs > 1 then replyMsgT st bot chan nick' ("Dropped default " ++
-                                                        show ((read $ head xs) :: DType) ++ " " ++ (unwords $ tail xs) ++ ".") >>
-                                                      return bot{fugly=f{defs=filter (\(t, d) -> not (t == read (head xs) && d == unwords (tail xs))) defs'}}
-                                else
-                                  replyMsgT st bot chan nick'
-                                    "Usage: !dropdefault <Default|Normal|Response|Action|GreetAction|Greeting|Enter> <default>" >> return bot
-                              else return bot
-      | x == "!dropword" = if isOwner then case length xs of
-          1 -> if isJust $ Map.lookup (xs!!0) dict' then
-                 replyMsgT st bot chan nick' ("Dropped word " ++ (xs!!0) ++ ".") >>
-                   return bot{fugly=f{dict=dropWord dict' (xs!!0)}}
-               else {-- Drop the word anyway because it might be a before or after word. --}
-                 replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.") >>
-                   return bot{fugly=f{dict=dropWord dict' (xs!!0)}}
-          _ -> replyMsgT st bot chan nick' "Usage: !dropword <word>" >> return bot
-                           else return bot
-      | x == "!dropafter" = if isOwner then case length xs of
-          2 -> if (isJust $ Map.lookup (xs!!0) dict') && (isJust $ Map.lookup (xs!!1) dict') then
-                 let nd = dropBefore dict' (xs!!1) (xs!!0) in
-                 replyMsgT st bot chan nick' ("Dropped word " ++ (xs!!1) ++ " after word " ++ (xs!!0) ++ ".") >>
-                   return bot{fugly=f{dict=dropAfter nd (xs!!0) (xs!!1)}}
-               else {-- Drop the association anyway, but report errors. --}
-                 replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " or word " ++ (xs!!1) ++ " not in dict.") >>
-                   return bot{fugly=f{dict=dropAfter (dropBefore dict' (xs!!1) (xs!!0)) (xs!!0) (xs!!1)}}
-          1 -> if isJust $ Map.lookup (xs!!0) dict' then
-                 replyMsgT st bot chan nick' ("Dropped all words after word " ++ (xs!!0) ++ ".") >>
-                   return bot{fugly=f{dict=dropAllAfter dict' (xs!!0)}}
-               else
-                 replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.") >>
-                   return bot{fugly=f{dict=dropAllAfter dict' (xs!!0)}}
-          _ -> replyMsgT st bot chan nick' "Usage: !dropafter <word> [after-word]" >> return bot
-                            else return bot
-      | x == "!topiclist" = case length xs of
-          0 -> replyMsgT st bot chan nick' ("topics: " ++ (unwords $ listTopics dict')) >> return bot
-          _ -> replyMsgT st bot chan nick' ("Usage: !topiclist") >> return bot
-      | x == "!droptopic" = if isOwner then case length xs of
-          1 -> if elem (xs!!0) $ listTopics dict' then
-                 replyMsgT st bot chan nick' ("Dropped topic " ++ (xs!!0) ++ ".") >>
-                   return bot{fugly=f{dict=dropTopic dict' (xs!!0)}}
-               else
-                 replyMsgT st bot chan nick' ("Topic " ++ (xs!!0) ++ " not in dict.") >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !droptopic <topic>" >> return bot
-                            else return bot
+      | x == "!wordlist" || x == "!namelist" || x == "!acronymlist" = Cmd.wordList bot x showRep xs
+      | x == "!insertword" = Cmd.insertWord bot st isOwner showRep topic' xs
+      | x == "!insertname" = Cmd.insertName bot st isOwner showRep topic' xs
+      | x == "!insertacronym" = Cmd.insertAcronym bot st isOwner showRep topic' xs
+      | x == "!insertdefault" = Cmd.insertDefault bot isOwner showRep xs
+      | x == "!dropdefault" = Cmd.dropDefault bot isOwner showRep xs
+      | x == "!dropword" = Cmd.dropWord bot isOwner showRep xs
+      | x == "!dropafter" = Cmd.dropAfter bot isOwner showRep xs
+      | x == "!topiclist" = Cmd.topicList bot showRep xs
+      | x == "!droptopic" = Cmd.dropTopic bot isOwner showRep xs
       | x == "!droptopicwords" = if isOwner then case length xs of
           1 -> if elem (xs!!0) $ listTopics dict' then let nd = dropTopicWords dict' (xs!!0) in
                  replyMsgT st bot chan nick' ("Dropped all words in topic " ++ (xs!!0) ++ ".") >>
