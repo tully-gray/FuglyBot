@@ -102,13 +102,13 @@ run = do
     tId <- lift $ forkIO $ timerLoop st >> return ()
     _   <- lift $ incT (getTCount st) tId
     forever $ lift $ getLine' st h d
-    where
-      getLine' st h d = do
-        l <- hGetLine h
-        if d then
-          evalStateT (hPutStrLnLock stdout ("> debug: IRC msg: " ++ l)) st >>
-            listenIRC st h l
-          else listenIRC st h l
+  where
+    getLine' st h d = do
+      l <- hGetLine h
+      if d then
+        evalStateT (hPutStrLnLock stdout ("> debug: IRC msg: " ++ l)) st >>
+          listenIRC st h l
+        else listenIRC st h l
 
 listenIRC :: FState -> Handle -> String -> IO ()
 listenIRC st h l = do
@@ -251,59 +251,60 @@ changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owner=owner',
       Nick           -> (write h debug' "NICK" $
                          cleanStringWhite isAscii value) >> return bot
       Owner          -> replyMsg' value "Owner"
-                        >>= (\x -> return bot{params=p{owner=x}})
+                        >>= \x -> return bot{params=p{owner=x}}
       Topic          -> replyMsg' value "Topic"
-                        >>= (\x -> return bot{params=p{topic=x}})
+                        >>= \x -> return bot{params=p{topic=x}}
       UserCommands   -> replyMsg' (readBool value) "User commands"
-                        >>= (\x -> return bot{params=p{userCmd=x}})
+                        >>= \x -> return bot{params=p{userCmd=x}}
       RejoinKick     -> replyMsg' (readInt 1 4096 value) "Rejoin kick time"
-                        >>= (\x -> return bot{params=p{rejoinKick=x}})
+                        >>= \x -> return bot{params=p{rejoinKick=x}}
       MaxChanMsg     -> replyMsg' (readInt 9 450 value) "Max channel message"
-                        >>= (\x -> return bot{params=p{maxChanMsg=x}})
+                        >>= \x -> return bot{params=p{maxChanMsg=x}}
       NumThreads     -> replyMsg' (readInt 1 50 value) "Number of threads"
-                        >>= (\x -> return bot{params=p{numThreads=x}})
+                        >>= \x -> return bot{params=p{numThreads=x}}
       NSetSize       -> replyMsg' (readInt 2 256 value) "NSet size"
-                        >>= (\x -> return bot{params=p{nSetSize=x}})
+                        >>= \x -> return bot{params=p{nSetSize=x}}
       SentenceTries  -> replyMsg' (readInt 1 4096 value) "Sentence tries"
-                        >>= (\x -> return bot{params=p{sTries=x}})
+                        >>= \x -> return bot{params=p{sTries=x}}
       SentenceLength -> replyMsg' (readInt 2 256 value) "Sentence length"
-                        >>= (\x -> return bot{params=p{sLength=x}})
+                        >>= \x -> return bot{params=p{sLength=x}}
       ParseLength    -> replyMsg' (readInt 0 256 value) "Parse length"
-                        >>= (\x -> return bot{params=p{pLength=x}})
+                        >>= \x -> return bot{params=p{pLength=x}}
       Learning       -> replyMsg' value "Learning"
-                        >>= (\x -> return bot{params=p{learning=x}})
+                        >>= \x -> return bot{params=p{learning=x}}
       StrictLearn    -> replyMsg' (readBool value) "Strict learn"
-                        >>= (\x -> return bot{params=p{strictLearn=x}})
+                        >>= \x -> return bot{params=p{strictLearn=x}}
       StrictTopic    -> replyMsg' (readBool value) "Strict topic"
-                        >>= (\x -> return bot{params=p{strictTopic=x}})
+                        >>= \x -> return bot{params=p{strictTopic=x}}
       Autoname       -> replyMsg' (readBool value) "Auto name"
-                        >>= (\x -> return bot{params=p{autoName=x}})
+                        >>= \x -> return bot{params=p{autoName=x}}
       AllowPM        -> replyMsg' (readBool value) "Allow PM"
-                        >>= (\x -> return bot{params=p{allowPM=x}})
+                        >>= \x -> return bot{params=p{allowPM=x}}
       Debug          -> replyMsg' (readBool value) "Debug"
-                        >>= (\x -> return bot{params=p{debug=x}})
+                        >>= \x -> return bot{params=p{debug=x}}
       Randoms        -> replyMsg' (readInt 0 100 value) "Randoms"
-                        >>= (\x -> return bot{params=p{randoms=x}})
+                        >>= \x -> return bot{params=p{randoms=x}}
       ReplaceWords   -> replyMsg' (readBool value) "Replace words"
-                        >>= (\x -> return bot{params=p{replaceWord=x}})
+                        >>= \x -> return bot{params=p{replaceWord=x}}
       Timer          -> replyMsg' (readInt 0 36000 value) "Timer"
-                        >>= (\x -> return bot{params=p{timer=x}})
+                        >>= \x -> return bot{params=p{timer=x}}
       Delay          -> replyMsg' (readInt 0 120 value) "Delay"
-                        >>= (\x -> return bot{params=p{delay=x}})
+                        >>= \x -> return bot{params=p{delay=x}}
       Greetings      -> replyMsg' (readInt 0 100 value) "Greetings"
-                        >>= (\x -> return bot{params=p{greetings=x}})
+                        >>= \x -> return bot{params=p{greetings=x}}
       Actions        -> replyMsg' (readInt 0 100 value) "Actions"
-                        >>= (\x -> return bot{params=p{actions=x}})
-      DictFile -> do (d, de, b, m, pl) <- lift $
-                       catchJust (\e -> if isDoesNotExistErrorType (ioeGetErrorType e) then
-                                          return (Map.empty, [], [], [], (paramsToList p))
-                                        else
-                                          return (dict', defs', ban', match', (paramsToList p)))
-                       (loadDict fDir value) (\_ -> return (Map.empty, [], [], [], (paramsToList p)))
-                     _ <- lift $ saveDict lock f fDir dFile (paramsToList p)
-                     let pp = (readParamsFromList pl){nick=botNick, owner=owner', fuglyDir=fDir}
-                     replyMsg' value "Dict file" >>= (\x -> return bot{params=pp{dictFile=x},
-                       fugly=f{dict=d, defs=de, ban=b, match=m}})
+                        >>= \x -> return bot{params=p{actions=x}}
+      DictFile -> do
+        (d, de, b, m, pl) <- lift $
+          catchJust (\e -> if isDoesNotExistErrorType (ioeGetErrorType e) then
+                             return (Map.empty, [], [], [], (paramsToList p))
+                           else
+                             return (dict', defs', ban', match', (paramsToList p)))
+          (loadDict fDir value) (\_ -> return (Map.empty, [], [], [], (paramsToList p)))
+        _ <- lift $ saveDict lock f fDir dFile (paramsToList p)
+        let pp = (readParamsFromList pl){nick=botNick, owner=owner', fuglyDir=fDir}
+        replyMsg' value "Dict file" >>= \x -> return bot{params=pp{dictFile=x},
+          fugly=f{dict=d, defs=de, ban=b, match=m}}
       _ -> return bot
   where
     replyMsg' v msg = do replyMsg bot chan nick' (msg ++ " set to " ++ show v ++ ".")
