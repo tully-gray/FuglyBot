@@ -613,9 +613,8 @@ execCmd b chan nick' (x:xs) = do
   where
     execCmd' :: Bot -> FState -> IO Bot
     execCmd' bot@Bot{handle=h, params=p@Parameter{owner=owner', userCmd=userCmd',
-               nSetSize=nsets, autoName=autoName',
                debug=debug', topic=topic'},
-               fugly=f@(Fugly dict' _ pgf' wne' aspell' ban' match' _ _ _)} st
+               fugly=f@(Fugly _ _ pgf' wne' aspell' ban' match' _ _ _)} st
       | userCmd' == False && nick' /= owner' = return bot
       | x == "!quit" = Cmd.quit bot st isOwner write' xs
       | x == "!save" = Cmd.save bot st isOwner showRep showErr
@@ -638,41 +637,8 @@ execCmd b chan nick' (x:xs) = do
       | x == "!droptopic" = Cmd.dropTopic bot isOwner showRep xs
       | x == "!droptopicwords" = Cmd.dropTopicWords bot isOwner showRep xs
       | x == "!banafter" = Cmd.banAfter bot isOwner showRep xs
-      | x == "!ageword" = if isOwner then case length xs of
-          2 -> do num <- catch (if (read (xs!!1) :: Int) > 50 then return 50 else return (read (xs!!1) :: Int))
-                              {-- This has to be caught here? --}
-                              (\e -> do let err = show (e :: SomeException)
-                                        evalStateT (hPutStrLnLock stderr ("Exception in ageword command: read: " ++ err)) st
-                                        return 0)
-                  if isJust $ Map.lookup (xs!!0) dict' then
-                    if num > 0 then
-                      replyMsgT st bot chan nick' ("Aged word " ++ (xs!!0) ++ ".") >>
-                        return bot{fugly=f{dict=ageWord dict' (xs!!0) num}}
-                      else replyMsgT st bot chan nick' "Number not in range." >> return bot
-                    else replyMsgT st bot chan nick' ("Word " ++ (xs!!0) ++ " not in dict.") >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !ageword <word> <number>" >> return bot
-                          else return bot
-      | x == "!forcelearn" = if isOwner then let lenxs = length xs in
-          if lenxs == 0 || lenxs == 1 || lenxs == 2 then
-            replyMsgT st bot chan nick' "Usage: !forcelearn <number> <in> <out>" >> return bot
-            else do
-               num <- catch (if (read (xs!!0) :: Int) > 50 then return 50 else return (read (xs!!0) :: Int))
-                              {-- This has to be caught here? --}
-                              (\e -> do let err = show (e :: SomeException)
-                                        evalStateT (hPutStrLnLock stderr ("Exception in forcelearn command: read: " ++ err)) st
-                                        return 0)
-               let txs = tail xs
-               nd  <- insertWordsN (getLock st) f autoName' topic' num txs
-               let msg' = unwords txs
-                   f'   = \x' -> x' /= '.' && x' /= '?' && x' /= '!'
-                   inM  = words $ takeWhile f' msg'
-                   outM = words $ dropWhile f' msg'
-               (nn, ns, nm) <- nnInsert f nsets inM outM
-               if num > 0 then
-                 replyMsgT st bot chan nick' ("Message learned " ++ (xs!!0) ++ " times.") >>
-                   return bot{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}, lastm=tail xs}
-                 else replyMsgT st bot chan nick' "Number not in range." >> return bot
-                             else return bot
+      | x == "!ageword" = Cmd.ageWord bot st isOwner showRep showErr xs
+      | x == "!forcelearn" = Cmd.forceLearn bot st isOwner showRep showErr xs
       | x == "!banword" = if isOwner then case length xs of
           2 -> if (xs!!0) == "add" then
                  if elem (xs!!1) ban' then

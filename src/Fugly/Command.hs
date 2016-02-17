@@ -7,6 +7,7 @@ import           Control.Monad.Trans.State.Lazy
 import           Data.Char                      (isAscii)
 import qualified Data.Map.Lazy                  as Map
 import           Data.Maybe
+import           Fugly.Neural                   (nnInsert)
 import           Fugly.Parameter                as P
 import           Fugly.Types                    hiding (topic)
 import           Fugly.LoadSave
@@ -21,6 +22,9 @@ msg2 = " not in dict."
 
 msg3 :: String
 msg3 = "<Default|Normal|Response|Action|GreetAction|Greeting|Enter> <default>"
+
+msg4 :: String
+msg4 = "Number not in range."
 
 msg5 :: String
 msg5 = " after word "
@@ -306,3 +310,51 @@ banAfter b@Bot{fugly=f@Fugly{dict=d}} o f1 m =
     else return b
   where
     msgH = "Usage: !banafter <list|add|delete> <word> <after-word>"
+
+ageWord :: Bot -> FState -> Bool -> (String -> IO ())
+           -> (String -> StateT FState IO ()) -> [String] -> IO Bot
+ageWord b@Bot{fugly=f@Fugly{dict=d}} st o f1 f2 m =
+    if o then
+      case length m of
+        2 -> do num <- catch (if (read (m!!1) :: Int) > 50 then return 50
+                              else return (read (m!!1) :: Int))
+                         {-- This has to be caught here? --}
+                         (\e -> do let err = show (e :: SomeException)
+                                   evalStateT (f2 ("Exception in ageword command: read: " ++ err)) st
+                                   return 0)
+                if isJust $ Map.lookup (m!!0) d then
+                  if num > 0 then
+                    f1 ("Aged word " ++ (m!!0) ++ ".") >>
+                    return b{fugly=f{dict=FuglyLib.ageWord d (m!!0) num}}
+                    else f1 msg4 >> return b
+                  else f1 ("Word " ++ (m!!0) ++ msg2) >> return b
+        _ -> f1 "Usage: !ageword <word> <number>" >> return b
+    else return b
+
+forceLearn :: Bot -> FState -> Bool -> (String -> IO ())
+              -> (String -> StateT FState IO ()) -> [String] -> IO Bot
+forceLearn b@Bot{fugly=f, params=p@Parameter{topic=topic', nSetSize=nsets, autoName=an}}
+             st o f1 f2 m = return p >>
+    if o then let lenxs = length m in
+      if lenxs == 0 || lenxs == 1 || lenxs == 2 then
+        f1 "Usage: !forcelearn <number> <in> <out>" >> return b
+      else do
+        num <- catch (if (read (m!!0) :: Int) > 50 then return 50
+                      else return (read (m!!0) :: Int))
+                 {-- This has to be caught here? --}
+                 (\e -> do let err = show (e :: SomeException)
+                           _ <- evalStateT (f2 ("Exception in forcelearn command: read: " ++ err)) st
+                           return 0)
+        let txs = tail m
+        nd  <- insertWordsN (getLock st) f an topic' num txs
+        let msg' = unwords txs
+            f'   = \x' -> x' /= '.' && x' /= '?' && x' /= '!'
+            inM  = words $ takeWhile f' msg'
+            outM = words $ dropWhile f' msg'
+        (nn, ns, nm) <- nnInsert f nsets inM outM
+        if num > 0 then
+          f1 ("Message learned " ++ (m!!0) ++ " times.") >>
+          return b{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}, lastm=tail m}
+          else f1 msg4 >> return b
+    else return b
+forceLearn b _ _ _ _ _ = return b
