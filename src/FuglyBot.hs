@@ -616,7 +616,7 @@ execCmd b chan nick' (x:xs) = do
     execCmd' :: Bot -> FState -> IO Bot
     execCmd' bot@Bot{handle=h, params=p@Parameter{owner=owner', userCmd=userCmd',
                debug=debug', topic=topic'},
-               fugly=f@(Fugly _ _ pgf' wne' aspell' ban' match' _ _ _)} st
+               fugly=f@Fugly{pgf=pgf', wne=wne', aspell=aspell'}} st
       | userCmd' == False && nick' /= owner' = return bot
       | x == "!quit" = Cmd.quit bot st isOwner write' xs
       | x == "!save" = Cmd.save bot st isOwner showRep showErr
@@ -641,56 +641,10 @@ execCmd b chan nick' (x:xs) = do
       | x == "!banafter" = Cmd.banAfter bot isOwner showRep xs
       | x == "!ageword" = Cmd.ageWord bot st isOwner showRep showErr xs
       | x == "!forcelearn" = Cmd.forceLearn bot st isOwner showRep showErr xs
-      | x == "!banword" = if isOwner then case length xs of
-          2 -> if (xs!!0) == "add" then
-                 if elem (xs!!1) ban' then
-                   replyMsgT st bot chan nick' ("Learning on word " ++ (xs!!1) ++ " already banned.") >> return bot
-                 else
-                   replyMsgT st bot chan nick' ("Banned learning on word " ++ (xs!!1) ++ ".") >>
-                     return bot{fugly=f{ban=nub $ ban' ++ [(xs!!1)]}}
-               else if (xs!!0) == "delete" then
-                 if notElem (xs!!1) ban' then
-                   replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " not in ban list.") >> return bot
-                 else
-                   replyMsgT st bot chan nick' ("Unbanned learning on word " ++ (xs!!1) ++ ".") >>
-                     return bot{fugly=f{ban=nub $ delete (xs!!1) ban'}}
-                 else replyMsgT st bot chan nick' "Usage: !banword <list|add|delete> <word>" >> return bot
-          1 -> if (xs!!0) == "list" then
-                 replyMsgT st bot chan nick' ("Banned word list: " ++ unwords ban') >> return bot
-               else replyMsgT st bot chan nick' "Usage: !banword <list|add|delete> <word>" >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !banword <list|add|delete> <word>" >> return bot
-                          else return bot
-      | x == "!matchword" = if isOwner then case length xs of
-          2 -> if (xs!!0) == "add" then
-                 if elem (xs!!1) match' then
-                   replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " already matched.") >> return bot
-                 else
-                   replyMsgT st bot chan nick' ("Matching word " ++ (xs!!1) ++ ".") >>
-                     return bot{fugly=f{match=nub $ match' ++ [(xs!!1)]}}
-               else if (xs!!0) == "delete" then
-                 if notElem (xs!!1) match' then
-                   replyMsgT st bot chan nick' ("Word " ++ (xs!!1) ++ " not in match list.") >> return bot
-                 else
-                   replyMsgT st bot chan nick' ("No longer matching word " ++ (xs!!1) ++ ".") >>
-                     return bot{fugly=f{match=nub $ delete (xs!!1) match'}}
-                 else replyMsgT st bot chan nick' "Usage: !matchword <list|add|delete> <word>" >> return bot
-          1 -> if (xs!!0) == "list" then
-                 replyMsgT st bot chan nick' ("Matched word list: " ++ unwords match') >> return bot
-               else replyMsgT st bot chan nick' "Usage: !matchword <list|add|delete> <word>" >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !matchword <list|add|delete> <word>" >> return bot
-                            else return bot
-      | x == "!talk" = do
-          if isOwner then
-            if length xs > 2 then do
-              r'   <- Random.getStdRandom (Random.randomR (0, 99))
-              load <- getLoad
-              forkReply st bot r' load (xs!!0) (xs!!1) (drop 2 xs) >> return bot
-            else replyMsgT st bot chan nick' "Usage: !talk <channel> <nick> <msg>" >> return bot
-            else return bot
-      | x == "!raw" = if isOwner then
-          if length xs > 0 then evalStateT (write h debug' (xs!!0) (unwords $ tail xs)) st >> return bot
-          else replyMsgT st bot chan nick' "Usage: !raw <msg>" >> return bot
-                      else return bot
+      | x == "!banword" = Cmd.banWord bot isOwner showRep xs
+      | x == "!matchword" = Cmd.matchWord bot isOwner showRep xs
+      | x == "!talk" = Cmd.talk bot isOwner showRep (forkReply st) getLoad xs
+      | x == "!raw" = Cmd.raw bot st isOwner showRep write' xs
       | x == "!dict" = case length xs of
           2 -> (dictLookup (getLock st) f (xs!!0) (xs!!1)) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
           1 -> (dictLookup (getLock st) f (xs!!0) []) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot

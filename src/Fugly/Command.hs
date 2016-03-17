@@ -1,17 +1,19 @@
 module Fugly.Command where
 
-import           Control.Concurrent             (MVar, readMVar, swapMVar)
+import           Control.Concurrent             (MVar, readMVar, swapMVar, ThreadId)
 import           Control.Exception              (catch, SomeException)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.State.Lazy
 import           Data.Char                      (isAscii)
 import qualified Data.Map.Lazy                  as Map
+import           Data.List                      (delete, nub)
 import           Data.Maybe
 import           Fugly.Neural                   (nnInsert)
 import           Fugly.Parameter                as P
 import           Fugly.Types                    hiding (topic)
 import           Fugly.LoadSave
 import           FuglyLib
+import           System.Random                  (getStdRandom, randomR)
 import           Text.Regex.Posix               hiding (match)
 
 msg1 :: String
@@ -358,3 +360,73 @@ forceLearn b@Bot{fugly=f, params=p@Parameter{topic=topic', nSetSize=nsets, autoN
           else f1 msg4 >> return b
     else return b
 forceLearn b _ _ _ _ _ = return b
+
+banWord :: Bot -> Bool -> (String -> IO ()) -> [String] -> IO Bot
+banWord b@Bot{fugly=f@Fugly{ban=ban'}} o f1 m =
+    if o then
+      case length m of
+        2 -> if (m!!0) == "add" then
+               if elem (m!!1) ban' then
+                 f1 ("Learning on word " ++ (m!!1) ++ " already banned.") >> return b
+               else
+                 f1 ("Banned learning on word " ++ (m!!1) ++ ".") >>
+                 return b{fugly=f{ban=nub $ ban' ++ [(m!!1)]}}
+             else if (m!!0) == "delete" then
+               if notElem (m!!1) ban' then
+                 f1 ("Word " ++ (m!!1) ++ " not in ban list.") >> return b
+               else
+                 f1 ("Unbanned learning on word " ++ (m!!1) ++ ".") >>
+                 return b{fugly=f{ban=nub $ delete (m!!1) ban'}}
+             else f1 msgH >> return b
+        1 -> if (m!!0) == "list" then
+                 f1 ("Banned word list: " ++ unwords ban') >> return b
+             else f1 msgH >> return b
+        _ -> f1 msgH >> return b
+    else return b
+  where
+    msgH = "Usage: !banword <list|add|delete> <word>"
+
+matchWord :: Bot -> Bool -> (String -> IO ()) -> [String] -> IO Bot
+matchWord b@Bot{fugly=f@Fugly{match=match'}} o f1 m =
+    if o then
+      case length m of
+        2 -> if (m!!0) == "add" then
+               if elem (m!!1) match' then
+                 f1 ("Word " ++ (m!!1) ++ " already matched.") >> return b
+               else
+                 f1 ("Matching word " ++ (m!!1) ++ ".") >>
+                 return b{fugly=f{match=nub $ match' ++ [(m!!1)]}}
+             else if (m!!0) == "delete" then
+               if notElem (m!!1) match' then
+                 f1 ("Word " ++ (m!!1) ++ " not in match list.") >> return b
+               else
+                 f1 ("No longer matching word " ++ (m!!1) ++ ".") >>
+                 return b{fugly=f{match=nub $ delete (m!!1) match'}}
+             else f1 msgH >> return b
+        1 -> if (m!!0) == "list" then
+               f1 ("Matched word list: " ++ unwords match') >> return b
+             else f1 msgH >> return b
+        _ -> f1 msgH >> return b
+    else return b
+  where
+    msgH = "Usage: !matchword <list|add|delete> <word>"
+
+talk :: Bot -> Bool -> (String -> IO ())
+        -> (Bot -> Int -> [String] -> String -> String -> [String] -> IO ThreadId)
+        -> IO [String] -> [String] -> IO Bot
+talk b o f1 f2 f3 m = do
+    if o then
+      if length m > 2 then do
+        r <- getStdRandom (randomR (0, 99))
+        l <- f3 -- getLoad
+        f2 b r l (m!!0) (m!!1) (drop 2 m) >> return b
+      else f1 "Usage: !talk <channel> <nick> <msg>" >> return b
+      else return b
+
+raw :: Bot -> FState -> Bool -> (String -> IO ())
+       -> (String -> String -> StateT FState IO ()) -> [String] -> IO Bot
+raw b st o f1 f2 m =
+    if o then
+      if length m > 0 then evalStateT (f2 (m!!0) (unwords $ tail m)) st >> return b
+      else f1 "Usage: !raw <msg>" >> return b
+    else return b
