@@ -250,15 +250,17 @@ defsReplace :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
               -> String -> String -> String -> IO String
 defsReplace _  _     _ _     _      _      _       _      _    [] = return []
 defsReplace st fugly r debug rwords stopic randoms topic' nick' m = do
-    let s = replyRandom' st fugly r debug False False rwords stopic randoms
-            5 3 3 topic' [topic']
+    let s = if m Regex.=~ "#random" then
+               replyRandom' st fugly r debug False False rwords stopic randoms
+               5 3 3 topic' [topic']
+            else []
     mm <- fixIt st debug s [] 1 0 0 15
     let m'  = unwords mm
         n'  = if null nick' then "somebody" else nick'
         tt' = if null topic' then "stuff" else topic'
         o'  = replace "#nick" n' $ replace "#topic" tt' $ words m
         f'  = return . dePlenk . unwords
-    if null m' || not (m Regex.=~ "#random") then f' o' else
+    if null m' then f' o' else
       f' $ replace "#random" m' o'
 
 fixIt :: MVar () -> Bool -> [IO String] -> [String] -> Int -> Int

@@ -530,7 +530,6 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=ple
         matchon  = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
         isaction = head msg == "\SOHACTION"
         l        = nick' =~ learn' || chan =~ learn'
-    action <- lift $ ircAction lock f d rw st' rand False nick' top defs'
     if null fmsg then return () else lift $
       (if null chan then
          if apm && not isaction then
@@ -538,9 +537,10 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=ple
          else return ()
        else if chanmsg then
          if (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchon then
-           if isaction && (not $ null action) && (rr - 60 < acts  || rr * 5 + 15 < acts) then
-             evalStateT (write h d "PRIVMSG"
-               (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
+           if isaction && (rr - 60 < acts  || rr * 5 + 15 < acts) then do
+             action <- ircAction lock f d rw st' rand False nick' top defs'
+             if null action then return ()
+               else evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
            else forkReply st bot rr load chan (if r' < 55 then chan else nick') fmsg >> return ()
          else return ()
            else forkReply st bot rr load chan nick' fmsg >> return ())
@@ -570,10 +570,10 @@ forkReply st@(_, lock, tc, _) Bot{handle=h,
                 fugly=fugly'} r load chan nick' msg = forkIO (do
     tId <- myThreadId
     tc' <- incT tc tId
-    _   <- if d then evalStateT (hPutStrLnLock stdout
-                       ("> debug: thread count: " ++ show tc')) st
-           else return ()
     _   <- return p
+    if d then evalStateT (hPutStrLnLock stdout
+                       ("> debug: thread count: " ++ show tc')) st
+      else return ()
     let fload = read $ fHead [] load :: Float
         r'    = 1 + mod r 7
         rr    = mod r 6
