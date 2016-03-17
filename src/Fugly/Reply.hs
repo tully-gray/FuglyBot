@@ -21,10 +21,9 @@ replyResponse st fugly@Fugly{defs=defs'} r debug rwords stopic randoms
     let r' = [de | (t, de) <- defs', t == Response]
         l  = map f2 r'
         ((_, o), d) = bestLevenshtein2 msg l
-    if d <= maxDist then do
-      o' <- if o Regex.=~ "#random" then defsRandom st fugly r debug rwords stopic
-                                   randoms topic' o else return o
-      return $ defsReplaceWords nick' topic' o' else return []
+    if d <= maxDist then
+      defsReplace st fugly r debug rwords stopic randoms topic' nick' o
+      else return []
   where
     f1 = \x' -> x' /= '.' && x' /= '?' && x' /= '!'
     f2 :: String -> (String, String)
@@ -240,23 +239,27 @@ replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     s1f _ _ []     = []
     s1f i f (x:xs) = f i x : s1f (i + 1) f xs
 
-replyDefault :: Fugly -> Int -> String -> String -> IO String
-replyDefault Fugly{defs=defs', pgf=pgf'} r nick' topic' = do
+replyDefault :: MVar () -> Fugly -> Int -> String -> String -> IO String
+replyDefault st f@Fugly{defs=defs', pgf=pgf'} r nick' topic' = do
     let d    = [de | (t, de) <- defs', t == Default]
         lenD = length d
     if lenD == 0 then gfRandom pgf' []
-      else return $ defsReplaceWords nick' topic' $ d!!mod r lenD
+      else defsReplace st f 23 False False False 17 topic' nick' $ d!!mod r lenD
 
-defsRandom :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
-              -> String -> String -> IO String
-defsRandom _  _     _ _     _      _      _       _     [] = return []
-defsRandom st fugly r debug rwords stopic randoms topic' m = do
+defsReplace :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
+              -> String -> String -> String -> IO String
+defsReplace _  _     _ _     _      _      _       _      _    [] = return []
+defsReplace st fugly r debug rwords stopic randoms topic' nick' m = do
     let s = replyRandom' st fugly r debug False False rwords stopic randoms
             5 3 3 topic' [topic']
     mm <- fixIt st debug s [] 1 0 0 15
-    let m' = unwords mm
-    if null m' then return m else
-      return $ dePlenk $ unwords $ replace "#random" m' $ words m
+    let m'  = unwords mm
+        n'  = if null nick' then "somebody" else nick'
+        tt' = if null topic' then "stuff" else topic'
+        o'  = replace "#nick" n' $ replace "#topic" tt' $ words m
+        f'  = return . dePlenk . unwords
+    if null m' || not (m Regex.=~ "#random") then f' o' else
+      f' $ replace "#random" m' o'
 
 fixIt :: MVar () -> Bool -> [IO String] -> [String] -> Int -> Int
          -> Int -> Int -> IO [String]

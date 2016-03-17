@@ -112,13 +112,14 @@ run = do
 
 listenIRC :: FState -> Handle -> String -> IO ()
 listenIRC st h l = do
-    let b = getBot st
+    let b    = getBot st
+        lock = getLock st
     bot@Bot{params=p@Parameter{nick=bn, owner=o, debug=d, greetings=g}} <- readMVar b
     let cn = getChanNicks st
     r   <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     cn' <- readMVar cn
     let rr  = mod (r + length l + length (Map.toList cn') + 50) 100
-    listenIRC' bot p b d bn o g cn cn' rr
+    listenIRC' lock bot p b d bn o g cn cn' rr
   where
     ll  = words l
     lll = take 2 $ drop 1 ll
@@ -128,7 +129,7 @@ listenIRC st h l = do
       chan   = takeWhile (\x -> x /= ' ') $ dropWhile (\x -> x /= '#') l in
       if null cnicks then return ()
         else swapMVar cn (Map.insert chan cnicks cn') >> return ()
-    listenIRC' bot p b d bn o g cn cn' rr
+    listenIRC' lock bot p b d bn o g cn cn' rr
       | "PING :" `isPrefixOf` l = evalStateT (write h d "PONG" (':' : drop 6 l)) st >> return ()
       | "433 " `isPrefixOf` lm = evalStateT (write h d "NICK" (bn ++ "_")) st >>
           swapMVar b bot{params=p{nick=(bn ++ "_")}} >>
@@ -138,7 +139,7 @@ listenIRC st h l = do
       | (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == bn =
           (do nb <- evalStateT (changeNick lll) st ; swapMVar b nb) >> return ()
       | (length ll > 2) && (fHead [] lll) == "JOIN" && rr < g =
-          evalStateT (greeting $ words l) st >> return ()
+          evalStateT (greeting lock $ words l) st >> return ()
       | otherwise = (catch (evalStateT (processLine rr $ words l) st >> return ())
           (\e -> do let err = show (e :: SomeException)
                     evalStateT (hPutStrLnLock stderr ("Exception in processLine: " ++ err)) st
@@ -385,14 +386,16 @@ timerLoop st = do
     _   <- incT tc tId
     forever $ do
       r <- Random.getStdRandom (Random.randomR (0, 999))
-      let b = getBot st
+      let b    = getBot st
+          lock = getLock st
       Bot{params=p@Parameter{timer=t}} <- readMVar b
       _ <- return p
       let timer' = if (t < 5) then 30000000 else t * 1000000 + (t * r * 500)
       threadDelay timer'
       if t > 4 then do
         bot@Bot{handle=h, params=pp@Parameter{nick=botnick,
-                topic=topic', debug=d, actions=acts},
+                randoms=rand, replaceWord=rw, debug=d,
+                strictTopic=st', topic=topic', actions=acts},
                 fugly=f@Fugly{defs=defs'}} <- readMVar b
         _ <- return (pp, f)
         let norm    = [de | (type', de) <- defs', type' == Normal]
@@ -409,10 +412,10 @@ timerLoop st = do
           let n   = delete botnick $ fromJust nicks
               n'  = cleanStringBlack (\x -> x == '@' || x == '&' ||
                       x == '~' || x == '+') $ n!!mod r (length n)
-              msg = if lenNorm == 0 then "Well this is interesting..."
-                      else defsReplaceWords n' topic' $ norm!!mod r lenNorm
               who = if mod (r + 11) 3 == 0 then n' else chan
-          action <- ircAction False n' topic' defs'
+          msg <- if lenNorm == 0 then return "Well this is interesting..."
+                 else defsReplace lock f r d rw st' rand topic' n' $ norm!!mod r lenNorm
+          action <- ircAction lock f d rw st' rand False n' topic' defs'
           if (not $ null action) && r < acts * 10 then
             forkIO (evalStateT (write h d "PRIVMSG"
                    (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
@@ -423,43 +426,42 @@ timerLoop st = do
           else forkIO $ return ()
         else forkIO $ return ()
 
-ircAction :: Bool -> String -> String -> [Default] -> IO String
-ircAction _     []    _      _     = return []
-ircAction _     _     _      []    = return []
-ircAction greet nick' topic' defs' = do
+ircAction :: MVar () -> Fugly -> Bool -> Bool -> Bool -> Int
+             -> Bool -> String -> String -> [Default] -> IO String
+ircAction _ _ _ _  _   _    _ [] _  _     = return []
+ircAction _ _ _ _  _   _    _ _  _  []    = return []
+ircAction l f d rw st' rand g n top defs' = do
     r <- Random.getStdRandom (Random.randomR (0, 999)) :: IO Int
-    let action     = [de | (type', de) <- defs', type' == Action]
-    let lenAction  = length action
-    let gaction    = [de | (type', de) <- defs', type' == GreetAction]
-    let lenGaction = length gaction
-    return (if greet then
-              if lenGaction == 0 then []
-              else defsReplaceWords nick' topic' $ gaction!!mod r lenGaction
-            else
-              if lenAction == 0 then []
-              else defsReplaceWords nick' topic' $ action!!mod r lenAction)
+    let action  = [de | (t, de) <- defs', t == Action]
+        gaction = [de | (t, de) <- defs', t == GreetAction]
+        rep     = defsReplace l f r d rw st' rand top n
+    if g then
+      if (length gaction) == 0 then return []
+      else rep $ gaction!!mod r (length gaction)
+      else
+        if (length action) == 0 then return []
+        else rep $ action!!mod r (length action)
 
-greeting :: [String] -> StateT FState IO ()
-greeting []   = return ()
-greeting line = do
+greeting :: MVar () -> [String] -> StateT FState IO ()
+greeting _    []   = return ()
+greeting lock line = do
     b <- gets getBot
-    bot@Bot{handle=h, params=p@Parameter{nick=n, debug=d, topic=top},
+    bot@Bot{handle=h, params=p@Parameter{nick=n, debug=d, topic=top,
+            replaceWord=rw, strictTopic=st, randoms=rand},
             fugly=f@Fugly{defs=defs'}} <- lift $ takeMVar b
     _ <- return (p, f)
     r <- lift $ Random.getStdRandom (Random.randomR (0, 999)) :: StateT FState IO Int
     lift $ threadDelay (600000 * (mod r 8) + 2000000)
-    action <- lift $ ircAction True who top defs'
-    let enter     = [de | (t, de) <- defs', t == Enter]
-        lenEnter  = length enter
-        greet     = [de | (t, de) <- defs', t == Greeting]
-        lenGreet  = length greet
-    if who == n then
-      replyMsg bot chan [] $ if lenEnter == 0 then [] else
-        defsReplaceWords [] top $ enter!!mod r lenEnter
-      else if null action || r < 600 then
-             let l = if lenGreet == 0 then [] else greet!!mod r lenGreet in
-             replyMsg bot chan (if elem "#nick" $ words l then [] else who) $
-               defsReplaceWords who top l
+    action <- lift $ ircAction lock f d rw st rand True who top defs'
+    let enter = [de | (t, de) <- defs', t == Enter]
+        greet = [de | (t, de) <- defs', t == Greeting]
+    if who == n then do
+      rep <- lift $ defsReplace lock f r d rw st rand top [] $ enter!!mod r (length enter)
+      replyMsg bot chan [] $ if (length enter) == 0 then [] else rep
+      else if null action || r < 600 then do
+             let l = if (length greet) == 0 then [] else greet!!mod r (length greet)
+             rep <- lift $ defsReplace lock f r d rw st rand top who l
+             replyMsg bot chan (if elem "#nick" $ words l then [] else who) rep
            else
              write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")
     lift $ putMVar b bot >> return ()
@@ -501,8 +503,8 @@ reply :: Bot -> Int -> Bool -> String -> String -> [String]
          -> StateT FState IO Bot
 reply bot _ _ _ _ [] = return bot
 reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=plen,
-              autoName=an, allowPM=apm, debug=d, topic=top,
-              nSetSize=nsets, actions=acts, strictLearn=sl},
+              autoName=an, allowPM=apm, debug=d, topic=top, replaceWord=rw, randoms=rand,
+              nSetSize=nsets, actions=acts, strictLearn=sl, strictTopic=st'},
               fugly=f@Fugly{defs=defs', pgf=pgf', aspell=aspell',
                             dict=dict', match=match',
                             ban=ban'}, lastm=lastm'}
@@ -528,7 +530,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=ple
         matchon  = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
         isaction = head msg == "\SOHACTION"
         l        = nick' =~ learn' || chan =~ learn'
-    action <- lift $ ircAction False nick' top defs'
+    action <- lift $ ircAction lock f d rw st' rand False nick' top defs'
     if null fmsg then return () else lift $
       (if null chan then
          if apm && not isaction then
@@ -588,7 +590,7 @@ forkReply st@(_, lock, tc, _) Bot{handle=h,
       y <- if null $ v ++ w ++ x then replyRandom lock fugly' r d rw stopic
                           rand str slen plen top num msg else return []
       let y' = unwords y
-      z <- if null $ v ++ w ++ x ++ y' then replyDefault fugly' r nick' top
+      z <- if null $ v ++ w ++ x ++ y' then replyDefault lock fugly' r nick' top
            else return []
       let s = if null v then if null w then if null x then if null y' then z else unwords y else x else w else v
       evalStateT (do if null s then return ()

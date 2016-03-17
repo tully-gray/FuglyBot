@@ -873,15 +873,15 @@ nouns "okay"  = "okays"
 nouns "stuff" = "stuff"
 nouns n       = if last n == 'y' then (init n) ++ "ies" else n ++ "s"
 
-defsReplaceWords :: String -> String -> String -> String
-defsReplaceWords _  _ [] = []
-defsReplaceWords [] [] m = m
-defsReplaceWords [] t  m = dePlenk $ unwords $ replace "#topic" t $
-                    replace "#nick" "somebody" $ words m
-defsReplaceWords n []  m = dePlenk $ unwords $ replace "#topic" "stuff" $
-                    replace "#nick" n $ words m
-defsReplaceWords n  t  m = dePlenk $ unwords $ replace "#topic" t $
-                    replace "#nick" n $ words m
+-- defsReplaceWords :: String -> String -> String -> String
+-- defsReplaceWords _  _ [] = []
+-- defsReplaceWords [] [] m = m
+-- defsReplaceWords [] t  m = dePlenk $ unwords $ replace "#topic" t $
+--                     replace "#nick" "somebody" $ words m
+-- defsReplaceWords n []  m = dePlenk $ unwords $ replace "#topic" "stuff" $
+--                     replace "#nick" n $ words m
+-- defsReplaceWords n  t  m = dePlenk $ unwords $ replace "#topic" t $
+--                     replace "#nick" n $ words m
 
 wnReplaceWords :: Fugly -> Bool -> Int -> [String] -> IO [String]
 wnReplaceWords _                               _     _       []  = return []
