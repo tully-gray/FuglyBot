@@ -16,7 +16,6 @@ import           Fugly.Types                    hiding (topic)
 import           FuglyLib                       hiding (hPutStrLnLock)
 import           Network.Socket                 hiding (Debug)
 import           Network.Socks5
-import           NLP.WordNet.PrimTypes          (allForm, allPOS)
 import           Prelude
 import           System.Environment
 import           System.IO
@@ -644,54 +643,23 @@ execCmd b chan nick' (x:xs) = do
       | x == "!matchword" = Cmd.matchWord bot isOwner showRep xs
       | x == "!talk" = Cmd.talk bot isOwner showRep (forkReply st) getLoad xs
       | x == "!raw" = Cmd.raw bot st isOwner showRep write' xs
-      | x == "!dict" = case length xs of
-          2 -> (dictLookup (getLock st) f (xs!!0) (xs!!1)) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
-          1 -> (dictLookup (getLock st) f (xs!!0) []) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !dict <word> [part-of-speech]" >> return bot
-      | x == "!closure" = case length xs of
-          3 -> (wnClosure wne' (xs!!0) (xs!!1) (xs!!2)) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
-          2 -> (wnClosure wne' (xs!!0) (xs!!1) []) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
-          1 -> (wnClosure wne' (xs!!0) [] []) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !closure <word> [form] [part-of-speech]" >> return bot
-      | x == "!meet" = case length xs of
-          3 -> (wnMeet wne' (xs!!0) (xs!!1) (xs!!2)) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
-          2 -> (wnMeet wne' (xs!!0) (xs!!1) []) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !meet <word> <word> [part-of-speech]" >> return bot
-      | x == "!parse" = if isOwner then case length xs of
-          0 -> replyMsgT st bot chan nick' "Usage: !parse <msg>" >> return bot
-          _ -> (mapM (\x' -> replyMsgT st bot chan nick' x') $ take 3 (gfParseShow pgf' (unwords $ take 12 xs))) >> return bot
-                        else return bot
-      | x == "!related" = case length xs of
-          3 -> (wnRelated wne' (xs!!0) (xs!!1) (xs!!2)) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
-          2 -> (wnRelated wne' (xs!!0) (xs!!1) []) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
-          1 -> (wnRelated wne' (xs!!0) [] []) >>= (\x' -> replyMsgT st bot chan nick' x') >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !related <word> [form] [part-of-speech]" >> return bot
-      | x == "!forms"  = case length xs of
-          0 -> replyMsgT st bot chan nick' (concat $ map (++ " ") $ map show allForm) >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !forms" >> return bot
-      | x == "!parts"  = case length xs of
-          0 -> replyMsgT st bot chan nick' (concat $ map (++ " ") $ map show allPOS) >> return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !parts" >> return bot
-      | x == "!isname" = case length xs of
-          1 -> do n <- asIsName (getLock st) aspell' (xs!!0)
-                  replyMsgT st bot chan nick' (show n)
-                  return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !isname <word>" >> return bot
-      | x == "!isacronym" = case length xs of
-          1 -> do n <- asIsAcronym (getLock st) aspell' (xs!!0)
-                  replyMsgT st bot chan nick' (show n)
-                  return bot
-          _ -> replyMsgT st bot chan nick' "Usage: !isacronym <word>" >> return bot
-      | x == "!params" = if isOwner then replyMsgT st bot chan nick' (init (concat $ map (++ " ")
-                                      $ map show $ init allParams)) >> return bot
-                         else return bot
-      | otherwise  = if isOwner then replyMsgT st bot chan nick'
+      | x == "!dict" = Cmd.dictL bot st showRep xs
+      | x == "!closure" = Cmd.closure bot showRep (wnClosure wne') xs
+      | x == "!meet" = Cmd.meet bot showRep (wnMeet wne') xs
+      -- | x == "!parse" = Cmd.parse bot isOwner showRep (gfParseShow pgf') xs
+      | x == "!related" = Cmd.related bot showRep (wnRelated wne') xs
+      | x == "!forms" = Cmd.showForms bot showRep xs
+      | x == "!parts" = Cmd.showParts bot showRep xs
+      | x == "!isname" = Cmd.isName bot showRep (asIsName (getLock st) aspell') xs
+      | x == "!isacronym" = Cmd.isName bot showRep (asIsAcronym (getLock st) aspell') xs
+      | x == "!params" = Cmd.listParams bot isOwner showRep
+      | otherwise = if isOwner then showRep
           ("Commands: !word !wordlist !insertword !name !namelist !acronym !acronymlist !insertacronym "
           ++ "!dropword !banword !matchword !insertdefault !dropdefault !dropafter !banafter "
           ++ "!ageword !topiclist !droptopic !droptopicwords !forcelearn "
           ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
           ++ "!setparam !showparams !nick !join !part !talk !raw !quit !load !save") >> return bot
-                     else replyMsgT st bot chan nick'
+                     else showRep
           ("Commands: !word !wordlist !name !namelist !acronym !acronymlist !topiclist "
           ++ "!dict !closure !meet !related !forms !parts !isname !isacronym") >> return bot
       where

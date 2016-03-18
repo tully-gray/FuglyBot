@@ -13,6 +13,7 @@ import           Fugly.Parameter                as P
 import           Fugly.Types                    hiding (topic)
 import           Fugly.LoadSave
 import           FuglyLib
+import           NLP.WordNet.PrimTypes          (allForm, allPOS)
 import           System.Random                  (getStdRandom, randomR)
 import           Text.Regex.Posix               hiding (match)
 
@@ -139,14 +140,12 @@ word b@Bot{fugly=f@Fugly{dict=d}} x f1 m = return f >>
 wordList :: Bot -> String -> (String -> IO ()) -> [String] -> IO Bot
 wordList b@Bot{fugly=f@Fugly{dict=d}} x f1 m = return f >>
     let num = if read (m!!0) > (100 :: Int) then 100 :: Int else read (m!!0)
-        re  = "word|name|acronym" in
+        re  = x =~ "word|name|acronym"
+        f2  = unwords . listWordsCountSort d num (x =~ re)
+        f3  = show . numWords d (x =~ re) in
     case length m of
-      2 -> f1 (unwords $ listWordsCountSort d num (x =~ re) (m!!1)) >>
-             f1 ("Total " ++ (x =~ re) ++ " count with topic " ++ (m!!1) ++ ": " ++
-             (show $ numWords d (x =~ re) (m!!1))) >> return b
-      1 -> f1 (unwords $ listWordsCountSort d num (x =~ re) []) >>
-             f1 ("Total " ++ (x =~ re) ++ " count: " ++
-             (show $ numWords d (x =~ re) [])) >> return b
+      2 -> f1 (f2 (m!!1)) >> f1 ("Total " ++ re ++ " count with topic " ++ (m!!1) ++ ": " ++ (f3 (m!!1))) >> return b
+      1 -> f1 (f2 []) >> f1 ("Total " ++ re ++ " count: " ++ (f3 [])) >> return b
       _ -> f1 ("Usage: " ++ x ++ " <number> [topic]") >> return b
 
 insertWord :: Bot -> FState -> Bool -> (String -> IO ())
@@ -417,3 +416,73 @@ raw b st o f1 f2 m =
       if length m > 0 then evalStateT (f2 (m!!0) (unwords $ tail m)) st >> return b
       else f1 "Usage: !raw <msg>" >> return b
     else return b
+
+dictL :: Bot -> FState -> (String -> IO ()) -> [String] -> IO Bot
+dictL b@Bot{fugly=f} st f1 m = return f >>
+    if not $ (length m) == 1 then
+      f1 "Usage: !dict <word> [part-of-speech]" >> return b
+    else
+      (dictLookup (getLock st) f (m!!0) []) >>= (\x' -> f1 x') >> return b
+
+closure :: Bot -> (String -> IO ()) -> (String -> String -> String -> IO String)
+           -> [String] -> IO Bot
+closure b f1 f2 m =
+    case length m of
+      3 -> (f2 (m!!0) (m!!1) (m!!2)) >>= (\x' -> f1 x') >> return b
+      2 -> (f2 (m!!0) (m!!1) []) >>= (\x' -> f1 x') >> return b
+      1 -> (f2 (m!!0) [] []) >>= (\x' -> f1 x') >> return b
+      _ -> f1 "Usage: !closure <word> [form] [part-of-speech]" >> return b
+
+meet :: Bot -> (String -> IO ()) -> (String -> String -> String -> IO String)
+        -> [String] -> IO Bot
+meet b f1 f2 m =
+    case length m of
+      3 -> (f2 (m!!0) (m!!1) (m!!2)) >>= (\x' -> f1 x') >> return b
+      2 -> (f2 (m!!0) (m!!1) []) >>= (\x' -> f1 x') >> return b
+      _ -> f1 "Usage: !meet <word> <word> [part-of-speech]" >> return b
+
+parse :: Bot -> Bool -> (String -> IO ()) -> (String -> [String]) -> [String] -> IO Bot
+parse b o f1 f2 m =
+    if o then
+       case length m of
+         0 -> f1 "Usage: !parse <msg>" >> return b
+         _ -> (mapM (\x' -> f1 x') $ take 3 (f2 (unwords $ take 12 m))) >> return b
+    else return b
+
+related :: Bot -> (String -> IO ()) -> (String -> String -> String -> IO String)
+           -> [String] -> IO Bot
+related b f1 f2 m =
+    case length m of
+      3 -> (f2 (m!!0) (m!!1) (m!!2)) >>= (\x' -> f1 x') >> return b
+      2 -> (f2 (m!!0) (m!!1) []) >>= (\x' -> f1 x') >> return b
+      1 -> (f2 (m!!0) [] []) >>= (\x' -> f1 x') >> return b
+      _ -> f1 "Usage: !related <word> [form] [part-of-speech]" >> return b
+
+showForms :: Bot -> (String -> IO ()) -> [String] -> IO Bot
+showForms b f1 m =
+    case length m of
+          0 -> f1 (concat $ map (++ " ") $ map show allForm) >> return b
+          _ -> f1 "Usage: !forms" >> return b
+
+showParts :: Bot -> (String -> IO ()) -> [String] -> IO Bot
+showParts b f1 m =
+    case length m of
+      0 -> f1 (concat $ map (++ " ") $ map show allPOS) >> return b
+      _ -> f1 "Usage: !parts" >> return b
+
+listParams :: Bot -> Bool -> (String -> IO ()) -> IO Bot
+listParams b o f1 =
+    if o then f1 (init (concat $ map (++ " ") $ map show $ init allParams)) >> return b
+    else return b
+
+isName :: Bot -> (String -> IO ()) -> (String -> IO Bool) -> [String] -> IO Bot
+isName b f1 f2 m =
+    case length m of
+      1 -> f2 (m!!0) >>= (\x' -> f1 $ show x') >> return b
+      _ -> f1 "Usage: !isname <word>" >> return b
+
+isAcronym :: Bot -> (String -> IO ()) -> (String -> IO Bool) -> [String] -> IO Bot
+isAcronym b f1 f2 m =
+    case length m of
+      1 -> f2 (m!!0) >>= (\x' -> f1 $ show x') >> return b
+      _ -> f1 "Usage: !isacronym <word>" >> return b
