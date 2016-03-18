@@ -2,14 +2,14 @@ module Fugly.Parameter where
 
 import           Data.Char    (toLower)
 
-data Parameter = Nick | Owner | DictFile | UserCommands | RejoinKick
+data Parameter = Nick | Owners | DictFile | UserCommands | RejoinKick
                | MaxChanMsg | NumThreads | NSetSize | SentenceTries
                | SentenceLength | ParseLength | Learning | StrictLearn
                | StrictTopic | Autoname | AllowPM | Debug
                | Topic | Randoms | ReplaceWords | Timer | Delay
                | Greetings | Actions | UnknownParam | Parameter {
                  nick        :: String,
-                 owner       :: String,
+                 owners      :: [String],
                  fuglyDir    :: FilePath,
                  dictFile    :: String,
                  userCmd     :: Bool,   -- allow users to issue commands
@@ -41,7 +41,7 @@ allParams = [Nick ..]
 
 instance Enum Parameter where
     toEnum 1  = Nick
-    toEnum 2  = Owner
+    toEnum 2  = Owners
     toEnum 3  = DictFile
     toEnum 4  = UserCommands
     toEnum 5  = RejoinKick
@@ -67,7 +67,7 @@ instance Enum Parameter where
     toEnum 25 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
-    fromEnum Owner          = 2
+    fromEnum Owners         = 2
     fromEnum DictFile       = 3
     fromEnum UserCommands   = 4
     fromEnum RejoinKick     = 5
@@ -97,7 +97,7 @@ instance Enum Parameter where
 
 readParam :: String -> Parameter
 readParam a | (map toLower a) == "nick"            = Nick
-readParam a | (map toLower a) == "owner"           = Owner
+readParam a | (map toLower a) == "owners"          = Owners
 readParam a | (map toLower a) == "dictfile"        = DictFile
 readParam a | (map toLower a) == "usercmd"         = UserCommands
 readParam a | (map toLower a) == "usercmds"        = UserCommands
@@ -134,7 +134,7 @@ readParam _                                        = UnknownParam
 
 readParamsFromList :: [String] -> Parameter
 readParamsFromList a = Parameter
-    {nick="", owner="", fuglyDir="", dictFile="",
+    {nick="", owners=[""], fuglyDir="", dictFile="",
      userCmd=read (a!!0), rejoinKick=read (a!!1), maxChanMsg=read (a!!2),
      numThreads=read (a!!3), nSetSize=read (a!!4), sTries=read (a!!5),
      sLength=read (a!!6), pLength=read (a!!7), learning=(a!!8),

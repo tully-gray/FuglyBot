@@ -58,7 +58,7 @@ save b _ _ _ _ = return b
 load :: Bot -> FState -> Bool -> (String -> IO ())
         -> (String -> StateT FState IO ()) -> IO Bot
 load b@Bot{fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match' _ _ _),
-           params=p@Parameter{P.nick=bn, owner=owner', fuglyDir=fdir,
+           params=p@Parameter{P.nick=bn, owners=owners', fuglyDir=fdir,
            dictFile=dfile, nSetSize=nsets}} st o f1 f2 =
     if o then do
       (nd, nde, nb, nm, np) <- catch (loadDict fdir dfile)
@@ -70,7 +70,7 @@ load b@Bot{fugly=f@(Fugly dict' defs' pgf' wne' aspell' ban' match' _ _ _),
                   _ <- evalStateT (f2 ("Exception in loadNeural: " ++ err)) st
                   return ([], Map.empty))
       _ <- f1 "Loaded bot state!"
-      return b{params=(readParamsFromList np){P.nick=bn, owner=owner',
+      return b{params=(readParamsFromList np){P.nick=bn, owners=owners',
         fuglyDir=fdir, dictFile=dfile}, fugly=f{dict=nd, defs=nde, pgf=pgf',
         wne=wne', aspell=aspell', ban=nb, match=nm, nset=ns, nmap=nm'}}
     else return b
@@ -100,12 +100,12 @@ nick b st o f1 f2 m =
     else return b
 
 showParams :: Bot -> Parameter -> Bool -> (String -> IO ()) -> [String] -> IO Bot
-showParams b (Parameter nick' owner' _ dfile uCmd rkick maxcmsg numt nsets
+showParams b (Parameter nick' owners' _ dfile uCmd rkick maxcmsg numt nsets
               sTries' slen plen learn slearn stopic aName allowPM' debug' topic'
               randoms' rWord timer' delay' greets actions') o f m =
     if o then
       case length m of
-        0 -> f ("nick: " ++ nick' ++ "  owner: " ++ owner' ++ "  usercommands: " ++ show uCmd
+        0 -> f ("nick: " ++ nick' ++ "  owners: " ++ unwords owners' ++ "  usercommands: " ++ show uCmd
               ++ "  rejoinkick: " ++ show rkick ++ "  maxchanmsg: " ++ show maxcmsg
               ++ "  numthreads: " ++ show numt ++ "  nsetsize: " ++ show nsets
               ++ "  sentencetries: " ++ show sTries' ++ "  sentencelength: " ++ show slen

@@ -42,7 +42,7 @@ start = do
         port     = args !! 1
         hints    = defaultHints {addrFlags = [AI_NUMERICSERV]}
         nick'    = cleanStringWhite isAscii (args !! 2)
-        owner'   = args !! 3
+        owners'  = words $ args !! 3
         topic'   = args !! 5
         fDir     = args !! 6 :: FilePath
         dFile    = args !! 7
@@ -65,10 +65,10 @@ start = do
     hSetBuffering sh NoBuffering
     (f, p) <- initFugly fDir wnDir gfDir dFile
     let b = if null p then
-              Bot sh (Parameter nick' owner' fDir dFile False 10 400 8 64 10 7
+              Bot sh (Parameter nick' owners' fDir dFile False 10 400 8 64 10 7
                       0 [] False False True False True topic' 10 False 0 2
                       0 0) f []
-              else Bot sh ((readParamsFromList p){nick=nick', owner=owner',
+              else Bot sh ((readParamsFromList p){nick=nick', owners=owners',
                       fuglyDir=fDir, dictFile=dFile}) f []
     bot  <- newMVar b
     lock <- newMVar ()
@@ -114,7 +114,7 @@ listenIRC :: FState -> Handle -> String -> IO ()
 listenIRC st h l = do
     let b    = getBot st
         lock = getLock st
-    bot@Bot{params=p@Parameter{nick=bn, owner=o, debug=d, greetings=g}} <- readMVar b
+    bot@Bot{params=p@Parameter{nick=bn, owners=o, debug=d, greetings=g}} <- readMVar b
     let cn = getChanNicks st
     r   <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     cn' <- readMVar cn
@@ -134,7 +134,7 @@ listenIRC st h l = do
       | "433 " `isPrefixOf` lm = evalStateT (write h d "NICK" (bn ++ "_")) st >>
           swapMVar b bot{params=p{nick=(bn ++ "_")}} >>
           return ("Nickname is already in use.") >>=
-          (\x -> evalStateT (replyMsg bot o [] x) st)
+          (\x -> evalStateT (mapM (\y' -> replyMsg bot y' [] x) o) st) >> return ()
       | "353 " `isPrefixOf` lm = getNicks' cn cn'
       | (length ll > 2) && (fHead [] lll) == "NICK" && getNick ll == bn =
           (do nb <- evalStateT (changeNick lll) st ; swapMVar b nb) >> return ()
@@ -166,7 +166,7 @@ cmdLine = do
         nick'        = if l > nickPos then
                           args !! nickPos else "fuglybot"
         ownerPos     = (maximum' $ elemIndices "-owner" args) + 1
-        owner'       = if l > ownerPos then
+        owners'      = if l > ownerPos then
                           args !! ownerPos else "shadowdaemon"
         channelPos   = (maximum' $ elemIndices "-channel" args) + 1
         channel      = if l > channelPos then
@@ -192,7 +192,7 @@ cmdLine = do
         socks5Pos    = (maximum' $ elemIndices "-socks" args) + 1
         socks5       = if l > socks5Pos then
                           args !! socks5Pos else ""
-    return (server : port : nick' : owner' : channel : topic' : fuglyDir'
+    return (server : port : nick' : owners' : channel : topic' : fuglyDir'
             : dFile : wnDir : gfDir : passwd : socks5 : [])
   where
     maximum' [] = 1000
@@ -220,12 +220,12 @@ changeNick line = do
     testNick :: FState -> Bot -> String -> [String] -> IO Bot
     testNick _ bot [] _ = return bot
     testNick _ bot _ [] = return bot
-    testNick st' bot@Bot{params=p@Parameter{owner=o}} old line'
+    testNick st' bot@Bot{params=p@Parameter{owners=o}} old line'
         | (x == "NICK") = return ("Nick change successful.") >>=
-                          (\x' -> evalStateT (replyMsg bot o [] x') st') >>
+                          (\x' -> evalStateT (mapM (\y' -> replyMsg bot y' [] x') o) st') >>
                           return bot{params=p{nick=drop 1 y}}
         | otherwise     = return ("Nick change failed!") >>=
-                          (\x' -> evalStateT (replyMsg bot o [] x') st') >>
+                          (\x' -> evalStateT (mapM (\y' -> replyMsg bot y' [] x') o) st') >>
                           return bot{params=p{nick=old}}
       where
         x = fHead [] line'
@@ -243,7 +243,7 @@ joinChannel h a (x:xs) = do
 
 changeParam :: Bot -> String -> String -> String -> String
                -> StateT FState IO Bot
-changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owner=owner',
+changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owners=owners',
                     fuglyDir=fDir, dictFile=dFile, debug=debug'},
                     fugly=f@Fugly{dict=dict', defs=defs', ban=ban',
                     match=match'}} chan nick' param value = do
@@ -251,8 +251,8 @@ changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owner=owner',
     case readParam param of
       Nick           -> (write h debug' "NICK" $
                          cleanStringWhite isAscii value) >> return bot
-      Owner          -> replyMsg' value "Owner"
-                        >>= \x -> return bot{params=p{owner=x}}
+      Owners         -> replyMsg' value "Owners"
+                        >>= \x -> return bot{params=p{owners=words x}}
       Topic          -> replyMsg' value "Topic"
                         >>= \x -> return bot{params=p{topic=x}}
       UserCommands   -> replyMsg' (readBool value) "User commands"
@@ -303,7 +303,7 @@ changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owner=owner',
                              return (dict', defs', ban', match', (paramsToList p)))
           (loadDict fDir value) (\_ -> return (Map.empty, [], [], [], (paramsToList p)))
         _ <- lift $ saveDict lock f fDir dFile (paramsToList p)
-        let pp = (readParamsFromList pl){nick=botNick, owner=owner', fuglyDir=fDir}
+        let pp = (readParamsFromList pl){nick=botNick, owners=owners', fuglyDir=fDir}
         replyMsg' value "Dict file" >>= \x -> return bot{params=pp{dictFile=x},
           fugly=f{dict=d, defs=de, ban=b, match=m}}
       _ -> return bot
@@ -528,23 +528,23 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=ple
                      else False
                    else True
         matchon  = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
-        isaction = head msg == "\SOHACTION"
+        isAction = head msg == "\SOHACTION"
         l        = nick' =~ learn' || chan =~ learn'
     if null fmsg then return () else lift $
       (if null chan then
-         if apm && not isaction then
+         if apm && not isAction then
            forkReply st bot rr load nick' [] fmsg >> return ()
          else return ()
        else if chanmsg then
          if (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchon then
-           if isaction && (rr - 60 < acts  || rr * 5 + 15 < acts) then do
+           if isAction && (rr - 60 < acts  || rr * 5 + 15 < acts) then do
              action <- ircAction lock f d rw st' rand False nick' top defs'
              if null action then return ()
                else evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
            else forkReply st bot rr load chan (if r' < 55 then chan else nick') fmsg >> return ()
          else return ()
            else forkReply st bot rr load chan nick' fmsg >> return ())
-    if l && parse && not isaction && noban fmsg ban' then do
+    if l && parse && not isAction && noban fmsg ban' then do
       nd           <- lift $ insertWords lock f an top fmsg
       (nn, ns, nm) <- lift $ nnInsert f nsets lastm' fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
@@ -614,10 +614,10 @@ execCmd b chan nick' (x:xs) = do
                 return b)
   where
     execCmd' :: Bot -> FState -> IO Bot
-    execCmd' bot@Bot{handle=h, params=p@Parameter{owner=owner', userCmd=userCmd',
+    execCmd' bot@Bot{handle=h, params=p@Parameter{owners=owners', userCmd=userCmd',
                debug=debug', topic=topic'},
                fugly=f@Fugly{pgf=pgf', wne=wne', aspell=aspell'}} st
-      | userCmd' == False && nick' /= owner' = return bot
+      | userCmd' == False && not (elem nick' owners') = return bot
       | x == "!quit" = Cmd.quit bot st isOwner write' xs
       | x == "!save" = Cmd.save bot st isOwner showRep showErr
       | x == "!load" = Cmd.load bot st isOwner showRep showErr
@@ -625,7 +625,7 @@ execCmd b chan nick' (x:xs) = do
       | x == "!part" = Cmd.part bot st isOwner cn (joinChannel h) xs
       | x == "!nick" = Cmd.nick bot st isOwner showRep write' xs
       | x == "!showparams" = Cmd.showParams bot p isOwner showRep xs
-      | x == "!setparam" = Cmd.setParam bot st isOwner showRep (changeParam bot chan nick') xs
+      | x == "!setparam" = Cmd.setParam bot st isOwner showRep (changeParam bot chan nick') $ map (strip '"') $ joinWords '"' xs
       | x == "!word" || x == "!name" || x == "!acronym" = Cmd.word bot x showRep xs
       | x == "!wordlist" || x == "!namelist" || x == "!acronymlist" = Cmd.wordList bot x showRep xs
       | x == "!insertword" = Cmd.insertWord bot st isOwner showRep topic' xs
@@ -700,7 +700,7 @@ execCmd b chan nick' (x:xs) = do
         showErr = hPutStrLnLock stderr
         write'  = write h debug'
         cn      = getChanNicks st
-        isOwner = nick' == owner'
+        isOwner = elem nick' owners'
     execCmd' bot _ = return bot
 
 replyMsg :: Bot -> String -> String -> String -> StateT FState IO ()
