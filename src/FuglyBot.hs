@@ -629,7 +629,6 @@ execCmd b chan nick' (x:xs) = do
       | x == "!word" || x == "!name" || x == "!acronym" = Cmd.word bot x showRep xs
       | x == "!wordlist" || x == "!namelist" || x == "!acronymlist" = Cmd.wordList bot x showRep xs
       | x == "!insertword" = Cmd.insertWord bot st isOwner showRep topic' xs
-      | x == "!insertname" = Cmd.insertName bot st isOwner showRep topic' xs
       | x == "!insertacronym" = Cmd.insertAcronym bot st isOwner showRep topic' xs
       | x == "!insertdefault" = Cmd.insertDefault bot isOwner showRep xs
       | x == "!dropdefault" = Cmd.dropDefault bot isOwner showRep xs
@@ -687,7 +686,7 @@ execCmd b chan nick' (x:xs) = do
                                       $ map show $ init allParams)) >> return bot
                          else return bot
       | otherwise  = if isOwner then replyMsgT st bot chan nick'
-          ("Commands: !word !wordlist !insertword !name !namelist !insertname !acronym !acronymlist !insertacronym "
+          ("Commands: !word !wordlist !insertword !name !namelist !acronym !acronymlist !insertacronym "
           ++ "!dropword !banword !matchword !insertdefault !dropdefault !dropafter !banafter "
           ++ "!ageword !topiclist !droptopic !droptopicwords !forcelearn "
           ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "

@@ -152,33 +152,20 @@ wordList b@Bot{fugly=f@Fugly{dict=d}} x f1 m = return f >>
 insertWord :: Bot -> FState -> Bool -> (String -> IO ())
               -> String -> [String] -> IO Bot
 insertWord b@Bot{fugly=f@Fugly{dict=d}} st o f1 t m =
-    if o then let l = getLock st in
-    case length m of
-      2 -> do ww <- insertWordRaw l f True (m!!0) [] [] t (m!!1)
-              if isJust $ Map.lookup (m!!0) d then
-                f1 ("Word " ++ (m!!0) ++ msg1) >> return b
-                else
-                  f1 ("Inserted word " ++ (m!!0) ++ ".") >> return b{fugly=f{dict=ww}}
-      1 -> do ww <- insertWordRaw l f True (m!!0) [] [] t []
-              if isJust $ Map.lookup (m!!0) d then
-                f1 ("Word " ++ (m!!0) ++ msg1) >> return b
-                else
-                  f1 ("Inserted word " ++ (m!!0) ++ ".") >> return b{fugly=f{dict=ww}}
-      _ -> f1 "Usage: !insertword <word> [pos]" >> return b
+    if o then
+      if lm == 0 || lm > 2 then
+        f1 "Usage: !insertword <word> [Noun|Verb|Adj|Adv|Name]" >> return b
+      else if isJust $ Map.lookup (m!!0) d then
+        f1 ("Word " ++ (m!!0) ++ msg1) >> return b
+      else do
+        let p = if lm == 2 then m!!1 else []
+        nd <- if p == "Name" then insertNameRaw l f True (m!!0) [] [] t
+                else insertWordRaw l f True (m!!0) [] [] t p
+        f1 ("Inserted word " ++ (m!!0) ++ ".") >> return b{fugly=f{dict=nd}}
     else return b
-
-insertName :: Bot -> FState -> Bool -> (String -> IO ())
-              -> String -> [String] -> IO Bot
-insertName b@Bot{fugly=f@Fugly{dict=d}} st o f1 t m =
-    if o then let l = getLock st in
-      case length m of
-        1 -> do ww <- insertNameRaw l f True (m!!0) [] [] t
-                if isJust $ Map.lookup (m!!0) d then
-                  f1 ("Name " ++ (m!!0) ++ msg1) >> return b
-                  else
-                    f1 ("Inserted name " ++ (m!!0) ++ ".") >> return b{fugly=f{dict=ww}}
-        _ -> f1 "Usage: !insertname <name>" >> return b
-    else return b
+  where
+    lm = length m
+    l  = getLock st
 
 insertAcronym :: Bot -> FState -> Bool -> (String -> IO ())
                  -> String -> [String] -> IO Bot
