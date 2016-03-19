@@ -20,8 +20,7 @@ type NSet      = [([Float], [Float])]
 data Bot = Bot {
     handle :: Handle,
     params :: Parameter,
-    fugly  :: Fugly,
-    lastm  :: [String]
+    fugly  :: Fugly
     }
 
 data Fugly = Fugly {

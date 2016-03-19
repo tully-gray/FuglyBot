@@ -342,7 +342,7 @@ forceLearn b@Bot{fugly=f, params=p@Parameter{topic=topic', nSetSize=nsets, autoN
         (nn, ns, nm) <- nnInsert f nsets inM outM
         if num > 0 then
           f1 ("Message learned " ++ (m!!0) ++ " times.") >>
-          return b{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}, lastm=tail m}
+          return b{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}}
           else f1 msg4 >> return b
     else return b
 forceLearn b _ _ _ _ _ = return b

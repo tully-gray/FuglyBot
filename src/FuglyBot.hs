@@ -9,7 +9,6 @@ import qualified Data.Map.Lazy                  as Map
 import           Data.Maybe
 import qualified Fugly.Command                  as Cmd
 import           Fugly.LoadSave
-import           Fugly.Neural
 import           Fugly.Parameter
 import           Fugly.Reply
 import           Fugly.Types                    hiding (topic)
@@ -66,9 +65,9 @@ start = do
     let b = if null p then
               Bot sh (Parameter nick' owners' fDir dFile False 10 400 8 64 10 7
                       0 [] False False True False True topic' 10 False 0 2
-                      0 0) f []
+                      0 0) f
               else Bot sh ((readParamsFromList p){nick=nick', owners=owners',
-                      fuglyDir=fDir, dictFile=dFile}) f []
+                      fuglyDir=fDir, dictFile=dFile}) f
     bot  <- newMVar b
     lock <- newMVar ()
     tc   <- newMVar []
@@ -503,10 +502,9 @@ reply :: Bot -> Int -> Bool -> String -> String -> [String]
 reply bot _ _ _ _ [] = return bot
 reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=plen,
               autoName=an, allowPM=apm, debug=d, topic=top, replaceWord=rw, randoms=rand,
-              nSetSize=nsets, actions=acts, strictLearn=sl, strictTopic=st'},
+              actions=acts, strictLearn=sl, strictTopic=st'},
               fugly=f@Fugly{defs=defs', pgf=pgf', aspell=aspell',
-                            dict=dict', match=match',
-                            ban=ban'}, lastm=lastm'}
+                            dict=dict', match=match', ban=ban'}}
   r chanmsg chan nick' msg = do
     st@(_, lock, _, _) <- get :: StateT FState IO FState
     _ <- return p
@@ -545,9 +543,8 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=ple
            else forkReply st bot rr load chan nick' fmsg >> return ())
     if l && parse && not isAction && noban fmsg ban' then do
       nd           <- lift $ insertWords lock f an top fmsg
-      (nn, ns, nm) <- lift $ nnInsert f nsets lastm' fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
-      return bot{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}, lastm=fmsg} else
+      return bot{fugly=f{dict=nd}} else
       return bot
   where
     nmsg _ _ []     = []
@@ -582,16 +579,15 @@ forkReply st@(_, lock, tc, _) Bot{handle=h,
           bdelay = (if dl < 4 then 0 else if r' - 3 > 0 then r' - 3 else 0) * 9
           sdelay = (if rr - 2 > 0 then rr - 2 else 0) * 3
       threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
-      v <- replyResponse lock fugly' r d rw stopic rand 7 nick' top $ unwords msg
-      w <- if null v then replyNeural lock fugly' plen d msg else return []
-      x <- if null $ v ++ w then replyMixed lock fugly' r d rw stopic rand str
-                          slen top msg else return []
-      y <- if null $ v ++ w ++ x then replyRandom lock fugly' r d rw stopic
-                          rand str slen plen top num msg else return []
+      w <- replyResponse lock fugly' r d rw stopic rand 7 nick' top $ unwords msg
+      x <- if null $ w then replyMixed lock fugly' r d rw stopic rand str
+                            slen top msg else return []
+      y <- if null $ w ++ x then replyRandom lock fugly' r d rw stopic
+                                 rand str slen plen top num msg else return []
       let y' = unwords y
-      z <- if null $ v ++ w ++ x ++ y' then replyDefault lock fugly' r nick' top
+      z <- if null $ w ++ x ++ y' then replyDefault lock fugly' r nick' top
            else return []
-      let s = if null v then if null w then if null x then if null y' then z else unwords y else x else w else v
+      let s = if null w then if null x then if null y' then z else unwords y else x else w
       evalStateT (do if null s then return ()
                        else if null nick' || nick' == chan || rr == 0 || rr == 2 then
                                write h d "PRIVMSG" $ chan ++ " :" ++ s
