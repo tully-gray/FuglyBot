@@ -17,20 +17,20 @@ import           NLP.WordNet.PrimTypes          (allForm, allPOS)
 import           System.Random                  (getStdRandom, randomR)
 import           Text.Regex.Posix               hiding (match)
 
-msg1 :: String
-msg1 = " already in dict."
+alreadyMsg :: String
+alreadyMsg = " already in dict."
 
-msg2 :: String
-msg2 = " not in dict."
+notMsg :: String
+notMsg = " not in dict."
 
-msg3 :: String
-msg3 = "<Default|Normal|Response|Action|GreetAction|Greeting|Enter> <default>"
+rangeMsg :: String
+rangeMsg = "Number not in range."
 
-msg4 :: String
-msg4 = "Number not in range."
+afterMsg :: String
+afterMsg = " after word "
 
-msg5 :: String
-msg5 = " after word "
+defMsg :: String
+defMsg = "<Default|Normal|Response|Action|GreetAction|Greeting|Enter>"
 
 quit :: Bot -> FState -> Bool -> (String -> String -> StateT FState IO ())
         -> [String] -> IO Bot
@@ -155,7 +155,7 @@ insertWord b@Bot{fugly=f@Fugly{dict=d}} st o f1 t m =
       if lm == 0 || lm > 2 then
         f1 "Usage: !insertword <word> [Noun|Verb|Adj|Adv|Name]" >> return b
       else if isJust $ Map.lookup (m!!0) d then
-        f1 ("Word " ++ (m!!0) ++ msg1) >> return b
+        f1 ("Word " ++ (m!!0) ++ alreadyMsg) >> return b
       else do
         let p = if lm == 2 then m!!1 else []
         nd <- if p == "Name" then insertNameRaw l f True (m!!0) [] [] t
@@ -173,7 +173,7 @@ insertAcronym b@Bot{fugly=f@Fugly{dict=d}} st o f1 t m =
       if length m > 1 then do
         ww <- insertAcroRaw (getLock st) f (m!!0) [] [] t $ unwords $ tail m
         if isJust $ Map.lookup (m!!0) d then
-          f1 ("Acronym " ++ (m!!0) ++ msg1) >> return b
+          f1 ("Acronym " ++ (m!!0) ++ alreadyMsg) >> return b
           else
             f1 ("Inserted acronym " ++ (m!!0) ++ ".") >> return b{fugly=f{dict=ww}}
       else
@@ -187,7 +187,7 @@ insertDefault b@Bot{fugly=f@Fugly{defs=d}} o f1 m =
         f1 ("Inserted default " ++ show ((read $ head m) :: DType) ++ " " ++ (unwords $ tail m) ++ ".") >>
         return b{fugly=f{defs=d ++ [(read $ head m, unwords $ tail m)]}}
         else
-          f1 ("Usage: !insertdefault " ++ msg3) >> return b
+          f1 ("Usage: !insertdefault " ++ defMsg ++ " <default>") >> return b
     else return b
 
 dropDefault :: Bot -> Bool -> (String -> IO ()) -> [String] -> IO Bot
@@ -197,7 +197,17 @@ dropDefault b@Bot{fugly=f@Fugly{defs=d}} o f1 m =
         f1 ("Dropped default " ++ show ((read $ head m) :: DType) ++ " " ++ (unwords $ tail m) ++ ".") >>
         return b{fugly=f{defs=filter (\(t, w) -> not (t == read (head m) && w == unwords (tail m))) d}}
         else
-          f1 ("Usage: !dropdefault " ++ msg3) >> return b
+          f1 ("Usage: !dropdefault " ++ defMsg ++ " <default>") >> return b
+    else return b
+
+defaultList :: Bot -> Bool -> (String -> IO ()) -> [String] -> IO Bot
+defaultList b@Bot{fugly=f@Fugly{defs=d}} o f1 m = return f >>
+    if o then
+      if length m == 1 then
+        let defs' = [de | (t, de) <- d, t == read (m!!0)] in
+        mapM (\x' -> f1 x') defs' >> return b
+      else
+        f1 ("Usage: !defaultlist " ++ defMsg) >> return b
     else return b
 
 dropWord :: Bot -> Bool -> (String -> IO ()) -> [String] -> IO Bot
@@ -208,7 +218,7 @@ dropWord b@Bot{fugly=f@Fugly{dict=d}} o f1 m =
                f1 ("Dropped word " ++ (m!!0) ++ ".") >>
                return n
              else {-- Drop the word anyway because it might be a before or after word. --}
-               f1 ("Word " ++ (m!!0) ++ msg2) >>
+               f1 ("Word " ++ (m!!0) ++ notMsg) >>
                return n
         _ -> f1 "Usage: !dropword <word>" >> return b
     else return b
@@ -219,16 +229,16 @@ dropAfter b@Bot{fugly=f@Fugly{dict=d}} o f1 m =
       case length m of
         2 -> if (isJust $ Map.lookup (m!!0) d) && (isJust $ Map.lookup (m!!1) d) then
                let nd = dropBefore d (m!!1) (m!!0) in
-               f1 ("Dropped word " ++ (m!!1) ++ msg5 ++ (m!!0) ++ ".") >>
+               f1 ("Dropped word " ++ (m!!1) ++ afterMsg ++ (m!!0) ++ ".") >>
                return b{fugly=f{dict=FuglyLib.dropAfter nd (m!!0) (m!!1)}}
              else {-- Drop the association anyway, but report errors. --}
-               f1 ("Word " ++ (m!!0) ++ " or word " ++ (m!!1) ++ msg2) >>
+               f1 ("Word " ++ (m!!0) ++ " or word " ++ (m!!1) ++ notMsg) >>
                return b{fugly=f{dict=FuglyLib.dropAfter (dropBefore d (m!!1) (m!!0)) (m!!0) (m!!1)}}
         1 -> if isJust $ Map.lookup (m!!0) d then
                f1 ("Dropped all words after word " ++ (m!!0) ++ ".") >>
                return b{fugly=f{dict=dropAllAfter d (m!!0)}}
              else
-               f1 ("Word " ++ (m!!0) ++ msg2) >>
+               f1 ("Word " ++ (m!!0) ++ notMsg) >>
                return b{fugly=f{dict=dropAllAfter d (m!!0)}}
         _ -> f1 "Usage: !dropafter <word> [after-word]" >> return b
     else return b
@@ -247,7 +257,7 @@ dropTopic b@Bot{fugly=f@Fugly{dict=d}} o f1 m =
                f1 ("Dropped topic " ++ (m!!0) ++ ".") >>
                return b{fugly=f{dict=FuglyLib.dropTopic d (m!!0)}}
              else
-               f1 ("Topic " ++ (m!!0) ++ msg2) >> return b
+               f1 ("Topic " ++ (m!!0) ++ notMsg) >> return b
         _ -> f1 "Usage: !droptopic <topic>" >> return b
     else return b
 
@@ -259,7 +269,7 @@ dropTopicWords b@Bot{fugly=f@Fugly{dict=d}} o f1 m =
                f1 ("Dropped all words in topic " ++ (m!!0) ++ ".") >>
                return b{fugly=f{dict=FuglyLib.dropTopic nd (m!!0)}}
              else
-               f1 ("Topic " ++ (m!!0) ++ msg2) >> return b
+               f1 ("Topic " ++ (m!!0) ++ notMsg) >> return b
         _ -> f1 "Usage: !droptopicwords <topic>" >> return b
     else return b
 
@@ -273,26 +283,26 @@ banAfter b@Bot{fugly=f@Fugly{dict=d}} o f1 m =
                  let nd1 = Map.insert (m!!1) (addBanAfter (fromJust w) (m!!2)) d
                      nd2 = dropBefore nd1 (m!!2) (m!!1) in
                  if elem (m!!2) $ wordGetBanAfter $ fromJust w then
-                   f1 ("Word " ++ (m!!2) ++ msg5 ++ (m!!1) ++ " already banned.") >>
+                   f1 ("Word " ++ (m!!2) ++ afterMsg ++ (m!!1) ++ " already banned.") >>
                    return b{fugly=f{dict=FuglyLib.dropAfter nd2 (m!!1) (m!!2)}}
                  else {-- Drop the association anyway, but report errors. --}
-                   f1 ("Banned word " ++ (m!!2) ++ msg5 ++ (m!!1) ++ ".") >>
+                   f1 ("Banned word " ++ (m!!2) ++ afterMsg ++ (m!!1) ++ ".") >>
                    return b{fugly=f{dict=FuglyLib.dropAfter nd2 (m!!1) (m!!2)}}
-               else f1 ("Word " ++ (m!!1) ++ msg2) >> return b
+               else f1 ("Word " ++ (m!!1) ++ notMsg) >> return b
              else if (m!!0) == "delete" then let w = Map.lookup (m!!1) d in
              if isJust w then
                if notElem (m!!2) $ wordGetBanAfter $ fromJust w then
                  f1 ("Word " ++ (m!!2) ++ " not in ban list.") >> return b
                else
-                 f1 ("Unbanned word " ++ (m!!2) ++ msg5 ++ (m!!1) ++ ".") >>
+                 f1 ("Unbanned word " ++ (m!!2) ++ afterMsg ++ (m!!1) ++ ".") >>
                  return b{fugly=f{dict=Map.insert (m!!1) (deleteBanAfter (fromJust w) (m!!2)) d}}
-             else f1 ("Word " ++ (m!!1) ++ msg2) >> return b
+             else f1 ("Word " ++ (m!!1) ++ notMsg) >> return b
                   else f1 msgH >> return b
         2 -> if (m!!0) == "list" then
                let w = Map.lookup (m!!1) d in
                if isJust w then
                  f1 ("Banned after word list: " ++ (unwords $ wordGetBanAfter $ fromJust w)) >> return b
-               else f1 ("Word " ++ (m!!1) ++ msg2) >> return b
+               else f1 ("Word " ++ (m!!1) ++ notMsg) >> return b
              else f1 msgH >> return b
         _ -> f1 msgH >> return b
     else return b
@@ -314,8 +324,8 @@ ageWord b@Bot{fugly=f@Fugly{dict=d}} st o f1 f2 m =
                   if num > 0 then
                     f1 ("Aged word " ++ (m!!0) ++ ".") >>
                     return b{fugly=f{dict=FuglyLib.ageWord d (m!!0) num}}
-                    else f1 msg4 >> return b
-                  else f1 ("Word " ++ (m!!0) ++ msg2) >> return b
+                    else f1 rangeMsg >> return b
+                  else f1 ("Word " ++ (m!!0) ++ notMsg) >> return b
         _ -> f1 "Usage: !ageword <word> <number>" >> return b
     else return b
 
@@ -343,7 +353,7 @@ forceLearn b@Bot{fugly=f, params=p@Parameter{topic=topic', nSetSize=nsets, autoN
         if num > 0 then
           f1 ("Message learned " ++ (m!!0) ++ " times.") >>
           return b{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}}
-          else f1 msg4 >> return b
+          else f1 rangeMsg >> return b
     else return b
 forceLearn b _ _ _ _ _ = return b
 

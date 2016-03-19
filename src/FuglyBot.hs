@@ -627,6 +627,7 @@ execCmd b chan nick' (x:xs) = do
       | x == "!insertacronym" = Cmd.insertAcronym bot st isOwner showRep topic' xs
       | x == "!insertdefault" = Cmd.insertDefault bot isOwner showRep xs
       | x == "!dropdefault" = Cmd.dropDefault bot isOwner showRep xs
+      | x == "!defaultlist" = Cmd.defaultList bot isOwner showRep xs
       | x == "!dropword" = Cmd.dropWord bot isOwner showRep xs
       | x == "!dropafter" = Cmd.dropAfter bot isOwner showRep xs
       | x == "!topiclist" = Cmd.topicList bot showRep xs
@@ -651,7 +652,7 @@ execCmd b chan nick' (x:xs) = do
       | x == "!params" = Cmd.listParams bot isOwner showRep
       | otherwise = if isOwner then showRep
           ("Commands: !word !wordlist !insertword !name !namelist !acronym !acronymlist !insertacronym "
-          ++ "!dropword !banword !matchword !insertdefault !dropdefault !dropafter !banafter "
+          ++ "!dropword !banword !matchword !insertdefault !dropdefault !defaultlist !dropafter !banafter "
           ++ "!ageword !topiclist !droptopic !droptopicwords !forcelearn "
           ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
           ++ "!setparam !showparams !nick !join !part !talk !raw !quit !load !save") >> return bot
