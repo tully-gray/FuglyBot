@@ -11,18 +11,35 @@ import           FuglyLib
 import           NLP.WordNet.PrimTypes
 import           System.IO                      (stdout)
 import qualified System.Random                  as Random
+import           Text.EditDistance              as EditDistance
 import qualified Text.Regex.Posix               as Regex
 
+bestLevenshtein :: String -> [(String, String)] -> [((String, String), Int)]
+bestLevenshtein _   []    = [(([], []), maxBound :: Int)]
+bestLevenshtein []  _     = [(([], []), maxBound :: Int)]
+bestLevenshtein msg defs' = filter (\x -> snd x == min') dl
+  where
+    dists :: [((String, String), Int)] -> [(String, String)] -> [((String, String), Int)]
+    dists o []     = o
+    dists o (x:xs) = dists ((x, levenshteinDistance defaultEditCosts msg $ fst x) : o) xs
+    dl   = dists [] defs'
+    min' = minimum [d | (_, d) <- dl]
+
 replyResponse :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
-                 -> Int -> String -> String -> String -> IO String
+                 -> Float -> String -> String -> String -> IO String
 replyResponse _ _ _ _ _ _ _ _ _ _ []  = return []
 replyResponse st fugly@Fugly{defs=defs'} r debug rwords stopic randoms
-                 maxDist nick' topic' msg = do
+                 dist nick' topic' msg = do
     let r' = [de | (t, de) <- defs', t == Response]
         l  = map f2 r'
-        ((_, o), d) = bestLevenshtein2 msg l
-    if d <= maxDist then
-      defsReplace st fugly r debug rwords stopic randoms topic' nick' o
+        md = dist + (realToFrac (length msg) / 2 :: Float)
+        bl = bestLevenshtein msg l
+        d  = if null bl then maxBound :: Int else (\((_, _), d') -> d') $ head bl
+        o  = map (\((_, o'), _) -> o') bl
+    rr <- Random.getStdRandom (Random.randomR (0, length o - 1)) :: IO Int
+    evalStateT (hPutStrLnLock stdout (show rr ++ " " ++ show (length o))) st
+    if (realToFrac d :: Float) <= md then
+      defsReplace st fugly r debug rwords stopic randoms topic' nick' $ o!!rr
       else return []
   where
     f1 = \x' -> x' /= '.' && x' /= '?' && x' /= '!'

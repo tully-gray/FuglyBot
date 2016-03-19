@@ -873,16 +873,6 @@ nouns "okay"  = "okays"
 nouns "stuff" = "stuff"
 nouns n       = if last n == 'y' then (init n) ++ "ies" else n ++ "s"
 
--- defsReplaceWords :: String -> String -> String -> String
--- defsReplaceWords _  _ [] = []
--- defsReplaceWords [] [] m = m
--- defsReplaceWords [] t  m = dePlenk $ unwords $ replace "#topic" t $
---                     replace "#nick" "somebody" $ words m
--- defsReplaceWords n []  m = dePlenk $ unwords $ replace "#topic" "stuff" $
---                     replace "#nick" n $ words m
--- defsReplaceWords n  t  m = dePlenk $ unwords $ replace "#topic" t $
---                     replace "#nick" n $ words m
-
 wnReplaceWords :: Fugly -> Bool -> Int -> [String] -> IO [String]
 wnReplaceWords _                               _     _       []  = return []
 wnReplaceWords _                               False _       msg = return msg
@@ -939,30 +929,6 @@ rhymesWith st aspell' word' = do
     let out = filter (\x -> (notElem '\'' x) && length x > 2 && length l > 2 &&
                        x Regex.=~ (end ++ "$") && levenshteinDistance defaultEditCosts l x < 4) asw
     return $ if null out then [word'] else out
-
-bestLevenshtein :: String -> [String] -> (String, Int)
-bestLevenshtein _   []    = ([], maxBound :: Int)
-bestLevenshtein []  _     = ([], maxBound :: Int)
-bestLevenshtein msg defs' = best' ([], maxBound :: Int) $ dists [] defs'
-  where
-    dists :: [(String, Int)] -> [String] -> [(String, Int)]
-    dists o []     = o
-    dists o (x:xs) = dists ((x, levenshteinDistance defaultEditCosts msg x) : o) xs
-    best' :: (String, Int) -> [(String, Int)] -> (String, Int)
-    best' d []     = d
-    best' d (x:xs) = if snd x <= snd d then best' x xs else best' d xs
-
-bestLevenshtein2 :: String -> [(String, String)] -> ((String, String), Int)
-bestLevenshtein2 _   []    = (([], []), maxBound :: Int)
-bestLevenshtein2 []  _     = (([], []), maxBound :: Int)
-bestLevenshtein2 msg defs' = best' (([], []), maxBound :: Int) $ dists [] defs'
-  where
-    dists :: [((String, String), Int)] -> [(String, String)] -> [((String, String), Int)]
-    dists o []     = o
-    dists o (x:xs) = dists ((x, levenshteinDistance defaultEditCosts msg $ fst x) : o) xs
-    best' :: ((String, String), Int) -> [((String, String), Int)] -> ((String, String), Int)
-    best' d []     = d
-    best' d (x:xs) = if snd x <= snd d then best' x xs else best' d xs
 
 findNextWord :: Fugly -> Int -> Int -> Bool -> Bool -> String -> String -> String -> IO [String]
 findNextWord _                 _ _       _    _      _      _    []    = return []
