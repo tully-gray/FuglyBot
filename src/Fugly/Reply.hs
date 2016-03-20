@@ -32,12 +32,11 @@ replyResponse st fugly@Fugly{defs=defs'} r debug rwords stopic randoms
                  dist nick' topic' msg = do
     let r' = [de | (t, de) <- defs', t == Response]
         l  = map f2 r'
-        md = dist + (realToFrac (length msg) / 2 :: Float)
+        md = dist + (realToFrac (length msg) / 4 :: Float)
         bl = bestLevenshtein msg l
         d  = if null bl then maxBound :: Int else (\((_, _), d') -> d') $ head bl
         o  = map (\((_, o'), _) -> o') bl
     rr <- Random.getStdRandom (Random.randomR (0, length o - 1)) :: IO Int
-    evalStateT (hPutStrLnLock stdout (show rr ++ " " ++ show (length o))) st
     if (realToFrac d :: Float) <= md then
       defsReplace st fugly r debug rwords stopic randoms topic' nick' $ o!!rr
       else return []
