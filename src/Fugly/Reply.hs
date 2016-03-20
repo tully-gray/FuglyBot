@@ -30,6 +30,9 @@ replyResponse :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
 replyResponse _ _ _ _ _ _ _ _ _ _ []  = return []
 replyResponse st fugly@Fugly{defs=defs'} r debug rwords stopic randoms
                  dist nick' topic' msg = do
+    if debug then
+      evalStateT (hPutStrLnLock stdout "> debug: replyResponse") st
+      else return ()
     let r' = [de | (t, de) <- defs', t == Response]
         l  = map f2 r'
         md = dist + (realToFrac (length msg) / 4 :: Float)
@@ -60,6 +63,9 @@ replyMixed :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
 replyMixed _ _ _ _ _ _ _ _ _ _ [] = return []
 replyMixed st fugly@Fugly{aspell=aspell', wne=wne'}
   r debug rwords stopic randoms stries slen topic' msg = do
+    if debug then
+      evalStateT (hPutStrLnLock stdout "> debug: replyMixed") st
+      else return ()
     rr <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     replyMixed' rr msg
   where
@@ -178,14 +184,18 @@ replyMixed st fugly@Fugly{aspell=aspell', wne=wne'}
                                  else return $ ry!!(mod rr (length ry))) mm
 
 replyRandom :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int
-             -> Int -> Int -> String -> Int -> [String] -> IO [String]
+             -> Int -> Int -> String -> Int -> [String] -> IO String
 replyRandom st fugly r debug rwords stopic randoms stries
                slen plen topic' num msg = do
+    if debug then
+      evalStateT (hPutStrLnLock stdout "> debug: replyRandom") st
+      else return ()
     m <- chooseWord msg
     let mm = if length msg < 4 || mod (length $ concat msg) 3 == 0 then
                 msg else m
-    fixIt st debug (replyRandom' st fugly r debug False True rwords stopic
-                    randoms stries slen plen topic' mm) [] num 0 0 (stries * slen)
+    o <- fixIt st debug (replyRandom' st fugly r debug False True rwords stopic
+           randoms stries slen plen topic' mm) [] num 0 0 (stries * slen)
+    return $ unwords o
 
 replyRandom' :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Int
                -> Int -> Int -> Int -> String -> [String] -> [IO String]
@@ -255,12 +265,15 @@ replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     s1f _ _ []     = []
     s1f i f (x:xs) = f i x : s1f (i + 1) f xs
 
-replyDefault :: MVar () -> Fugly -> Int -> String -> String -> IO String
-replyDefault st f@Fugly{defs=defs', pgf=pgf'} r nick' topic' = do
+replyDefault :: MVar () -> Fugly -> Int -> Bool -> String -> String -> IO String
+replyDefault st f@Fugly{defs=defs', pgf=pgf'} r debug nick' topic' = do
+    if debug then
+      evalStateT (hPutStrLnLock stdout "> debug: replyDefault") st
+      else return ()
     let d    = [de | (t, de) <- defs', t == Default]
         lenD = length d
     if lenD == 0 then gfRandom pgf' []
-      else defsReplace st f 23 False False False 17 topic' nick' $ d!!mod r lenD
+      else defsReplace st f 23 debug False False 17 topic' nick' $ d!!mod r lenD
 
 defsReplace :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
               -> String -> String -> String -> IO String

@@ -574,26 +574,27 @@ forkReply st@(_, lock, tc, _) Bot{handle=h,
         r'    = 1 + mod r 7
         rr    = mod r 6
     if tc' < (nt + 2) && fload < 4.3 then do
-      let num    = if r' - 4 < 1 || str < 4 || length msg < 7 then 1 else r' - 4
-          d1     = dl * 1000000
-          bdelay = (if dl < 4 then 0 else if r' - 3 > 0 then r' - 3 else 0) * 9
-          sdelay = (if rr - 2 > 0 then rr - 2 else 0) * 3
-      threadDelay $ d1 * (1 + sdelay + if bdelay > 90 then 90 else bdelay)
-      w <- replyResponse lock fugly' r d rw stopic rand 1 nick' top $ unwords msg
-      x <- if null $ w then replyMixed lock fugly' r d rw stopic rand str
-                            slen top msg else return []
-      y <- if null $ w ++ x then replyRandom lock fugly' r d rw stopic
-                                 rand str slen plen top num msg else return []
-      let y' = unwords y
-      z <- if null $ w ++ x ++ y' then replyDefault lock fugly' r nick' top
-           else return []
-      let s = if null w then if null x then if null y' then z else unwords y else x else w
-      evalStateT (do if null s then return ()
+      let num = if r' - 4 < 1 || str < 4 || length msg < 7 then 1 else r' - 4
+          dl' = dl * 1000000
+          bd  = (if dl < 4 then 0 else if r' - 3 > 0 then r' - 3 else 0) * 9
+          sd  = (if rr - 2 > 0 then rr - 2 else 0) * 3
+          w = replyResponse lock fugly' r d rw stopic rand 1 nick' top $ unwords msg
+          x = replyMixed lock fugly' r d rw stopic rand str slen top msg
+          y = replyRandom lock fugly' r d rw stopic rand str slen plen top num msg
+          z = replyDefault lock fugly' r d nick' top
+      threadDelay $ dl' * (1 + sd + if bd > 90 then 90 else bd)
+      out <- getResponse [w, x, y, z]
+      evalStateT (do if null out then return ()
                        else if null nick' || nick' == chan || rr == 0 || rr == 2 then
-                               write h d "PRIVMSG" $ chan ++ " :" ++ s
-                            else write h d "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ s) st
+                         write h d "PRIVMSG" $ chan ++ " :" ++ out
+                         else write h d "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ out) st
       else return ()
     decT tc tId)
+  where
+    getResponse []     = return []
+    getResponse (x:xs) = do
+      x' <- x
+      if null x' then getResponse xs else return x'
 forkReply _ _ _ _ _ _ _ = forkIO $ return ()
 
 execCmd :: Bot -> String -> String -> [String] -> StateT FState IO Bot
