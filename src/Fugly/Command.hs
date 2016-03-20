@@ -8,7 +8,6 @@ import           Data.Char                      (isAscii)
 import qualified Data.Map.Lazy                  as Map
 import           Data.List                      (delete, nub)
 import           Data.Maybe
-import           Fugly.Neural                   (nnInsert)
 import           Fugly.Parameter                as P
 import           Fugly.Types                    hiding (topic)
 import           Fugly.LoadSave
@@ -331,7 +330,7 @@ ageWord b@Bot{fugly=f@Fugly{dict=d}} st o f1 f2 m =
 
 forceLearn :: Bot -> FState -> Bool -> (String -> IO ())
               -> (String -> StateT FState IO ()) -> [String] -> IO Bot
-forceLearn b@Bot{fugly=f, params=p@Parameter{topic=topic', nSetSize=nsets, autoName=an}}
+forceLearn b@Bot{fugly=f, params=p@Parameter{topic=topic', autoName=an}}
              st o f1 f2 m = return p >>
     if o then let lenxs = length m in
       if lenxs == 0 || lenxs == 1 || lenxs == 2 then
@@ -343,16 +342,10 @@ forceLearn b@Bot{fugly=f, params=p@Parameter{topic=topic', nSetSize=nsets, autoN
                  (\e -> do let err = show (e :: SomeException)
                            _ <- evalStateT (f2 ("Exception in forcelearn command: read: " ++ err)) st
                            return 0)
-        let txs = tail m
-        nd  <- insertWordsN (getLock st) f an topic' num txs
-        let msg' = unwords txs
-            f'   = \x' -> x' /= '.' && x' /= '?' && x' /= '!'
-            inM  = words $ takeWhile f' msg'
-            outM = words $ dropWhile f' msg'
-        (nn, ns, nm) <- nnInsert f nsets inM outM
+        nd <- insertWordsN (getLock st) f an topic' num $ tail m
         if num > 0 then
           f1 ("Message learned " ++ (m!!0) ++ " times.") >>
-          return b{fugly=f{dict=nd, nnet=nn, nset=ns, nmap=nm}}
+          return b{fugly=f{dict=nd}}
           else f1 rangeMsg >> return b
     else return b
 forceLearn b _ _ _ _ _ = return b
