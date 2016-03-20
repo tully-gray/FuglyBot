@@ -1,6 +1,6 @@
 module Fugly.Command where
 
-import           Control.Concurrent             (MVar, readMVar, swapMVar, ThreadId)
+import           Control.Concurrent             (MVar, readMVar, swapMVar, threadDelay, ThreadId)
 import           Control.Exception              (catch, SomeException)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.State.Lazy
@@ -205,7 +205,7 @@ defaultList b@Bot{fugly=f@Fugly{defs=d}} o f1 m = return f >>
     if o then
       if length m == 1 then
         let defs' = [de | (t, de) <- d, t == read (m!!0)] in
-        mapM (\x' -> f1 x') defs' >> return b
+        mapM (\x' -> f1 x' >> threadDelay 1000000) defs' >> return b
       else
         f1 ("Usage: !defaultlist " ++ defMsg) >> return b
     else return b
