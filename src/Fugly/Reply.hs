@@ -14,17 +14,6 @@ import qualified System.Random                  as Random
 import           Text.EditDistance              as EditDistance
 import qualified Text.Regex.Posix               as Regex
 
-bestLevenshtein :: String -> [(String, String)] -> [((String, String), Int)]
-bestLevenshtein _   []    = [(([], []), maxBound :: Int)]
-bestLevenshtein []  _     = [(([], []), maxBound :: Int)]
-bestLevenshtein msg defs' = filter (\x -> snd x == min') dl
-  where
-    dists :: [((String, String), Int)] -> [(String, String)] -> [((String, String), Int)]
-    dists o []     = o
-    dists o (x:xs) = dists ((x, levenshteinDistance defaultEditCosts msg $ fst x) : o) xs
-    dl   = dists [] defs'
-    min' = minimum [d | (_, d) <- dl]
-
 replyResponse :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
                  -> Float -> String -> String -> String -> IO String
 replyResponse _ _ _ _ _ _ _ _ _ _ []  = return []
@@ -61,7 +50,7 @@ replyNeural st fugly plen debug msg =
 replyMixed :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
              -> Int -> Int -> String -> [String] -> IO String
 replyMixed _ _ _ _ _ _ _ _ _ _ [] = return []
-replyMixed st fugly@Fugly{aspell=aspell', wne=wne'}
+replyMixed st fugly@Fugly{wne=wne'}
   r debug rwords stopic randoms stries slen topic' msg = do
     if debug then
       evalStateT (hPutStrLnLock stdout "> debug: replyMixed") st
@@ -73,49 +62,6 @@ replyMixed st fugly@Fugly{aspell=aspell', wne=wne'}
     replyMixed' :: Int -> [String] -> IO String
     replyMixed' _  [] = return []
     replyMixed' r' w
-      | l == 1 && r < 70 = do
-          let s = replyRandom' st fugly r debug True True rwords
-                                stopic 0 10 5 5 topic' w
-          mm <- fixIt st debug s [] 1 0 0 50
-          return $ unwords mm
-      | l < 6 && r < 60 || r + r' < 50 = case mod r' 4 of
-         0 -> do
-          let s = replyRandom' st fugly r debug True True rwords stopic 5
-                  10 4 4 topic' [topic']
-          mm <- fixIt st debug (return ("Do you like " ++ topic' ++
-                                        "?") : s) [] 2 0 0 40
-          return $ unwords mm
-         1 -> do
-          let s = replyRandom' st fugly r debug True True rwords stopic randoms
-                  10 6 6 topic' (words "perhaps you")
-          mm <- fixIt st debug (return ("Not really.") : s) [] 2 0 0 60
-          return $ unwords mm
-         2 -> do
-          let s = replyRandom' st fugly r debug True True rwords stopic 75 10
-                  7 7 topic' $ words "can you"
-          mm <- fixIt st debug s [] 1 0 0 70
-          return $ unwords mm
-         3 -> do
-          let s = replyRandom' st fugly r debug True True rwords stopic randoms
-                  10 6 6 topic' $ words "I think that"
-          mm <- fixIt st debug s [] 1 0 0 60
-          return $ unwords mm
-         _ -> return []
-      | l > 2 && s2l w == "hey" = do
-          let s = replyRandom' st fugly r debug False True rwords stopic
-                                randoms stries slen 5 topic' (drop 2 w)
-          m' <- fixIt st debug s [] 1 0 0 $ stries * slen
-          w' <- s1r r' m'
-          x' <- asReplaceWords st fugly w'
-          return $ unwords $ toUpperSentence $ endSentence x'
-      | (map toLower $ unwords w) Regex.=~
-         "rhyme|rhymes|sing.*|song|songs" || r' > 87 = do
-          let s = replyRandom' st fugly r debug False True rwords stopic
-                                randoms stries slen 5 topic' w
-          m' <- fixIt st debug s [] 1 0 0 (stries * slen)
-          w' <- s1r r' m'
-          x' <- asReplaceWords st fugly w'
-          return $ unwords $ toUpperSentence $ endSentence x'
       | l > 3 && (s1l $ take 3 w) == ["do", "you", w!!2 Regex.=~
              "like|hate|love|have|want|need"] = do
         noun <- getNoun wne' r' w
@@ -134,15 +80,6 @@ replyMixed st fugly@Fugly{aspell=aspell', wne=wne'}
                   "not" else "" ++ " something I " ++ w!!2 Regex.=~
                         "like|hate|love|have|want|need"
             _ -> [])
-      | l > 2 && (s1l $ take 2 w) == ["can", "you"] = return (case mod r' 6 of
-         0 -> "No I can't."
-         1 -> "Sure, I can do that."
-         2 -> "It depends..."
-         3 -> "Do you ever stop and ponder?"
-         4 -> "Why would I want to do something like that?"
-         5 -> "It is " ++ if r' < 20 then "boring." else if r' < 50 then
-                  "fun." else "certainly possible."
-         _ -> [])
       | l > 3 && l < 15 = do
           let ra = mod r 4
           let t  = case ra of
@@ -176,12 +113,41 @@ replyMixed st fugly@Fugly{aspell=aspell', wne=wne'}
               return $ unwords mm
             _ -> return []
             else return []
-      | otherwise = return []
+      | l < 6 && r < 60 || r + r' < 50 = case mod r' 4 of
+         0 -> do
+          let s = replyRandom' st fugly r debug True True rwords stopic 5
+                  10 4 4 topic' [topic']
+          mm <- fixIt st debug (return ("Do you like " ++ topic' ++
+                                        "?") : s) [] 2 0 0 40
+          return $ unwords mm
+         1 -> do
+          let s = replyRandom' st fugly r debug True True rwords stopic randoms
+                  10 6 6 topic' (words "perhaps you")
+          mm <- fixIt st debug (return ("Not really.") : s) [] 2 0 0 60
+          return $ unwords mm
+         2 -> do
+          let s = replyRandom' st fugly r debug True True rwords stopic 75 10
+                  7 7 topic' $ words "can you"
+          mm <- fixIt st debug s [] 1 0 0 70
+          return $ unwords mm
+         3 -> do
+          let s = replyRandom' st fugly r debug True True rwords stopic randoms
+                  10 6 6 topic' $ words "I think that"
+          mm <- fixIt st debug s [] 1 0 0 60
+          return $ unwords mm
+         _ -> return []
+      | l == 1 && r < 70 = do
+          let s = replyRandom' st fugly r debug True True rwords
+                                stopic 0 10 5 5 topic' w
+          mm <- fixIt st debug s [] 1 0 0 50
+          return $ unwords mm
+      | otherwise = do
+        noun <- getNoun wne' r' w
+        let s = replyRandom' st fugly r debug True True rwords stopic
+                randoms stries slen 5 topic' ["this", noun, "is"]
+        m' <- fixIt st debug s [] 1 0 0 (stries * slen)
+        return $ unwords $ toUpperSentence $ endSentence m'
     s1l = map (\x -> map toLower x)
-    s2l x = map toLower $ head x
-    s1r rr mm = mapM (\x -> do ry <- rhymesWith st aspell' x
-                               if null ry then return []
-                                 else return $ ry!!(mod rr (length ry))) mm
 
 replyRandom :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int
              -> Int -> Int -> String -> Int -> [String] -> IO String
@@ -190,9 +156,8 @@ replyRandom st fugly r debug rwords stopic randoms stries
     if debug then
       evalStateT (hPutStrLnLock stdout "> debug: replyRandom") st
       else return ()
-    m <- chooseWord msg
     let mm = if length msg < 4 || mod (length $ concat msg) 3 == 0 then
-                msg else m
+                msg else [msg!!(mod r $ length msg)]
     o <- fixIt st debug (replyRandom' st fugly r debug False True rwords stopic
            randoms stries slen plen topic' mm) [] num 0 0 (stries * slen)
     return $ unwords o
@@ -274,6 +239,17 @@ replyDefault st f@Fugly{defs=defs', pgf=pgf'} r debug nick' topic' = do
         lenD = length d
     if lenD == 0 then gfRandom pgf' []
       else defsReplace st f 23 debug False False 17 topic' nick' $ d!!mod r lenD
+
+bestLevenshtein :: String -> [(String, String)] -> [((String, String), Int)]
+bestLevenshtein _   []    = [(([], []), maxBound :: Int)]
+bestLevenshtein []  _     = [(([], []), maxBound :: Int)]
+bestLevenshtein msg defs' = filter (\x -> snd x == min') dl
+  where
+    dists :: [((String, String), Int)] -> [(String, String)] -> [((String, String), Int)]
+    dists o []     = o
+    dists o (x:xs) = dists ((x, levenshteinDistance defaultEditCosts msg $ fst x) : o) xs
+    dl   = dists [] defs'
+    min' = minimum [d | (_, d) <- dl]
 
 defsReplace :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
               -> String -> String -> String -> IO String

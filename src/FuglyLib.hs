@@ -821,23 +821,6 @@ insertCommas wne' i w = do
                             xs' <- insertCommas wne' (i + 1) xs
                             return (x : xs')
 
-chooseWord :: [String] -> IO [String]
-chooseWord []  = return []
-chooseWord msg = do
-    cc <- c1 msg
-    c2 cc []
-  where
-    c1 m = do
-      r <- Random.getStdRandom (Random.randomR (0, 4)) :: IO Int
-      if r < 3 then return m
-        else return $ reverse m
-    c2 [] m  = return m
-    c2 [x] m = return (m ++ [x])
-    c2 (x:xs) m = do
-      r <- Random.getStdRandom (Random.randomR (0, 1)) :: IO Int
-      if r == 0 then c2 xs (m ++ [x])
-        else c2 ([x] ++ tail xs) (m ++ [head xs])
-
 filterWordPOS :: WordNetEnv -> EPOS -> [String] -> IO [String]
 filterWordPOS _    _    []  = return []
 filterWordPOS wne' pos' msg = fpos [] msg
@@ -877,10 +860,9 @@ wnReplaceWords :: Fugly -> Bool -> Int -> [String] -> IO [String]
 wnReplaceWords _                               _     _       []  = return []
 wnReplaceWords _                               False _       msg = return msg
 wnReplaceWords fugly@Fugly{wne=wne', ban=ban'} True  randoms msg = do
-    cw <- chooseWord msg
-    cr <- Random.getStdRandom (Random.randomR (0, (length cw) - 1))
+    cr <- Random.getStdRandom (Random.randomR (0, (length msg) - 1))
     rr <- Random.getStdRandom (Random.randomR (0, 99))
-    let w' = cw!!cr
+    let w' = msg!!cr
     w  <- findRelated wne' w'
     let ww = if elem (map toLower w) sWords || elem (map toLower w) ban' then w' else w
     if randoms == 0 then
