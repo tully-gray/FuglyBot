@@ -29,7 +29,7 @@ afterMsg :: String
 afterMsg = " after word "
 
 defMsg :: String
-defMsg = "<Default|Normal|Response|Action|GreetAction|Greeting|Enter>"
+defMsg = "<Default|Normal|Response|Regex|Action|GreetAction|Greeting|Enter>"
 
 quit :: Bot -> FState -> Bool -> (String -> String -> StateT FState IO ())
         -> [String] -> IO Bot

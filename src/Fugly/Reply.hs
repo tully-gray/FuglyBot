@@ -5,6 +5,7 @@ import           Control.Monad.Trans.State.Lazy (evalStateT)
 import           Data.Char                      (toLower, toUpper)
 import           Data.Map.Strict                as Map (lookup)
 import           Data.Maybe
+import           Data.List                      (intercalate)
 import           Fugly.Neural
 import           Fugly.Types                    hiding (fugly)
 import           FuglyLib
@@ -23,23 +24,29 @@ replyResponse st fugly@Fugly{defs=defs'} r debug rwords stopic randoms
       evalStateT (hPutStrLnLock stdout "> debug: replyResponse") st
       else return ()
     let r' = [de | (t, de) <- defs', t == Response]
-        l  = map f2 r'
+        l  = map splitDef r'
         md = dist + (realToFrac (length msg) / 4 :: Float)
         bl = bestLevenshtein msg l
         d  = if null bl then maxBound :: Int else (\((_, _), d') -> d') $ head bl
         o  = map (\((_, o'), _) -> o') bl
-    rr <- Random.getStdRandom (Random.randomR (0, length o - 1)) :: IO Int
     if (realToFrac d :: Float) <= md then
-      defsReplace st fugly r debug rwords stopic randoms topic' nick' $ o!!rr
+      defsReplace st fugly r debug rwords stopic randoms topic' nick' $ o!!(mod r $ length o)
       else return []
-  where
-    f1 = \x' -> x' /= '.' && x' /= '?' && x' /= '!'
-    f2 :: String -> (String, String)
-    f2 x = let q1 = takeWhile f1 x
-               a1 = dropWhile f1 x
-               q2 = q1 ++ [fHead ' ' a1]
-               a2 = dropWhile (\x' -> x' == ' ') $ drop 1 a1 in
-           (q2, a2)
+
+replyRegex :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
+                 -> String -> String -> String -> IO String
+replyRegex _ _ _ _ _ _ _ _ _ []  = return []
+replyRegex st fugly@Fugly{defs=defs'} r debug rwords stopic randoms
+                 nick' topic' msg = do
+    if debug then
+      evalStateT (hPutStrLnLock stdout "> debug: replyRegex") st
+      else return ()
+    let m' = [de | (t, de) <- defs', t == Regex]
+        l  = map splitDef m'
+        o  = [a | (q, a) <- l, msg Regex.=~ q]
+    if not $ null o then
+      defsReplace st fugly r debug rwords stopic randoms topic' nick' $ o!!(mod r $ length o)
+      else return []
 
 replyNeural :: MVar () -> Fugly -> Int -> Bool -> [String] -> IO String
 replyNeural _  _     _    _     []  = return []
@@ -50,7 +57,7 @@ replyNeural st fugly plen debug msg =
 replyMixed :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
              -> Int -> Int -> String -> [String] -> IO String
 replyMixed _ _ _ _ _ _ _ _ _ _ [] = return []
-replyMixed st fugly@Fugly{wne=wne'}
+replyMixed st fugly@Fugly{wne=wne', match=match'}
   r debug rwords stopic randoms stries slen topic' msg = do
     if debug then
       evalStateT (hPutStrLnLock stdout "> debug: replyMixed") st
@@ -62,7 +69,12 @@ replyMixed st fugly@Fugly{wne=wne'}
     replyMixed' :: Int -> [String] -> IO String
     replyMixed' _  [] = return []
     replyMixed' r' w
-      | l > 3 && (s1l $ take 3 w) == ["do", "you", w!!2 Regex.=~
+      | mBool = do
+        let s = replyRandom' st fugly r debug True True rwords stopic randoms
+                10 6 6 topic' $ words mString
+        mm <- fixIt st debug s [] 1 0 0 60
+        return $ unwords mm
+      | l > 3 && (map (\x -> map toLower x) $ take 3 w) == ["do", "you", w!!2 Regex.=~
              "like|hate|love|have|want|need"] = do
         noun <- getNoun wne' r' w
         let nouns' = nouns noun
@@ -147,7 +159,9 @@ replyMixed st fugly@Fugly{wne=wne'}
                 randoms stries slen 5 topic' ["this", noun, "is"]
         m' <- fixIt st debug s [] 1 0 0 (stries * slen)
         return $ unwords $ toUpperSentence $ endSentence m'
-    s1l = map (\x -> map toLower x)
+    mList   = map toLower (" " ++ intercalate " | " match' ++ " ")
+    mBool   = (" " ++ map toLower (unwords msg) ++ " ") Regex.=~ mList :: Bool
+    mString = (" " ++ map toLower (unwords msg) ++ " ") Regex.=~ mList :: String
 
 replyRandom :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int
              -> Int -> Int -> String -> Int -> [String] -> IO String
@@ -267,6 +281,11 @@ defsReplace st fugly r debug rwords stopic randoms topic' nick' m = do
         f'  = return . dePlenk . unwords
     if null m' then f' o' else
       f' $ replace "#random" m' o'
+
+splitDef :: String -> (String, String)
+splitDef x = let q = reverse $ dropWhile (\c -> c == ' ') $ reverse $ takeWhile (\c -> c /= '=') x
+                 a = dropWhile (\c -> c == ' ') $ tail $ dropWhile (\c -> c /= '=') x in
+             (q, a)
 
 fixIt :: MVar () -> Bool -> [IO String] -> [String] -> Int -> Int
          -> Int -> Int -> IO [String]

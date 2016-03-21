@@ -64,7 +64,8 @@ data Word = Word {
     definition :: String
     }
 
-data DType = Default | Normal | Response | Action | GreetAction | Greeting | Enter deriving (Eq, Read, Show)
+data DType = Default | Normal | Response | Regex | Action |
+             GreetAction | Greeting | Enter deriving (Eq, Read, Show)
 
 getBot :: FState -> MVar Bot
 getBot (b, _, _, _) = b

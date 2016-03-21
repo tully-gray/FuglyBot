@@ -524,7 +524,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=ple
                      if fload < 2.5 then gfParseBool pgf' plen $ unwords fmsg
                      else False
                    else True
-        matchon  = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
+        matchOn  = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
         isAction = head msg == "\SOHACTION"
         l        = nick' =~ learn' || chan =~ learn'
     if null fmsg then return () else lift $
@@ -533,7 +533,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=ple
            forkReply st bot rr load nick' [] fmsg >> return ()
          else return ()
        else if chanmsg then
-         if (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchon then
+         if (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchOn then
            if isAction && (rr - 60 < acts  || rr * 5 + 15 < acts) then do
              action <- ircAction lock f d rw st' rand False nick' top defs'
              if null action then return ()
@@ -578,12 +578,13 @@ forkReply st@(_, lock, tc, _) Bot{handle=h,
           dl' = dl * 1000000
           bd  = (if dl < 4 then 0 else if r' - 3 > 0 then r' - 3 else 0) * 9
           sd  = (if rr - 2 > 0 then rr - 2 else 0) * 3
-          w = replyResponse lock fugly' r d rw stopic rand 1 nick' top $ unwords msg
+          v = replyResponse lock fugly' r d rw stopic rand 1 nick' top $ unwords msg
+          w = replyRegex lock fugly' r d rw stopic rand nick' top $ unwords msg
           x = replyMixed lock fugly' r d rw stopic rand str slen top msg
           y = replyRandom lock fugly' r d rw stopic rand str slen plen top num msg
           z = replyDefault lock fugly' r d nick' top
       threadDelay $ dl' * (1 + sd + if bd > 90 then 90 else bd)
-      out <- getResponse [w, x, y, z]
+      out <- getResponse [v, w, x, y, z]
       evalStateT (do if null out then return ()
                        else if null nick' || nick' == chan || rr == 0 || rr == 2 then
                          write h d "PRIVMSG" $ chan ++ " :" ++ out
