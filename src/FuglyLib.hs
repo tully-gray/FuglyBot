@@ -904,24 +904,25 @@ rhymesWith st aspell' word' = do
                        x Regex.=~ (end ++ "$") && levenshteinDistance defaultEditCosts l x < 4) asw
     return $ if null out then [word'] else out
 
-findNextWord :: Fugly -> Int -> Int -> Bool -> Bool -> String -> String -> String -> IO [String]
-findNextWord _                 _ _       _    _      _      _    []    = return []
-findNextWord Fugly{dict=dict'} i randoms prev stopic topic' noun word' = do
-    let ln = if isJust w then length neigh else 0
-    let lm = if isJust w then length neighmax else 0
-    let ll = if isJust w then length neighleast else 0
-    nr <- Random.getStdRandom (Random.randomR (0, ln - 1))
-    mr <- Random.getStdRandom (Random.randomR (0, lm - 1))
-    lr <- Random.getStdRandom (Random.randomR (0, ll - 1))
-    rr <- Random.getStdRandom (Random.randomR (0, 99))
-    let f1 = if isJust w && ll > 0 then neighleast!!lr else []
-    let f2 = if isJust w then case mod i 3 of
+findNextWord :: Fugly -> Int -> Int -> Int -> Bool -> Bool -> String
+                -> String -> String -> [String]
+findNextWord _                 _ _ _    _    _      _   _   [] = []
+findNextWord Fugly{dict=dict'} r i rand prev stopic top noun w =
+    let ln = if isJust ww then length neigh else 0
+        lm = if isJust ww then length neighmax else 0
+        ll = if isJust ww then length neighleast else 0
+        nr = mod (r + 1) ln
+        mr = mod (r + 7) lm
+        lr = mod (r + 5) ll
+        rr = mod r 99
+        f1 = if isJust ww && ll > 0 then neighleast!!lr else []
+        f2 = if isJust ww then case mod i 3 of
           0 -> if ln > 0 then neigh!!nr else []
           1 -> if ll > 0 then neighleast!!lr else []
           2 -> if ll > 0 then neighleast!!lr else []
           _ -> []
              else []
-    let f3 = if isJust w then case mod i 5 of
+        f3 = if isJust ww then case mod i 5 of
           0 -> if ll > 0 then neighleast!!lr else []
           1 -> if ln > 0 then neigh!!nr else []
           2 -> if lm > 0 then neighmax!!mr else []
@@ -929,32 +930,31 @@ findNextWord Fugly{dict=dict'} i randoms prev stopic topic' noun word' = do
           4 -> if ln > 0 then neigh!!nr else []
           _ -> []
              else []
-    let f4 = if isJust w then case mod i 3 of
+        f4 = if isJust ww then case mod i 3 of
           0 -> if lm > 0 then neighmax!!mr else []
           1 -> if ln > 0 then neigh!!nr else []
           2 -> if lm > 0 then neighmax!!mr else []
           _ -> []
              else []
-    let f5 = if isJust w && lm > 0 then neighmax!!mr else []
-    let out = if randoms > 89 then words f1 else
-                if rr < randoms - 25 then words f2 else
-                  if rr < randoms + 35 then words f3 else
-                    if rr < randoms + 65 then words f4 else
-                      words f5
-    return out
+        f5 = if isJust ww && lm > 0 then neighmax!!mr else [] in
+    if rand > 89 then words f1 else
+      if rr < rand - 25 then words f2 else
+        if rr < rand + 35 then words f3 else
+          if rr < rand + 65 then words f4 else
+            words f5
     where
-      w        = Map.lookup word' dict'
+      ww       = Map.lookup w dict'
       wordGet' = if prev then wordGetBefore else wordGetAfter
-      neigh_all'       = listNeigh $ wordGet' (fromJust w)
+      neigh_all'       = listNeigh $ wordGet' (fromJust ww)
       neigh_all        = if elem noun neigh_all' then [noun] else neigh_all'
-      neigh_topic'     = listNeighTopic dict' topic' neigh_all'
+      neigh_topic'     = listNeighTopic dict' top neigh_all'
       neigh_topic      = if elem noun neigh_topic' then [noun] else neigh_topic'
-      neighmax_all'    = listNeighMax $ wordGet' (fromJust w)
+      neighmax_all'    = listNeighMax $ wordGet' (fromJust ww)
       neighmax_all     = if elem noun neighmax_all' then [noun] else neighmax_all'
-      neighmax_topic'  = listNeighTopic dict' topic' neighmax_all'
+      neighmax_topic'  = listNeighTopic dict' top neighmax_all'
       neighmax_topic   = if elem noun neighmax_topic' then [noun] else neighmax_topic'
-      neighleast_all   = listNeighLeast $ wordGet' (fromJust w)
-      neighleast_topic = listNeighTopic dict' topic' neighleast_all
+      neighleast_all   = listNeighLeast $ wordGet' (fromJust ww)
+      neighleast_topic = listNeighTopic dict' top neighleast_all
       neigh      = if stopic then neigh_topic else if null neigh_topic then neigh_all else neigh_topic
       neighmax   = if stopic then neighmax_topic else if null neighmax_topic then neighmax_all else neighmax_topic
       neighleast = if stopic then neighleast_topic else if null neighleast_topic then neighleast_all else neighleast_topic
@@ -967,8 +967,8 @@ findRelated wne' word' = do
               hypo  <- wnRelated' wne' word' "Hyponym" pp
               anto  <- wnRelated' wne' word' "Antonym" pp
               let hyper' = filter (\x -> (notElem ' ' x) && length x > 2) $ map (strip '"') hyper
-              let hypo'  = filter (\x -> (notElem ' ' x) && length x > 2) $ map (strip '"') hypo
-              let anto'  = filter (\x -> (notElem ' ' x) && length x > 2) $ map (strip '"') anto
+                  hypo'  = filter (\x -> (notElem ' ' x) && length x > 2) $ map (strip '"') hypo
+                  anto'  = filter (\x -> (notElem ' ' x) && length x > 2) $ map (strip '"') anto
               if null anto' then
                 if null hypo' then
                   if null hyper' then

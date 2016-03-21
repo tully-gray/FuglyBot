@@ -154,7 +154,7 @@ replyMixed st fugly@Fugly{wne=wne', match=match'}
     mString = mMsg Regex.=~ mList :: String
 
 replyRandom :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int
-             -> Int -> Int -> String -> Int -> [String] -> IO String
+               -> Int -> Int -> String -> Int -> [String] -> IO String
 replyRandom st fugly r debug rwords stopic randoms stries
                slen plen topic' num msg = do
     if debug then
@@ -167,7 +167,7 @@ replyRandom st fugly r debug rwords stopic randoms stries
     return $ unwords o
 
 replyRandom' :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Int
-               -> Int -> Int -> Int -> String -> [String] -> [IO String]
+                -> Int -> Int -> Int -> String -> [String] -> [IO String]
 replyRandom' _ _ _ _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
 replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
   r debug first punc rwords stopic randoms stries slen plen topic' msg = do
@@ -178,18 +178,17 @@ replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
           a <- isAcronym st aspell' dict' x
           n <- isName st aspell' dict' x
           b <- getNoun wne' r msg
-          z <- findNextWord fugly 0 randoms True stopic topic' b x
-          let zz = fHead [] z
-          y <- findNextWord fugly 1 randoms True stopic topic' b zz
-          let yy = fHead [] y
-          let c  = if null zz && null yy then 2 else
+          let z  = findNextWord fugly r 0 randoms True stopic topic' b x
+              zz = fHead [] z
+              y  = findNextWord fugly r 1 randoms True stopic topic' b zz
+              yy = fHead [] y
+              c  = if null zz && null yy then 2 else
                      if null zz || null yy then 3 else 4
-          w  <- s1b fugly slen c b $ findNextWord fugly 1 randoms False
-                  stopic topic' b x
-          ww <- s1b fugly slen 0 b $ return msg
-          let d  = if first then ww else [yy] ++ [zz] ++ [s1h n a x] ++ w
-          o <- wnReplaceWords fugly rwords randoms $ filter (not . null)
-                 $ take (stries * slen) d
+              w  = s1b fugly slen c b $ findNextWord fugly r 1 randoms False
+                   stopic topic' b x
+              ww = s1b fugly slen 0 b msg
+              d  = if first then ww else [yy] ++ [zz] ++ [s1h n a x] ++ w
+          o <- wnReplaceWords fugly rwords randoms $ filter (not . null) $ take (stries * slen) d
           return $ dedupD o
     let s1d x = do
           w <- x
@@ -208,14 +207,12 @@ replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
               (map (s1e . s1d . s1a) (msg ++ sWords))
     s1f 0 s1t s1g
   where
-    s1b :: Fugly -> Int -> Int -> String -> IO [String] -> IO [String]
-    s1b f n i noun msg' = do
-      ww <- msg'
-      if null $ concat ww then return []
-        else if i >= n then return $ dedupD ww else do
-               www <- findNextWord f i randoms False stopic topic' noun
-                        $ fLast [] ww
-               s1b f n (i + 1) noun (return $ ww ++ www)
+    s1b :: Fugly -> Int -> Int -> String -> [String] -> [String]
+    s1b f n i noun w =
+      if null $ concat w then return [] else
+        if i >= n then dedupD w else
+          let ww = findNextWord f r i randoms False stopic topic' noun $ fLast [] w in
+          s1b f n (i + 1) noun (w ++ ww)
     s1c :: [String] -> String
     s1c [] = []
     s1c w  = [toUpper $ head $ head w] ++ (fTail [] $ head w)
@@ -256,7 +253,7 @@ bestLevenshtein msg defs' = filter (\x -> snd x == min') dl
     min' = minimum [d | (_, d) <- dl]
 
 defsReplace :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
-              -> String -> String -> String -> IO String
+               -> String -> String -> String -> IO String
 defsReplace _  _     _ _     _      _      _       _      _    [] = return []
 defsReplace st fugly r debug rwords stopic randoms topic' nick' m = do
     let s = if m Regex.=~ "#random" then
