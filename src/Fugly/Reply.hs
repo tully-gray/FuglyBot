@@ -34,7 +34,7 @@ replyResponse st fugly@Fugly{defs=defs'} r debug rwords stopic randoms
       else return []
 
 replyRegex :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
-                 -> String -> String -> String -> IO String
+              -> String -> String -> String -> IO String
 replyRegex _ _ _ _ _ _ _ _ _ []  = return []
 replyRegex st fugly@Fugly{defs=defs'} r debug rwords stopic randoms
                  nick' topic' msg = do
@@ -55,7 +55,7 @@ replyNeural st fugly plen debug msg =
     nnReply st fugly plen debug (msg ++ pad)
 
 replyMixed :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
-             -> Int -> Int -> String -> [String] -> IO String
+              -> Int -> Int -> String -> [String] -> IO String
 replyMixed _ _ _ _ _ _ _ _ _ _ [] = return []
 replyMixed st fugly@Fugly{wne=wne', match=match'}
   r debug rwords stopic randoms stries slen topic' msg = do
@@ -66,13 +66,14 @@ replyMixed st fugly@Fugly{wne=wne', match=match'}
     replyMixed' rr msg
   where
     l = length msg
+    repRand = replyRandom' st fugly r debug True True rwords stopic
+    fixIt'  = fixIt st debug
     replyMixed' :: Int -> [String] -> IO String
     replyMixed' _  [] = return []
     replyMixed' r' w
       | mBool = do
-        let s = replyRandom' st fugly r debug True True rwords stopic randoms
-                10 6 6 topic' $ words mString
-        mm <- fixIt st debug s [] 1 0 0 60
+        let s = repRand randoms 10 6 6 topic' $ words mString
+        mm <- fixIt' s [] 1 0 0 60
         return $ unwords mm
       | l > 3 && (map (\x -> map toLower x) $ take 3 w) == ["do", "you", w!!2 Regex.=~
              "like|hate|love|have|want|need"] = do
@@ -103,65 +104,54 @@ replyMixed st fugly@Fugly{wne=wne', match=match'}
           (a, b) <- evalStateT (sentenceMeet wne' t w) st
           if a then case ra of
             0 -> do
-              let s = replyRandom' st fugly r debug True True rwords stopic randoms
-                      5 9 9 topic' [b, "is", "tasty", "and"]
-              mm <- fixIt st debug (return ("Oh yes, " ++ b ++ ".") : s)
-                      [] 2 0 0 45
+              let s = repRand randoms 5 9 9 topic' [b, "is", "tasty", "and"]
+              mm <- fixIt' (return ("Oh yes, " ++ b ++ ".") : s) [] 2 0 0 45
               return $ unwords mm
             1 -> do
-              let s = replyRandom' st fugly r debug True True rwords stopic randoms
-                      8 5 5 topic' [b, "is"]
-              mm <- fixIt st debug s [] 1 0 0 40
+              let s = repRand randoms 8 5 5 topic' [b, "is"]
+              mm <- fixIt' s [] 1 0 0 40
               return $ unwords mm
             2 -> do
-              let s = replyRandom' st fugly r debug True True rwords stopic randoms
-                      5 6 6 topic' ["my"]
-              mm <- fixIt st debug s [] 1 0 0 30
+              let s = repRand randoms 5 6 6 topic' ["my"]
+              mm <- fixIt' s [] 1 0 0 30
               return $ unwords mm
             3 -> do
-              let s = replyRandom' st fugly r debug True True rwords stopic randoms
-                      5 9 9 topic' ["this", b, "is"]
-              mm <- fixIt st debug s [] 1 0 0 45
+              let s = repRand randoms 5 9 9 topic' ["this", b, "is"]
+              mm <- fixIt' s [] 1 0 0 45
               return $ unwords mm
             _ -> return []
             else return []
-      | l < 6 && r < 60 || r + r' < 50 = case mod r' 4 of
+      | l < 6 && r < 40 || r + r' < 35 = case mod r' 4 of
          0 -> do
-          let s = replyRandom' st fugly r debug True True rwords stopic 5
-                  10 4 4 topic' [topic']
-          mm <- fixIt st debug (return ("Do you like " ++ topic' ++
-                                        "?") : s) [] 2 0 0 40
+          let s = repRand 5 10 4 4 topic' [topic']
+          mm <- fixIt' (return ("Do you like " ++ topic' ++ "?") : s) [] 2 0 0 40
           return $ unwords mm
          1 -> do
-          let s = replyRandom' st fugly r debug True True rwords stopic randoms
-                  10 6 6 topic' (words "perhaps you")
-          mm <- fixIt st debug (return ("Not really.") : s) [] 2 0 0 60
+          let s = repRand randoms 10 6 6 topic' $ words "perhaps you"
+          mm <- fixIt' (return ("Not really.") : s) [] 2 0 0 60
           return $ unwords mm
          2 -> do
-          let s = replyRandom' st fugly r debug True True rwords stopic 75 10
-                  7 7 topic' $ words "can you"
-          mm <- fixIt st debug s [] 1 0 0 70
+          let s = repRand 75 10 7 7 topic' $ words "can you"
+          mm <- fixIt' s [] 1 0 0 70
           return $ unwords mm
          3 -> do
-          let s = replyRandom' st fugly r debug True True rwords stopic randoms
-                  10 6 6 topic' $ words "I think that"
-          mm <- fixIt st debug s [] 1 0 0 60
+          let s = repRand randoms 10 6 6 topic' $ words "I think that"
+          mm <- fixIt' s [] 1 0 0 60
           return $ unwords mm
          _ -> return []
       | l == 1 && r < 70 = do
-          let s = replyRandom' st fugly r debug True True rwords
-                                stopic 0 10 5 5 topic' w
-          mm <- fixIt st debug s [] 1 0 0 50
+          let s = repRand 0 10 5 5 topic' w
+          mm <- fixIt' s [] 1 0 0 50
           return $ unwords mm
       | otherwise = do
         noun <- getNoun wne' r' w
-        let s = replyRandom' st fugly r debug True True rwords stopic
-                randoms stries slen 5 topic' ["this", noun, "is"]
-        m' <- fixIt st debug s [] 1 0 0 (stries * slen)
+        let s = repRand randoms stries slen 5 topic' ["this", noun, "is"]
+        m' <- fixIt' s [] 1 0 0 (stries * slen)
         return $ unwords $ toUpperSentence $ endSentence m'
     mList   = map toLower (" " ++ intercalate " | " match' ++ " ")
-    mBool   = (" " ++ map toLower (unwords msg) ++ " ") Regex.=~ mList :: Bool
-    mString = (" " ++ map toLower (unwords msg) ++ " ") Regex.=~ mList :: String
+    mMsg    = (" " ++ map toLower (unwords msg) ++ " ")
+    mBool   = mMsg Regex.=~ mList :: Bool
+    mString = mMsg Regex.=~ mList :: String
 
 replyRandom :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int -> Int
              -> Int -> Int -> String -> Int -> [String] -> IO String
