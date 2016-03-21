@@ -363,9 +363,9 @@ spokenTo n b
 beenKicked :: String -> [String] -> String
 beenKicked _ [] = []
 beenKicked n a
-    | (head $ drop 1 a) == "KICK" = if (head $ drop 3 a) == n then
-                                       getChannel a else []
-    | otherwise                   = []
+    | (head $ drop 1 a) == "KICK" =
+      if (head $ drop 3 a) == n then getChannel a else []
+    | otherwise = []
 
 rejoinChannel :: Handle -> String -> Int -> StateT FState IO ()
 rejoinChannel _ []   _  = return () :: StateT FState IO ()
@@ -388,17 +388,15 @@ timerLoop st = do
           lock = getLock st
       Bot{params=p@Parameter{timer=t}} <- readMVar b
       _ <- return p
-      let timer' = if (t < 5) then 30000000 else t * 1000000 + (t * r * 500)
-      threadDelay timer'
+      threadDelay $ if (t < 5) then 30000000 else t * 1000000 + (t * r * 500)
       if t > 4 then do
         bot@Bot{handle=h, params=pp@Parameter{nick=botnick,
                 randoms=rand, replaceWord=rw, debug=d,
                 strictTopic=st', topic=topic', actions=acts},
                 fugly=f@Fugly{defs=defs'}} <- readMVar b
         _ <- return (pp, f)
-        let norm    = [de | (type', de) <- defs', type' == Normal]
-            lenNorm = length norm
-            cn      = getChanNicks st
+        let norm = [de | (type', de) <- defs', type' == Normal]
+            cn   = getChanNicks st
         cn' <- readMVar cn
         let chans = concat [[c] | (c, _) <- Map.toList cn']
             chan  = chans!!mod (r + 55) (length chans)
@@ -411,8 +409,8 @@ timerLoop st = do
               n'  = cleanStringBlack (\x -> x == '@' || x == '&' ||
                       x == '~' || x == '+') $ n!!mod r (length n)
               who = if mod (r + 11) 3 == 0 then n' else chan
-          msg <- if lenNorm == 0 then return "Well this is interesting..."
-                 else defsReplace lock f r d rw st' rand topic' n' $ norm!!mod r lenNorm
+          msg <- if length norm == 0 then return "Well this is interesting..." else
+                   defsReplace lock f r d rw st' rand topic' n' $ norm!!(mod r $ length norm)
           action <- ircAction lock f d rw st' rand False n' topic' defs'
           if (not $ null action) && r < acts * 10 then
             forkIO (evalStateT (write h d "PRIVMSG"
@@ -456,12 +454,13 @@ greeting lock line = do
     if who == n then do
       rep <- lift $ defsReplace lock f r d rw st rand top [] $ enter!!mod r (length enter)
       replyMsg bot chan [] $ if (length enter) == 0 then [] else rep
-      else if null action || r < 600 then do
-             let l = if (length greet) == 0 then [] else greet!!mod r (length greet)
-             rep <- lift $ defsReplace lock f r d rw st rand top who l
-             replyMsg bot chan (if elem "#nick" $ words l then [] else who) rep
-           else
-             write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")
+      else
+      if null action || r < 600 then do
+        let l = if (length greet) == 0 then [] else greet!!mod r (length greet)
+        rep <- lift $ defsReplace lock f r d rw st rand top who l
+        replyMsg bot chan (if elem "#nick" $ words l then [] else who) rep
+      else
+        write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")
     lift $ putMVar b bot >> return ()
   where
     who  = getNick line
@@ -557,7 +556,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=ple
 reply bot _ _ _ _ _ = return bot
 
 forkReply :: FState -> Bot -> Int -> [String] -> String
-                 -> String -> [String] -> IO ThreadId
+             -> String -> [String] -> IO ThreadId
 forkReply _ _ _ _ _ _ [] = forkIO $ return ()
 forkReply st@(_, lock, tc, _) Bot{handle=h,
                 params=p@Parameter{numThreads=nt, sTries=str,
@@ -568,8 +567,8 @@ forkReply st@(_, lock, tc, _) Bot{handle=h,
     tId <- myThreadId
     tc' <- incT tc tId
     _   <- return p
-    if d then evalStateT (hPutStrLnLock stdout
-                       ("> debug: thread count: " ++ show tc')) st
+    if d then
+      evalStateT (hPutStrLnLock stdout ("> debug: thread count: " ++ show tc')) st
       else return ()
     let fload = read $ fHead [] load :: Float
         r'    = 1 + mod r 7
@@ -586,10 +585,11 @@ forkReply st@(_, lock, tc, _) Bot{handle=h,
           z = replyDefault lock fugly' r d nick' top
       threadDelay $ dl' * (1 + sd + if bd > 90 then 90 else bd)
       out <- getResponse [v, w, x, y, z]
-      evalStateT (do if null out then return ()
-                       else if null nick' || nick' == chan || rr == 0 || rr == 2 then
-                         write h d "PRIVMSG" $ chan ++ " :" ++ out
-                         else write h d "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ out) st
+      evalStateT (do
+        if null out then return () else
+          if null nick' || nick' == chan || rr == 0 || rr == 2 then
+            write h d "PRIVMSG" $ chan ++ " :" ++ out
+          else write h d "PRIVMSG" $ chan ++ " :" ++ nick' ++ ": " ++ out) st
       else return ()
     decT tc tId)
   where

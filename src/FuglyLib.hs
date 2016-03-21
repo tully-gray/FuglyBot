@@ -58,7 +58,7 @@ instance Word_ Word where
   wordGetTopic Acronym{topic=t}       = t
   wordGetRelated Word{related=r}      = r
   wordGetRelated _                    = []
-  wordGetPos Word{pos=p}     = p
+  wordGetPos Word{pos=p}              = p
   wordGetPos _                        = UnknownEPos
   wordGetwc (Word w c _ _ _ _ _ _)    = (c, w)
   wordGetwc (Name n c _ _ _ _)        = (c, n)
@@ -381,21 +381,19 @@ listWordsCountSort m num typ top = concat [[w, show c, ";"] | (c, w) <- take num
                                    (elem top (wordGetTopic x) || null top)) $ Map.elems m]
 
 listWordFull :: Dict -> String -> String
-listWordFull m word' = if isJust ww then
-                         unwords $ f (fromJust ww)
-                       else
-                         "Nothing!"
+listWordFull m word' =
+    if isJust ww then unwords $ f (fromJust ww) else "Nothing!"
   where
     ww = Map.lookup word' m
     f (Word w c b a ba t r p) = ["word:", w, "count:", show c, " before:",
-                 unwords $ listNeighShow b, " after:", unwords $ listNeighShow a,
-                 " ban after:", unwords ba, " pos:", (show p), " topic:", unwords t, " related:", unwords r]
+      unwords $ listNeighShow b, " after:", unwords $ listNeighShow a,
+      " ban after:", unwords ba, " pos:", (show p), " topic:", unwords t, " related:", unwords r]
     f (Name w c b a ba t) = ["name:", w, "count:", show c, " before:",
-                 unwords $ listNeighShow b, " after:", unwords $ listNeighShow a,
-                 " ban after:", unwords ba, " topic:", unwords t]
+      unwords $ listNeighShow b, " after:", unwords $ listNeighShow a,
+      " ban after:", unwords ba, " topic:", unwords t]
     f (Acronym w c b a ba t d) = ["acronym:", w, "count:", show c, " before:",
-                 unwords $ listNeighShow b, " after:", unwords $ listNeighShow a,
-                 " ban after:", unwords ba, " topic:", unwords t, " definition:", d]
+      unwords $ listNeighShow b, " after:", unwords $ listNeighShow a,
+      " ban after:", unwords ba, " topic:", unwords t, " definition:", d]
 
 listTopics :: Dict -> [String]
 listTopics m = sort $ nub $ concat $ map wordGetTopic $ Map.elems m
@@ -586,13 +584,13 @@ wnRelated' wne' word' form pos' = catch (do
     s <- runs wne' $ search (fixUnderscore word') (fromEPOS pos') AllSenses
     r <- runs wne' $ relatedByList wnForm s
     ra <- runs wne' $ relatedByListAllForms s
-    let result = if (map toLower form) == "all" then concat $ map (fromMaybe [[]])
-                    (runs wne' ra)
+    let result = if (map toLower form) == "all" then
+                   concat $ map (fromMaybe [[]]) (runs wne' ra)
                  else fromMaybe [[]] (runs wne' r)
     if (null result) || (null $ concat result) then return [] else
       return $ map (\x -> replace '_' ' ' $ unwords $ map (++ "\"") $
-                    map ('"' :) $ concat $ map (getWords . getSynset) x) result)
-                            (\e -> return (e :: SomeException) >> return [])
+        map ('"' :) $ concat $ map (getWords . getSynset) x) result)
+        (\e -> return (e :: SomeException) >> return [])
 
 wnClosure :: WordNetEnv -> String -> String -> String -> IO String
 wnClosure _    []    _    _  = return []
@@ -606,11 +604,9 @@ wnClosure wne' word' form pos' = do
     s <- runs wne' $ search (fixUnderscore word') wnPos AllSenses
     result <- runs wne' $ closureOnList wnForm s
     if null result then return [] else
-      return $ unwords $ map (\x -> if isNothing x then return '?'
-                                    else (replace '_' ' ' $ unwords $ map (++ "\"") $
-                                          map ('"' :) $ nub $ concat $ map
-                                          (getWords . getSynset)
-                                          (flatten (fromJust x)))) result
+      return $ unwords $ map (\x -> if isNothing x then return '?' else
+        (replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $
+        nub $ concat $ map (getWords . getSynset) (flatten (fromJust x)))) result
 
 wnMeet :: WordNetEnv -> String -> String -> String -> IO String
 wnMeet _ [] _ _ = return []
@@ -624,11 +620,11 @@ wnMeet w c d e  = do
     s2 <- runs w $ search (fixUnderscore d) wnPos 1
     m  <- runs w $ meet emptyQueue (head s1) (head s2)
     if not (null s1) && not (null s2) then do
-        let result = m
-        if isNothing result then return [] else
-            return $ replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $
-                    getWords $ getSynset $ fromJust result
-        else return []
+      let result = m
+      if isNothing result then return [] else
+        return $ replace '_' ' ' $ unwords $ map (++ "\"") $ map ('"' :) $
+        getWords $ getSynset $ fromJust result
+      else return []
 
 sentenceMeet :: WordNetEnv -> String -> [String] -> StateT (MVar ()) IO (Bool, String)
 sentenceMeet _ _ [] = return (False, [])
@@ -642,18 +638,18 @@ sentenceMeet w s m  = do
     sentenceMeet' :: String -> [String] -> IO (Bool, String)
     sentenceMeet' _  []     = return (False, [])
     sentenceMeet' s' (x:xs) = do
-        a <- catch (meet' s' x) (\e -> return (e :: SomeException) >> return [])
-        if null a then sentenceMeet' s' xs
-          else if fHead [] a == s' && length x > 2 then return (True, x)
-               else sentenceMeet' s' xs
+      a <- catch (meet' s' x) (\e -> return (e :: SomeException) >> return [])
+      if null a then sentenceMeet' s' xs else
+        if fHead [] a == s' && length x > 2 then return (True, x)
+        else sentenceMeet' s' xs
     meet' c d = do
       s1 <- runs w $ search c Noun 1
       s2 <- runs w $ search d Noun 1
       if null s1 || null s2 then return []
         else do
           m' <- runs w $ meet emptyQueue (head s1) (head s2)
-          if isNothing m' then return []
-            else return $ getWords $ getSynset $ fromJust m'
+          if isNothing m' then return [] else
+            return $ getWords $ getSynset $ fromJust m'
 
 asIsName :: MVar () -> Aspell.SpellChecker -> String -> IO Bool
 asIsName _ _ []    = return False
@@ -666,11 +662,11 @@ asIsName st aspell' word' = do
     let b = toUpperLast l
     nl <- evalStateT (asSuggest aspell' l) st
     nb <- evalStateT (asSuggest aspell' b) st
-    return $ if length word' < 3 || elem word' n then False
-             else if (length $ words nb) < 3 then False
-                  else if word' == (words nb)!!1 then False
-                       else if (word' == (words nb)!!0 || u == (words nb)!!0) && (not $ null nl) then True
-                            else False
+    return $ if length word' < 3 || elem word' n then False else
+               if (length $ words nb) < 3 then False else
+                 if word' == (words nb)!!1 then False else
+                   if (word' == (words nb)!!0 || u == (words nb)!!0) && (not $ null nl) then True
+                   else False
 
 isName :: MVar () -> Aspell.SpellChecker -> Dict -> String -> IO Bool
 isName _  _       _     [] = return False
@@ -717,9 +713,9 @@ asSuggest aspell' word' = do
     lock <- lift $ takeMVar l
     w <- lift $ Aspell.suggest aspell' (ByteString.pack word')
     let ww = map ByteString.unpack w
-    lift $ if null ww then do putMVar l lock ; return []
-           else if word' == head ww then do putMVar l lock ; return []
-                else do putMVar l lock ; return $ unwords ww
+    lift $ if null ww then putMVar l lock >> return [] else
+             if word' == head ww then putMVar l lock >> return []
+             else putMVar l lock >> return (unwords ww)
 
 gfLin :: Maybe PGF -> String -> String
 gfLin _    []   = []
@@ -773,7 +769,7 @@ gfRandom pgf' [] = do
     if isJust pgf' then do
       r <- gfRandom' $ fromJust pgf'
       let rr = filter (\x -> x Regex.=~ "NP") $ words r
-      gfRandom pgf' (if rr == (\\) rr (words r) then r else [])
+      gfRandom pgf' $ if rr == (\\) rr (words r) then r else []
       else return []
 gfRandom _ msg' = return msg'
 
@@ -865,20 +861,16 @@ wnReplaceWords fugly@Fugly{wne=wne', ban=ban'} True  randoms msg = do
     let w' = msg!!cr
     w  <- findRelated wne' w'
     let ww = if elem (map toLower w) sWords || elem (map toLower w) ban' then w' else w
-    if randoms == 0 then
-      return msg
-      else if randoms == 100 then
-             mapM (\x -> findRelated wne' x) msg
-           else if rr + 20 < randoms then
-                  wnReplaceWords fugly True randoms $ filter (not . null)
-                  ((takeWhile (/= w') msg) ++ [ww] ++ (tail $ dropWhile (/= w') msg))
-                else
-                  return msg
+    if randoms == 0 then return msg else
+      if randoms == 100 then mapM (\x -> findRelated wne' x) msg else
+        if rr + 20 < randoms then
+          wnReplaceWords fugly True randoms $ filter (not . null)
+          ((takeWhile (/= w') msg) ++ [ww] ++ (tail $ dropWhile (/= w') msg))
+        else return msg
 
 asReplaceWords :: MVar () -> Fugly -> [String] -> IO [String]
 asReplaceWords _  _     []  = return [[]]
-asReplaceWords st fugly msg = do
-    mapM (\x -> asReplace st fugly x) msg
+asReplaceWords st fugly msg = mapM (\x -> asReplace st fugly x) msg
 
 asReplace :: MVar () -> Fugly -> String -> IO String
 asReplace _  _                                           []    = return []
