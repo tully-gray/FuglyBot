@@ -527,20 +527,21 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=ple
         matchOn  = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
         isAction = head msg == "\SOHACTION"
         l        = nick' =~ learn' || chan =~ learn'
-    if null fmsg then return () else lift $
-      (if null chan then
-         if apm && not isAction then
-           forkReply st bot rr load nick' [] fmsg >> return ()
-         else return ()
-       else if chanmsg then
-         if (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchOn then
-           if isAction && (rr - 60 < acts  || rr * 5 + 15 < acts) then do
-             action <- ircAction lock f d rw st' rand False nick' top defs'
-             if null action then return ()
-               else evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
-           else forkReply st bot rr load chan (if r' < 55 then chan else nick') fmsg >> return ()
-         else return ()
-           else forkReply st bot rr load chan nick' fmsg >> return ())
+    if null fmsg then return () else lift $ (
+      if null chan then
+        if apm && not isAction then
+          forkReply st bot rr load nick' [] fmsg >> return ()
+        else return ()
+      else
+        if chanmsg then
+          if rr < 35 && (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchOn then
+            if isAction && (rr - 60 < acts  || rr * 5 + 15 < acts) then do
+              action <- ircAction lock f d rw st' rand False nick' top defs'
+              if null action then return ()
+                else evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
+            else forkReply st bot rr load chan (if r' < 55 then chan else nick') fmsg >> return ()
+          else return ()
+        else forkReply st bot rr load chan nick' fmsg >> return ())
     if l && parse && not isAction && noban fmsg ban' then do
       nd           <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
