@@ -533,7 +533,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=ple
         else return ()
       else
         if chanmsg then
-          if rr < 35 && (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchOn then
+          if rr < (15 + rand) && (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchOn then
             if isAction && (rr - 60 < acts  || rr * 5 + 15 < acts) then do
               action <- ircAction lock f d rw st' rand False nick' top defs'
               if null action then return ()
@@ -584,7 +584,9 @@ forkReply st@(_, lock, tc, _) Bot{handle=h,
           y = replyRandom lock fugly' r d rw stopic rand str slen plen top num msg
           z = replyDefault lock fugly' r d nick' top
       threadDelay $ dl' * (1 + sd + if bd > 90 then 90 else bd)
-      out <- getResponse [v, w, x, y, z]
+      out <- getResponse $ case mod r 4 of
+                             0 -> [y, v, x, w, z]
+                             _ -> [v, w, x, y, z]
       evalStateT (do
         if null out then return () else
           if null nick' || nick' == chan || rr == 0 || rr == 2 then
