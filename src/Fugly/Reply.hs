@@ -121,14 +121,14 @@ replyMixed st fugly@Fugly{wne=wne', match=match'}
               return $ unwords mm
             _ -> return []
             else return []
-      | l < 6 && r < 40 || r + r' < 35 = case mod r' 4 of
+      | l < 6 && r + r' < 25 = case mod r' 4 of
          0 -> do
           let s = repRand 5 10 4 4 topic' [topic']
           mm <- fixIt' (return ("Do you like " ++ topic' ++ "?") : s) [] 2 0 0 40
           return $ unwords mm
          1 -> do
           let s = repRand randoms 10 6 6 topic' $ words "perhaps you"
-          mm <- fixIt' (return ("Not really.") : s) [] 2 0 0 60
+          mm <- fixIt' s [] 2 0 0 60
           return $ unwords mm
          2 -> do
           let s = repRand 75 10 7 7 topic' $ words "can you"
