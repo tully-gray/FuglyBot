@@ -489,3 +489,14 @@ isAcronym b f1 f2 m =
     case length m of
       1 -> f2 (m!!0) >>= (\x' -> f1 $ show x') >> return b
       _ -> f1 "Usage: !isacronym <word>" >> return b
+
+help :: Bot -> Bool -> (String -> IO ()) -> IO Bot
+help b o f1 = if o then f1
+      ("Commands: !word !wordlist !insertword !name !namelist !acronym !acronymlist !insertacronym "
+      ++ "!dropword !banword !matchword !insertdefault !dropdefault !defaultlist !dropafter !banafter "
+      ++ "!ageword !topiclist !droptopic !droptopicwords !forcelearn "
+      ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
+      ++ "!setparam !showparams !nick !join !part !talk !raw !quit !load !save") >> return b
+              else f1
+      ("Commands: !word !wordlist !name !namelist !acronym !acronymlist !topiclist "
+      ++ "!dict !closure !meet !related !forms !parts !isname !isacronym") >> return b

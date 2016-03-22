@@ -648,22 +648,14 @@ execCmd b chan nick' (x:xs) = do
       | x == "!dict" = Cmd.dictL bot st showRep xs
       | x == "!closure" = Cmd.closure bot showRep (wnClosure wne') xs
       | x == "!meet" = Cmd.meet bot showRep (wnMeet wne') xs
-      -- | x == "!parse" = Cmd.parse bot isOwner showRep (gfParseShow pgf') xs
+      | x == "!parse" = Cmd.parse bot isOwner showRep (gfParseShow pgf') xs
       | x == "!related" = Cmd.related bot showRep (wnRelated wne') xs
       | x == "!forms" = Cmd.showForms bot showRep xs
       | x == "!parts" = Cmd.showParts bot showRep xs
       | x == "!isname" = Cmd.isName bot showRep (asIsName (getLock st) aspell') xs
       | x == "!isacronym" = Cmd.isName bot showRep (asIsAcronym (getLock st) aspell') xs
       | x == "!params" = Cmd.listParams bot isOwner showRep
-      | otherwise = if isOwner then showRep
-          ("Commands: !word !wordlist !insertword !name !namelist !acronym !acronymlist !insertacronym "
-          ++ "!dropword !banword !matchword !insertdefault !dropdefault !defaultlist !dropafter !banafter "
-          ++ "!ageword !topiclist !droptopic !droptopicwords !forcelearn "
-          ++ "!dict !closure !meet !parse !related !forms !parts !isname !isacronym "
-          ++ "!setparam !showparams !nick !join !part !talk !raw !quit !load !save") >> return bot
-                     else showRep
-          ("Commands: !word !wordlist !name !namelist !acronym !acronymlist !topiclist "
-          ++ "!dict !closure !meet !related !forms !parts !isname !isacronym") >> return bot
+      | otherwise = Cmd.help bot isOwner showRep
       where
         showRep = replyMsgT st bot chan nick'
         showErr = hPutStrLnLock stderr
