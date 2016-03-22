@@ -911,10 +911,11 @@ findNextWord Fugly{dict=dict'} r i rand prev stopic top noun w =
     let ln = if isJust ww then length neigh else 0
         lm = if isJust ww then length neighmax else 0
         ll = if isJust ww then length neighleast else 0
-        nr = mod (r + 1) ln
-        mr = mod (r + 7) lm
-        lr = mod (r + 5) ll
-        rr = mod r 99
+        i' = i + length w
+        nr = mod (i' + r + 1) ln
+        mr = mod (i' + r + 7) lm
+        lr = mod (i' + r + 5) ll
+        rr = mod (i' + r) 99
         f1 = if isJust ww && ll > 0 then neighleast!!lr else []
         f2 = if isJust ww then case mod i 3 of
           0 -> if ln > 0 then neigh!!nr else []

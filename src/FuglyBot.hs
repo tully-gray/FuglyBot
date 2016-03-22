@@ -410,7 +410,7 @@ timerLoop st = do
                       x == '~' || x == '+') $ n!!mod r (length n)
               who = if mod (r + 11) 3 == 0 then n' else chan
           msg <- if length norm == 0 then return "Well this is interesting..." else
-                   defsReplace lock f r d rw st' rand topic' n' $ norm!!(mod r $ length norm)
+                   defsReplace lock f d rw st' rand topic' n' $ norm!!(mod r $ length norm)
           action <- ircAction lock f d rw st' rand False n' topic' defs'
           if (not $ null action) && r < acts * 10 then
             forkIO (evalStateT (write h d "PRIVMSG"
@@ -430,7 +430,7 @@ ircAction l f d rw st' rand g n top defs' = do
     r <- Random.getStdRandom (Random.randomR (0, 999)) :: IO Int
     let action  = [de | (t, de) <- defs', t == Action]
         gaction = [de | (t, de) <- defs', t == GreetAction]
-        rep     = defsReplace l f r d rw st' rand top n
+        rep     = defsReplace l f d rw st' rand top n
     if g then
       if (length gaction) == 0 then return []
       else rep $ gaction!!mod r (length gaction)
@@ -452,12 +452,12 @@ greeting lock line = do
     let enter = [de | (t, de) <- defs', t == Enter]
         greet = [de | (t, de) <- defs', t == Greeting]
     if who == n then do
-      rep <- lift $ defsReplace lock f r d rw st rand top [] $ enter!!mod r (length enter)
+      rep <- lift $ defsReplace lock f d rw st rand top [] $ enter!!mod r (length enter)
       replyMsg bot chan [] $ if (length enter) == 0 then [] else rep
       else
       if null action || r < 600 then do
         let l = if (length greet) == 0 then [] else greet!!mod r (length greet)
-        rep <- lift $ defsReplace lock f r d rw st rand top who l
+        rep <- lift $ defsReplace lock f d rw st rand top who l
         replyMsg bot chan (if elem "#nick" $ words l then [] else who) rep
       else
         write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")

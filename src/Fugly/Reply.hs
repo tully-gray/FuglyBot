@@ -30,7 +30,7 @@ replyResponse st fugly@Fugly{defs=defs'} r debug rwords stopic randoms
         d  = if null bl then maxBound :: Int else (\((_, _), d') -> d') $ head bl
         o  = map (\((_, o'), _) -> o') bl
     if (realToFrac d :: Float) <= md then
-      defsReplace st fugly r debug rwords stopic randoms topic' nick' $ o!!(mod r $ length o)
+      defsReplace st fugly debug rwords stopic randoms topic' nick' $ o!!(mod r $ length o)
       else return []
 
 replyRegex :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
@@ -45,7 +45,7 @@ replyRegex st fugly@Fugly{defs=defs'} r debug rwords stopic randoms
         l  = map splitDef m'
         o  = [a | (q, a) <- l, msg Regex.=~ q]
     if not $ null o then
-      defsReplace st fugly r debug rwords stopic randoms topic' nick' $ o!!(mod r $ length o)
+      defsReplace st fugly debug rwords stopic randoms topic' nick' $ o!!(mod r $ length o)
       else return []
 
 replyNeural :: MVar () -> Fugly -> Int -> Bool -> [String] -> IO String
@@ -66,7 +66,7 @@ replyMixed st fugly@Fugly{wne=wne', match=match'}
     replyMixed' rr msg
   where
     l = length msg
-    repRand = replyRandom' st fugly r debug True True rwords stopic
+    repRand = replyRandom' st fugly debug True True rwords stopic
     fixIt'  = fixIt st debug
     replyMixed' :: Int -> [String] -> IO String
     replyMixed' _  [] = return []
@@ -162,19 +162,20 @@ replyRandom st fugly r debug rwords stopic randoms stries
       else return ()
     let mm = if length msg < 4 || mod (length $ concat msg) 3 == 0 then
                 msg else [msg!!(mod r $ length msg)]
-    o <- fixIt st debug (replyRandom' st fugly r debug False True rwords stopic
+    o <- fixIt st debug (replyRandom' st fugly debug False True rwords stopic
            randoms stries slen plen topic' mm) [] num 0 0 (stries * slen)
     return $ unwords o
 
-replyRandom' :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Int
+replyRandom' :: MVar () -> Fugly -> Bool -> Bool -> Bool -> Bool -> Bool -> Int
                 -> Int -> Int -> Int -> String -> [String] -> [IO String]
-replyRandom' _ _ _ _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
+replyRandom' _ _ _ _ _ _ _ _ _ _ _ _ [] = [return []] :: [IO String]
 replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
-  r debug first punc rwords stopic randoms stries slen plen topic' msg = do
+  debug first punc rwords stopic randoms stries slen plen topic' msg = do
     let s1h n a x = let out = if a then map toUpper x else
                                 if n then x else map toLower x in
           if isJust $ Map.lookup out dict' then out else []
     let s1a x = do
+          r <- Random.getStdRandom (Random.randomR (0, 999)) :: IO Int
           a <- isAcronym st aspell' dict' x
           n <- isName st aspell' dict' x
           b <- getNoun wne' r msg
@@ -184,9 +185,9 @@ replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
               yy = fHead [] y
               c  = if null zz && null yy then 2 else
                      if null zz || null yy then 3 else 4
-              w  = s1b fugly slen c b $ findNextWord fugly r 1 randoms False
+              w  = s1b fugly r slen c b $ findNextWord fugly r 1 randoms False
                    stopic topic' b x
-              ww = s1b fugly slen 0 b msg
+              ww = s1b fugly r slen 0 b msg
               d  = if first then ww else [yy] ++ [zz] ++ [s1h n a x] ++ w
           o <- wnReplaceWords fugly rwords randoms $ filter (not . null) $ take (stries * slen) d
           return $ dedupD o
@@ -207,12 +208,12 @@ replyRandom' st fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
               (map (s1e . s1d . s1a) (msg ++ sWords))
     s1f 0 s1t s1g
   where
-    s1b :: Fugly -> Int -> Int -> String -> [String] -> [String]
-    s1b f n i noun w =
+    s1b :: Fugly -> Int -> Int -> Int -> String -> [String] -> [String]
+    s1b f r n i noun w =
       if null $ concat w then return [] else
         if i >= n then dedupD w else
           let ww = findNextWord f r i randoms False stopic topic' noun $ fLast [] w in
-          s1b f n (i + 1) noun (w ++ ww)
+          s1b f (r + i) n (i + 1) noun (w ++ ww)
     s1c :: [String] -> String
     s1c [] = []
     s1c w  = [toUpper $ head $ head w] ++ (fTail [] $ head w)
@@ -239,7 +240,7 @@ replyDefault st f@Fugly{defs=defs', pgf=pgf'} r debug nick' topic' = do
     let d    = [de | (t, de) <- defs', t == Default]
         lenD = length d
     if lenD == 0 then gfRandom pgf' []
-      else defsReplace st f 23 debug False False 17 topic' nick' $ d!!mod r lenD
+      else defsReplace st f debug False False 17 topic' nick' $ d!!mod r lenD
 
 bestLevenshtein :: String -> [(String, String)] -> [((String, String), Int)]
 bestLevenshtein _   []    = [(([], []), maxBound :: Int)]
@@ -252,27 +253,45 @@ bestLevenshtein msg defs' = filter (\x -> snd x == min') dl
     dl   = dists [] defs'
     min' = minimum [d | (_, d) <- dl]
 
-defsReplace :: MVar () -> Fugly -> Int -> Bool -> Bool -> Bool -> Int
+defsReplace :: MVar () -> Fugly -> Bool -> Bool -> Bool -> Int
                -> String -> String -> String -> IO String
-defsReplace _  _     _ _     _      _      _       _      _    [] = return []
-defsReplace st fugly r debug rwords stopic randoms topic' nick' m = do
-    let s = if m Regex.=~ "#random" then
-               replyRandom' st fugly r debug False False rwords stopic randoms
-               5 3 3 topic' [topic']
-            else []
-    mm <- fixIt st debug s [] 1 0 0 15
-    let m'  = unwords mm
-        n'  = if null nick' then "somebody" else nick'
-        tt' = if null topic' then "stuff" else topic'
-        o'  = replace "#nick" n' $ replace "#topic" tt' $ words m
-        f'  = return . dePlenk . unwords
-    if null m' then f' o' else
-      f' $ replace "#random" m' o'
+defsReplace _  _     _     _      _      _       _      _    []   = return []
+defsReplace st fugly debug rwords stopic randoms topic' nick' msg = do
+    let n' = if null nick' then "somebody" else nick'
+        t' = if null topic' then "stuff" else topic'
+        o' = replace "#nick" n' $ replace "#topic" t' $ words msg
+    replace' [] o'
+  where
+    repRand = replyRandom' st fugly debug True False rwords stopic randoms 5 3 3 topic'
+    replace' :: [String] -> [String] -> IO String
+    replace' a [] = return $ dePlenk $ unwords a
+    replace' [] (x:xs) =
+      if x == "#random" then do
+        let s = repRand [topic']
+        m <- fixIt st debug s [] 1 0 0 15
+        if null m then return [] else
+          replace' m xs
+      else replace' [x] xs
+    replace' a [x] =
+      if x == "#random" then do
+        let s = repRand [topic']
+        m <- fixIt st debug s [] 1 0 0 15
+        if null m then return [] else
+          replace' (a ++ m) []
+      else replace' (a ++ [x]) []
+    replace' a (x:y:xs) =
+      if y == "#random" then do
+        let s = repRand [x]
+        m <- fixIt st debug s [] 1 0 0 15
+        if null m then return [] else
+          replace' (a ++ m) xs
+      else replace' (a ++ [x]) $ y : xs
 
 splitDef :: String -> (String, String)
-splitDef x = let q = reverse $ dropWhile (\c -> c == ' ') $ reverse $ takeWhile (\c -> c /= '=') x
-                 a = dropWhile (\c -> c == ' ') $ tail $ dropWhile (\c -> c /= '=') x in
-             (q, a)
+splitDef [] = ([], [])
+splitDef x  = let q = reverse $ dropWhile (\c -> c == ' ') $ reverse $ takeWhile (\c -> c /= '=') x
+                  a = dropWhile (\c -> c == ' ') $ tail $ dropWhile (\c -> c /= '=') x in
+              (q, a)
 
 fixIt :: MVar () -> Bool -> [IO String] -> [String] -> Int -> Int
          -> Int -> Int -> IO [String]
