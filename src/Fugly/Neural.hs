@@ -106,7 +106,7 @@ nnReply st Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell',
     a <- nnReply'
     c <- acroName [] $ check a
     if null $ concat c then return [] else do
-      out <- insertCommas wne' 0 $ toUpperSentence $ endSentence $ dedupD c
+      out <- insertPunc wne' 0 $ toUpperSentence $ endSentence $ dedupD c
       if debug then
         evalStateT (hPutStrLnLock stdout ("> debug: nnReply: " ++ unwords out)) st
         else return ()

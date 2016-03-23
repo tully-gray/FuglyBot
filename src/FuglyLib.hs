@@ -491,7 +491,7 @@ toUpperSentence (x:xs) = toUpperWord x : xs
 endSentence :: [String] -> [String]
 endSentence []  = []
 endSentence msg
-    | l == '?'  = msg
+    | l == '?' || l == '!' = msg
     | l == '.'  = if r == 0 then (init msg) ++ ((last msg) ++ "..") : []
                   else if r == 1 then (init msg) ++ ((cleanString $ last msg) ++ "!") : []
                     else msg
@@ -732,12 +732,12 @@ gfParseBool pgf' len msg
     | elem '\'' (map toLower lw)        = False
     | not $ isJust pgf'                 = True
     | len == 0       = True
-    | length w > len = (gfParseBool' ipgf' $ take len w) && (gfParseBool pgf' len (unwords $ drop len w))
-    | otherwise      = gfParseBool' ipgf' w
+    | length w > len = (gfParseBool' ipgf $ take len w) && (gfParseBool pgf' len (unwords $ drop len w))
+    | otherwise      = gfParseBool' ipgf w
   where
-    ipgf' = fromJust pgf'
-    w  = words msg
-    lw = strip '?' $ strip '.' $ last w
+    ipgf = fromJust pgf'
+    w    = words msg
+    lw   = strip '?' $ strip '.' $ last w
 
 gfParseBool' :: PGF -> [String] -> Bool
 gfParseBool' _    []                           = False
@@ -789,32 +789,34 @@ gfShowExpr pgf' type' num = if isJust $ readType type' then
       (generateRandomDepth (Random.mkStdGen num) pgf' c (Just num))
                             else "Not a GF type."
 
-insertCommas :: WordNetEnv -> Int -> [String] -> IO [String]
-insertCommas wne' i w = do
-    r  <- Random.getStdRandom (Random.randomR (0, 7)) :: IO Int
+insertPunc :: WordNetEnv -> Int -> [String] -> IO [String]
+insertPunc wne' i w = do
+    r  <- Random.getStdRandom (Random.randomR (0, 9)) :: IO Int
     let x  = fHead [] w
     let xs = fTail [] w
     let y  = fHead [] xs
     let l  = length xs
-    let bad = ["a", "am", "an", "and", "as", "but", "by", "for", "from", "had", "has", "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to", "very", "was", "with"]
-    let match' = ["a", "but", "however", "the", "then", "though"]
+    let bad = ["a", "am", "an", "and", "as", "but", "by", "for", "from", "had", "has",
+               "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to",
+               "very", "was", "with"]
+    let match' = ["a", "also", "but", "however", "our", "the", "then", "though", "will"]
     px <- wnPartPOS wne' x
     py <- wnPartPOS wne' y
     if l < 1 then return w
       else if elem x bad || elem '\'' x || i < 1 || l < 4 then do
-        xs' <- insertCommas wne' (i + 1) xs
+        xs' <- insertPunc wne' (i + 1) xs
         return (x : xs')
-           else if (elem y match') && r < 4 then do
-             xs' <- insertCommas wne' 0 xs
-             return ((x ++ if r < 1 then ";" else ",") : xs')
-                else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 3 && y /= "or" && y /= "and" then do
-                  xs' <- insertCommas wne' 0 xs
+           else if (elem y match') && r < 7 then do
+             xs' <- insertPunc wne' 0 xs
+             return $ if r > 4 then (x ++ ".  ") : (toUpperSentence xs') else (x ++ ",") : xs'
+                else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 8 && y /= "or" && y /= "and" then do
+                  xs' <- insertPunc wne' 0 xs
                   return ((x ++ if r < 2 then ", or" else ", and") : xs')
-                     else if px == POS Adj && py == POS Adj && r < 2 then do
-                       xs' <- insertCommas wne' 0 xs
+                     else if px == POS Adj && py == POS Adj && r < 7 then do
+                       xs' <- insertPunc wne' 0 xs
                        return ((x ++ " and") : xs')
                           else do
-                            xs' <- insertCommas wne' (i + 1) xs
+                            xs' <- insertPunc wne' (i + 1) xs
                             return (x : xs')
 
 filterWordPOS :: WordNetEnv -> EPOS -> [String] -> IO [String]

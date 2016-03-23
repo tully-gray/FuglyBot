@@ -209,7 +209,7 @@ replyRandom' lock fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
           if null w then return []
             else if not punc && not n then x
               else return ([s1c w] ++ tail w)
-    let s1g = map (\x -> do y <- x ; z <- insertCommas wne' 0 y
+    let s1g = map (\x -> do y <- x ; z <- insertPunc wne' 0 y
                             return $ dePlenk $ unwords z)
               (map (s1e . s1d . s1a) (msg ++ sWords))
     s1f 0 s1t s1g
