@@ -69,6 +69,7 @@ replyMixed lock fugly'@Fugly{wne=wne', match=match'}
     replyMixed' rr msg
   where
     l = length msg
+    t = stries * slen
     repRand = replyRandom' lock fugly' params' True True
     fixIt'  = fixIt lock debug'
     replyMixed' :: Int -> [String] -> IO String
@@ -76,7 +77,7 @@ replyMixed lock fugly'@Fugly{wne=wne', match=match'}
     replyMixed' r' w
       | mBool = do
         let s = repRand $ words mString
-        m <- fixIt' s [] 1 0 0 60
+        m <- fixIt' s [] 1 0 0 t
         return $ unwords m
       | l > 3 && (map (\x -> map toLower x) $ take 3 w) == ["do", "you", w!!2 Regex.=~ "like|hate|love|have|want|need"] = do
         noun <- getNoun wne' r' w
@@ -96,58 +97,58 @@ replyMixed lock fugly'@Fugly{wne=wne', match=match'}
             _ -> [])
       | l > 3 && l < 15 = do
           let ra = mod r 4
-          let t  = case ra of
+          let t' = case ra of
                 0 -> "food"
                 1 -> "animal"
                 2 -> "tool"
                 3 -> "abstraction"
                 _ -> []
-          (a, b) <- evalStateT (sentenceMeet wne' t w) lock
+          (a, b) <- evalStateT (sentenceMeet wne' t' w) lock
           if a then case ra of
             0 -> do
               let s = repRand [b, "is", "tasty", "and"]
-              mm <- fixIt' (return ("Oh yes, " ++ b ++ ".") : s) [] 2 0 0 45
+              mm <- fixIt' (return ("Oh yes, " ++ b ++ ".") : s) [] 2 0 0 t
               return $ unwords mm
             1 -> do
               let s = repRand [b, "is"]
-              mm <- fixIt' s [] 1 0 0 40
+              mm <- fixIt' s [] 1 0 0 t
               return $ unwords mm
             2 -> do
               let s = repRand ["my"]
-              mm <- fixIt' s [] 1 0 0 30
+              mm <- fixIt' s [] 1 0 0 t
               return $ unwords mm
             3 -> do
               let s = repRand ["this", b, "is"]
-              mm <- fixIt' s [] 1 0 0 45
+              mm <- fixIt' s [] 1 0 0 t
               return $ unwords mm
             _ -> return []
             else return []
       | l < 6 && r + r' < 25 = case mod r' 4 of
          0 -> do
           let s = repRand [topic']
-          mm <- fixIt' (return ("Do you like " ++ topic' ++ "?") : s) [] 2 0 0 40
+          mm <- fixIt' (return ("Do you like " ++ topic' ++ "?") : s) [] 2 0 0 t
           return $ unwords mm
          1 -> do
           let s = repRand $ words "perhaps you"
-          mm <- fixIt' s [] 2 0 0 60
+          mm <- fixIt' s [] 2 0 0 t
           return $ unwords mm
          2 -> do
           let s = repRand $ words "can you"
-          mm <- fixIt' s [] 1 0 0 70
+          mm <- fixIt' s [] 1 0 0 t
           return $ unwords mm
          3 -> do
           let s = repRand $ words "I think that"
-          mm <- fixIt' s [] 1 0 0 60
+          mm <- fixIt' s [] 1 0 0 t
           return $ unwords mm
          _ -> return []
       | l == 1 && r < 70 = do
           let s = repRand w
-          mm <- fixIt' s [] 1 0 0 50
+          mm <- fixIt' s [] 1 0 0 t
           return $ unwords mm
       | otherwise = do
         noun <- getNoun wne' r' w
         let s = repRand ["this", noun, "is"]
-        m' <- fixIt' s [] 1 0 0 (stries * slen)
+        m' <- fixIt' s [] 1 0 0 t
         return $ unwords $ toUpperSentence $ endSentence m'
     mList   = map toLower (" " ++ intercalate " | " match' ++ " ")
     mMsg    = (" " ++ map toLower (unwords msg) ++ " ")
@@ -173,8 +174,8 @@ replyRandom _ _ _ _ _ _ = return []
 replyRandom' :: MVar () -> Fugly -> Parameter -> Bool -> Bool -> [String] -> [IO String]
 replyRandom' _ _ _ _ _ [] = [return []] :: [IO String]
 replyRandom' lock fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
-    Parameter{debug=debug', replaceWord=rw, strictTopic=st', randoms=rand,
-              sTries=stries, sLength=slen, pLength=plen, topic=top}
+    Parameter{debug=debug', replaceWord=rw, strictTopic=st, randoms=randoms',
+              sTries=stries, sLength=slen, pLength=plen, topic=topic'}
     first punc msg = do
     let s1h n a x = let out = if a then map toUpper x else
                                 if n then x else map toLower x in
@@ -184,17 +185,17 @@ replyRandom' lock fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
           a <- isAcronym lock aspell' dict' x
           n <- isName lock aspell' dict' x
           b <- getNoun wne' r msg
-          let z  = findNextWord fugly r 0 rand True st' top b x
+          let z  = findNextWord fugly r 0 randoms' True st topic' b x
               zz = fHead [] z
-              y  = findNextWord fugly r 1 rand True st' top b zz
+              y  = findNextWord fugly r 1 randoms' True st topic' b zz
               yy = fHead [] y
               c  = if null zz && null yy then 2 else
                      if null zz || null yy then 3 else 4
-              w  = s1b fugly r slen c b $ findNextWord fugly r 1 rand False
-                   st' top b x
+              w  = s1b fugly r slen c b $ findNextWord fugly r 1 randoms' False
+                   st topic' b x
               ww = s1b fugly r slen 0 b msg
               d  = if first then ww else [yy] ++ [zz] ++ [s1h n a x] ++ w
-          o <- wnReplaceWords fugly rw rand $ filter (not . null) $ take (stries * slen) d
+          o <- wnReplaceWords fugly rw randoms' $ filter (not . null) $ take (stries * slen) d
           return $ dedupD o
     let s1d x = do
           w <- x
@@ -217,7 +218,7 @@ replyRandom' lock fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
     s1b f r n i noun w =
       if null $ concat w then return [] else
         if i >= n then dedupD w else
-          let ww = findNextWord f r i rand False st' top noun $ fLast [] w in
+          let ww = findNextWord f r i randoms' False st topic' noun $ fLast [] w in
           s1b f (r + i) n (i + 1) noun (w ++ ww)
     s1c :: [String] -> String
     s1c [] = []
@@ -261,35 +262,35 @@ bestLevenshtein defs' msg = filter (\x -> snd x == min') dl
 
 defsReplace :: MVar () -> Fugly -> Parameter -> String -> String -> IO String
 defsReplace _ _ _ _ [] = return []
-defsReplace lock fugly
-    p@Parameter{debug=d, topic=top}
+defsReplace lock fugly'
+    params'@Parameter{debug=debug', topic=topic'}
     nick' msg = do
     let n = if null nick' then "somebody" else nick'
-        t = if null top then "stuff" else top
+        t = if null topic' then "stuff" else topic'
         o = replace "#nick" n $ replace "#topic" t $ words msg
     replace' [] o
   where
-    repRand = replyRandom' lock fugly p{sTries=5, sLength=3, pLength=3} True False
+    repRand = replyRandom' lock fugly' params'{sTries=5, sLength=3, pLength=3} True False
     replace' :: [String] -> [String] -> IO String
     replace' a [] = return $ dePlenk $ unwords a
     replace' [] (x:xs) =
       if x == "#random" then do
-        let s = repRand [top]
-        m <- fixIt lock d s [] 1 0 0 15
+        let s = repRand [topic']
+        m <- fixIt lock debug' s [] 1 0 0 15
         if null m then return [] else
           replace' m xs
       else replace' [x] xs
     replace' a [x] =
       if x == "#random" then do
-        let s = repRand [top]
-        m <- fixIt lock d s [] 1 0 0 15
+        let s = repRand [topic']
+        m <- fixIt lock debug' s [] 1 0 0 15
         if null m then return [] else
           replace' (a ++ m) []
       else replace' (a ++ [x]) []
     replace' a (x:y:xs) =
       if y == "#random" then do
         let s = repRand [x]
-        m <- fixIt lock d s [] 1 0 0 15
+        m <- fixIt lock debug' s [] 1 0 0 15
         if null m then return [] else
           replace' (a ++ m) xs
       else replace' (a ++ [x]) $ y : xs
