@@ -76,17 +76,14 @@ start = do
     evalStateT (write sh True "NICK" nick') fState
     evalStateT (write sh True "USER" (nick' ++ " 0 * :user")) fState
     _   <- forkIO (do threadDelay 20000000
-                      if not $ null passwd then
-                         evalStateT (replyMsg b "nickserv" []
-                                     ("IDENTIFY " ++ passwd)) fState
-                         else return ()
+                      if null passwd then return () else
+                         evalStateT (replyMsg b "nickserv" [] ("IDENTIFY " ++ passwd)) fState
                       evalStateT (joinChannel sh "JOIN" channels) fState)
     return fState
 
 stop :: FState -> IO ()
 stop (bot, lock, tc, _) = do
-    Bot{handle=h, params=p@Parameter{fuglyDir=fd, dictFile=df},
-        fugly=f} <- readMVar bot
+    Bot{handle=h, params=p@Parameter{fuglyDir=fd, dictFile=df}, fugly=f} <- readMVar bot
     hClose h
     tc' <- readMVar tc
     _   <- mapM killThread tc'
@@ -112,12 +109,12 @@ listenIRC :: FState -> Handle -> String -> IO ()
 listenIRC st h l = do
     let b    = getBot st
         lock = getLock st
-    bot@Bot{params=p@Parameter{nick=bn, owners=o, debug=d, greetings=g}} <- readMVar b
+    bot@Bot{params=params'@Parameter{nick=bn, owners=o, debug=debug', greetings=g}} <- readMVar b
     let cn = getChanNicks st
     r   <- Random.getStdRandom (Random.randomR (0, 99)) :: IO Int
     cn' <- readMVar cn
     let rr  = mod (r + length l + length (Map.toList cn') + 50) 100
-    listenIRC' lock bot p b d bn o g cn cn' rr
+    listenIRC' lock bot params' b debug' bn o g cn cn' rr
   where
     ll  = words l
     lll = take 2 $ drop 1 ll
@@ -407,7 +404,7 @@ timerLoop st = do
                       x == '~' || x == '+') $ n!!mod r (length n)
               who = if mod (r + 11) 3 == 0 then n' else chan
           msg <- if length norm == 0 then return "Well this is interesting..." else
-                   defsReplace lock f pp n' $ norm!!(mod r $ length norm)
+                   defsReplace lock f pp True n' $ norm!!(mod r $ length norm)
           action <- ircAction lock f p False n'
           if (not $ null action) && r < acts * 10 then
             forkIO (evalStateT (write h d "PRIVMSG"
@@ -425,7 +422,7 @@ ircAction l f@Fugly{defs=defs'} p g n = do
     r <- Random.getStdRandom (Random.randomR (0, 999)) :: IO Int
     let action  = [de | (t, de) <- defs', t == Action]
         gaction = [de | (t, de) <- defs', t == GreetAction]
-        rep     = defsReplace l f p n
+        rep     = defsReplace l f p False n
     if g then
       if (length gaction) == 0 then return []
       else rep $ gaction!!mod r (length gaction)
@@ -445,13 +442,13 @@ greeting lock line = do
     let enter = [de | (t, de) <- defs', t == Enter]
         greet = [de | (t, de) <- defs', t == Greeting]
     if who == n then do
-      rep <- lift $ defsReplace lock f p [] $ enter!!mod r (length enter)
+      rep <- lift $ defsReplace lock f p True [] $ enter!!mod r (length enter)
       replyMsg bot chan [] $ if (length enter) == 0 then [] else rep
       else
       if null action || r < 600 then do
         let len = length greet
             l   = if len == 0 then [] else greet!!mod r len
-        rep <- lift $ defsReplace lock f p who l
+        rep <- lift $ defsReplace lock f p True who l
         replyMsg bot chan (if elem "#nick" $ words l then [] else who) rep
       else
         write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")

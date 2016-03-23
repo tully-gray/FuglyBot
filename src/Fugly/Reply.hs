@@ -37,7 +37,7 @@ replyResponse lock fugly'@Fugly{defs=defs'}
         d  = if null bl then maxBound :: Int else (\((_, _), d') -> d') $ head bl
         o  = map (\((_, o'), _) -> o') bl
     if (realToFrac d :: Float) <= md then
-      defsReplace lock fugly' params' nick' $ o!!(mod r $ length o)
+      defsReplace lock fugly' params' True nick' $ o!!(mod r $ length o)
       else return []
 replyResponse _ _ _ _ _ _ _ = return []
 
@@ -53,7 +53,7 @@ replyRegex lock fugly'@Fugly{defs=defs'}
         l = map splitDef m
         o = [a | (q, a) <- l, msg Regex.=~ q]
     if not $ null o then
-      defsReplace lock fugly' params' nick' $ o!!(mod r $ length o)
+      defsReplace lock fugly' params' True nick' $ o!!(mod r $ length o)
       else return []
 replyRegex _ _ _ _ _ _ = return []
 
@@ -246,7 +246,7 @@ replyDefault lock fugly'@Fugly{defs=defs', pgf=pgf'}
     let dList = [de | (t, de) <- defs', t == Default]
         len   = length dList
     if len == 0 then gfRandom pgf' []
-      else defsReplace lock fugly' params'{replaceWord=False, strictTopic=False} nick' $ dList!!mod r len
+      else defsReplace lock fugly' params'{replaceWord=False, strictTopic=False} True nick' $ dList!!mod r len
 replyDefault _ _ _ _ _ = return []
 
 bestLevenshtein :: [(String, String)] -> String -> [((String, String), Int)]
@@ -260,11 +260,11 @@ bestLevenshtein defs' msg = filter (\x -> snd x == min') dl
     dl   = dists [] defs'
     min' = minimum [d | (_, d) <- dl]
 
-defsReplace :: MVar () -> Fugly -> Parameter -> String -> String -> IO String
-defsReplace _ _ _ _ [] = return []
+defsReplace :: MVar () -> Fugly -> Parameter -> Bool -> String -> String -> IO String
+defsReplace _ _ _ _ _ [] = return []
 defsReplace lock fugly'
     params'@Parameter{debug=debug', topic=topic'}
-    nick' msg = do
+    format nick' msg = do
     let n = if null nick' then "somebody" else nick'
         t = if null topic' then "stuff" else topic'
         o = replace "#nick" n $ replace "#topic" t $ words msg
@@ -272,7 +272,9 @@ defsReplace lock fugly'
   where
     repRand = replyRandom' lock fugly' params'{sTries=5, sLength=3, pLength=3} True False
     replace' :: [String] -> [String] -> IO String
-    replace' a [] = return $ dePlenk $ unwords a
+    replace' a []
+      | format    = return $ dePlenk $ unwords $ toUpperSentence $ endSentence a
+      | otherwise = return $ unwords a
     replace' [] (x:xs) =
       if x == "#random" then do
         let s = repRand [topic']
@@ -294,7 +296,7 @@ defsReplace lock fugly'
         if null m then return [] else
           replace' (a ++ m) xs
       else replace' (a ++ [x]) $ y : xs
-defsReplace _ _ _ _ _ = return []
+defsReplace _ _ _ _ _ _ = return []
 
 splitDef :: String -> (String, String)
 splitDef [] = ([], [])
