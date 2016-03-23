@@ -390,11 +390,8 @@ timerLoop st = do
       _ <- return p
       threadDelay $ if (t < 5) then 30000000 else t * 1000000 + (t * r * 500)
       if t > 4 then do
-        bot@Bot{handle=h, params=pp@Parameter{nick=botnick,
-                randoms=rand, replaceWord=rw, debug=d,
-                strictTopic=st', topic=topic', actions=acts},
+        bot@Bot{handle=h, params=pp@Parameter{nick=bn, debug=d, actions=acts},
                 fugly=f@Fugly{defs=defs'}} <- readMVar b
-        _ <- return (pp, f)
         let norm = [de | (type', de) <- defs', type' == Normal]
             cn   = getChanNicks st
         cn' <- readMVar cn
@@ -405,13 +402,13 @@ timerLoop st = do
         let nicks = Map.lookup chan cn'
         load <- getLoad
         if isJust nicks && (read $ fHead [] load :: Float) < 2.5 then do
-          let n   = delete botnick $ fromJust nicks
+          let n   = delete bn $ fromJust nicks
               n'  = cleanStringBlack (\x -> x == '@' || x == '&' ||
                       x == '~' || x == '+') $ n!!mod r (length n)
               who = if mod (r + 11) 3 == 0 then n' else chan
           msg <- if length norm == 0 then return "Well this is interesting..." else
-                   defsReplace lock f d rw st' rand topic' n' $ norm!!(mod r $ length norm)
-          action <- ircAction lock f d rw st' rand False n' topic' defs'
+                   defsReplace lock f pp n' $ norm!!(mod r $ length norm)
+          action <- ircAction lock f p False n'
           if (not $ null action) && r < acts * 10 then
             forkIO (evalStateT (write h d "PRIVMSG"
                    (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
@@ -422,15 +419,13 @@ timerLoop st = do
           else forkIO $ return ()
         else forkIO $ return ()
 
-ircAction :: MVar () -> Fugly -> Bool -> Bool -> Bool -> Int
-             -> Bool -> String -> String -> [Default] -> IO String
-ircAction _ _ _ _  _   _    _ [] _  _     = return []
-ircAction _ _ _ _  _   _    _ _  _  []    = return []
-ircAction l f d rw st' rand g n top defs' = do
+ircAction :: MVar () -> Fugly -> Parameter -> Bool -> String -> IO String
+ircAction _ _ _ _ [] = return []
+ircAction l f@Fugly{defs=defs'} p g n = do
     r <- Random.getStdRandom (Random.randomR (0, 999)) :: IO Int
     let action  = [de | (t, de) <- defs', t == Action]
         gaction = [de | (t, de) <- defs', t == GreetAction]
-        rep     = defsReplace l f d rw st' rand top n
+        rep     = defsReplace l f p n
     if g then
       if (length gaction) == 0 then return []
       else rep $ gaction!!mod r (length gaction)
@@ -442,22 +437,21 @@ greeting :: MVar () -> [String] -> StateT FState IO ()
 greeting _    []   = return ()
 greeting lock line = do
     b <- gets getBot
-    bot@Bot{handle=h, params=p@Parameter{nick=n, debug=d, topic=top,
-            replaceWord=rw, strictTopic=st, randoms=rand},
+    bot@Bot{handle=h, params=p@Parameter{nick=n, debug=d},
             fugly=f@Fugly{defs=defs'}} <- lift $ takeMVar b
-    _ <- return (p, f)
     r <- lift $ Random.getStdRandom (Random.randomR (0, 999)) :: StateT FState IO Int
     lift $ threadDelay (600000 * (mod r 8) + 2000000)
-    action <- lift $ ircAction lock f d rw st rand True who top defs'
+    action <- lift $ ircAction lock f p True who
     let enter = [de | (t, de) <- defs', t == Enter]
         greet = [de | (t, de) <- defs', t == Greeting]
     if who == n then do
-      rep <- lift $ defsReplace lock f d rw st rand top [] $ enter!!mod r (length enter)
+      rep <- lift $ defsReplace lock f p [] $ enter!!mod r (length enter)
       replyMsg bot chan [] $ if (length enter) == 0 then [] else rep
       else
       if null action || r < 600 then do
-        let l = if (length greet) == 0 then [] else greet!!mod r (length greet)
-        rep <- lift $ defsReplace lock f d rw st rand top who l
+        let len = length greet
+            l   = if len == 0 then [] else greet!!mod r len
+        rep <- lift $ defsReplace lock f p who l
         replyMsg bot chan (if elem "#nick" $ words l then [] else who) rep
       else
         write h d "PRIVMSG" (chan ++ " :\SOHACTION " ++ action ++ "\SOH")
@@ -499,14 +493,13 @@ processLine r line = do
 reply :: Bot -> Int -> Bool -> String -> String -> [String]
          -> StateT FState IO Bot
 reply bot _ _ _ _ [] = return bot
-reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=plen,
-              autoName=an, allowPM=apm, debug=d, topic=top, replaceWord=rw, randoms=rand,
-              actions=acts, strictLearn=sl, strictTopic=st'},
-              fugly=f@Fugly{defs=defs', pgf=pgf', aspell=aspell',
-                            dict=dict', match=match', ban=ban'}}
-  r chanmsg chan nick' msg = do
+reply bot@Bot{handle=h,
+    params=p@Parameter{nick=bn, learning=learn', pLength=plen,
+                       autoName=an, allowPM=apm, debug=d, topic=top,
+                       actions=acts, strictLearn=sl, randoms=rand},
+    fugly=f@Fugly{pgf=pgf', aspell=aspell', dict=dict', match=match', ban=ban'}}
+    r chanmsg chan nick' msg = do
     st@(_, lock, _, _) <- get :: StateT FState IO FState
-    _ <- return p
     let mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
                    ':' -> tail msg
@@ -535,7 +528,7 @@ reply bot@Bot{handle=h, params=p@Parameter{nick=bn, learning=learn', pLength=ple
         if chanmsg then
           if rr < (15 + rand) && (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchOn then
             if isAction && (rr - 60 < acts  || rr * 5 + 15 < acts) then do
-              action <- ircAction lock f d rw st' rand False nick' top defs'
+              action <- ircAction lock f p False nick'
               if null action then return ()
                 else evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
             else forkReply st bot rr load chan (if r' < 55 then chan else nick') fmsg >> return ()
@@ -558,15 +551,12 @@ reply bot _ _ _ _ _ = return bot
 forkReply :: FState -> Bot -> Int -> [String] -> String
              -> String -> [String] -> IO ThreadId
 forkReply _ _ _ _ _ _ [] = forkIO $ return ()
-forkReply st@(_, lock, tc, _) Bot{handle=h,
-                params=p@Parameter{numThreads=nt, sTries=str,
-                                   sLength=slen, pLength=plen,
-                                   topic=top, randoms=rand, replaceWord=rw,
-                                   strictTopic=stopic, debug=d, delay=dl},
-                fugly=fugly'} r load chan nick' msg = forkIO (do
+forkReply st@(_, lock, tc, _)
+    Bot{handle=h,
+    params=p@Parameter{numThreads=nt, sTries=str, debug=d, delay=dl},
+    fugly=fugly'} r load chan nick' msg = forkIO (do
     tId <- myThreadId
     tc' <- incT tc tId
-    _   <- return p
     if d then
       evalStateT (hPutStrLnLock stdout ("> debug: thread count: " ++ show tc')) st
       else return ()
@@ -578,11 +568,11 @@ forkReply st@(_, lock, tc, _) Bot{handle=h,
           dl' = dl * 1000000
           bd  = (if dl < 4 then 0 else if r' - 3 > 0 then r' - 3 else 0) * 9
           sd  = (if rr - 2 > 0 then rr - 2 else 0) * 3
-          v = replyResponse lock fugly' r d rw stopic rand 1 nick' top $ unwords msg
-          w = replyRegex lock fugly' r d rw stopic rand nick' top $ unwords msg
-          x = replyMixed lock fugly' r d rw stopic rand str slen top msg
-          y = replyRandom lock fugly' r d rw stopic rand str slen plen top num msg
-          z = replyDefault lock fugly' r d nick' top
+          v = replyResponse lock fugly' p r 1 nick' $ unwords msg
+          w = replyRegex lock fugly' p r nick' $ unwords msg
+          x = replyMixed lock fugly' p r msg
+          y = replyRandom lock fugly' p r num msg
+          z = replyDefault lock fugly' p r nick'
       threadDelay $ dl' * (1 + sd + if bd > 90 then 90 else bd)
       out <- getResponse $ case mod r 4 of
                              0 -> [y, v, x, w, z]

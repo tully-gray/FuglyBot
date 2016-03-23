@@ -850,7 +850,10 @@ nouns []      = "stuff"
 nouns "guy"   = "guys"
 nouns "okay"  = "okays"
 nouns "stuff" = "stuff"
-nouns n       = if last n == 'y' then (init n) ++ "ies" else n ++ "s"
+nouns n
+    | last n == 'y' = (init n) ++ "ies"
+    | last n == 'h' = n ++ "es"
+    | otherwise     = n ++ "s"
 
 wnReplaceWords :: Fugly -> Bool -> Int -> [String] -> IO [String]
 wnReplaceWords _                               _     _       []  = return []
