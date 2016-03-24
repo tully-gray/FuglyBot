@@ -23,46 +23,46 @@ import           Text.EditDistance              as EditDistance
 import qualified Text.Regex.Posix               as Regex
 
 class Word_ a where
-  wordIs          :: a -> String
-  wordGetWord     :: a -> String
-  wordGetCount    :: a -> Int
-  wordGetAfter    :: a -> Map.Map String Int
-  wordGetBefore   :: a -> Map.Map String Int
-  wordGetBanAfter :: a -> [String]
-  wordGetTopic    :: a -> [String]
-  wordGetRelated  :: a -> [String]
-  wordGetPos      :: a -> EPOS
-  wordGetwc       :: a -> (Int, String)
+    wordIs          :: a -> String
+    wordGetWord     :: a -> String
+    wordGetCount    :: a -> Int
+    wordGetAfter    :: a -> Map.Map String Int
+    wordGetBefore   :: a -> Map.Map String Int
+    wordGetBanAfter :: a -> [String]
+    wordGetTopic    :: a -> [String]
+    wordGetRelated  :: a -> [String]
+    wordGetPos      :: a -> EPOS
+    wordGetwc       :: a -> (Int, String)
 
 instance Word_ Word where
-  wordIs Word{}                       = "word"
-  wordIs Name{}                       = "name"
-  wordIs Acronym{}                    = "acronym"
-  wordGetWord Word{word=w}            = w
-  wordGetWord Name{name=n}            = n
-  wordGetWord Acronym{acronym=a}      = a
-  wordGetCount Word{count=c}          = c
-  wordGetCount Name{count=c}          = c
-  wordGetCount Acronym{count=c}       = c
-  wordGetAfter Word{after=a}          = a
-  wordGetAfter Name{after=a}          = a
-  wordGetAfter Acronym{after=a}       = a
-  wordGetBefore Word{before=b}        = b
-  wordGetBefore Name{before=b}        = b
-  wordGetBefore Acronym{before=b}     = b
-  wordGetBanAfter Word{banafter=a}    = a
-  wordGetBanAfter Name{banafter=a}    = a
-  wordGetBanAfter Acronym{banafter=a} = a
-  wordGetTopic Word{topic=t}          = t
-  wordGetTopic Name{topic=t}          = t
-  wordGetTopic Acronym{topic=t}       = t
-  wordGetRelated Word{related=r}      = r
-  wordGetRelated _                    = []
-  wordGetPos Word{pos=p}              = p
-  wordGetPos _                        = UnknownEPos
-  wordGetwc (Word w c _ _ _ _ _ _)    = (c, w)
-  wordGetwc (Name n c _ _ _ _)        = (c, n)
-  wordGetwc (Acronym a c _ _ _ _ _)   = (c, a)
+    wordIs Word{}                       = "word"
+    wordIs Name{}                       = "name"
+    wordIs Acronym{}                    = "acronym"
+    wordGetWord Word{word=w}            = w
+    wordGetWord Name{name=n}            = n
+    wordGetWord Acronym{acronym=a}      = a
+    wordGetCount Word{count=c}          = c
+    wordGetCount Name{count=c}          = c
+    wordGetCount Acronym{count=c}       = c
+    wordGetAfter Word{after=a}          = a
+    wordGetAfter Name{after=a}          = a
+    wordGetAfter Acronym{after=a}       = a
+    wordGetBefore Word{before=b}        = b
+    wordGetBefore Name{before=b}        = b
+    wordGetBefore Acronym{before=b}     = b
+    wordGetBanAfter Word{banafter=a}    = a
+    wordGetBanAfter Name{banafter=a}    = a
+    wordGetBanAfter Acronym{banafter=a} = a
+    wordGetTopic Word{topic=t}          = t
+    wordGetTopic Name{topic=t}          = t
+    wordGetTopic Acronym{topic=t}       = t
+    wordGetRelated Word{related=r}      = r
+    wordGetRelated _                    = []
+    wordGetPos Word{pos=p}              = p
+    wordGetPos _                        = UnknownEPos
+    wordGetwc (Word w c _ _ _ _ _ _)    = (c, w)
+    wordGetwc (Name n c _ _ _ _)        = (c, n)
+    wordGetwc (Acronym a c _ _ _ _ _)   = (c, a)
 
 emptyWord :: Word
 emptyWord = Word [] 0 Map.empty Map.empty [] [] [] UnknownEPos
@@ -90,16 +90,16 @@ sWords = ["a", "am", "an", "as", "at", "by", "do", "go", "he", "i", "if",
           "to", "us", "we", "yo"]
 
 insertWords :: MVar () -> Fugly -> Bool -> String -> [String] -> IO Dict
-insertWords _  Fugly{dict=d}  _ _    []   = return d
-insertWords st fugly autoname topic' [x]  = insertWord st fugly autoname topic' x [] [] []
-insertWords st fugly@Fugly{dict=dict'} autoname topic' msg =
+insertWords _ Fugly{dict=dict'} _ _ [] = return dict'
+insertWords lock fugly autoname topic' [x] = insertWord lock fugly autoname topic' x [] [] []
+insertWords lock fugly@Fugly{dict=dict'} autoname topic' msg =
   let mx = fHead [] dmsg
       my = if len > 1 then dmsg!!1 else [] in
   case (len) of
     0 -> return dict'
     1 -> return dict'
-    2 -> do ff <- insertWord st fugly autoname topic' mx [] my []
-            insertWord st fugly{dict=ff} autoname topic' my mx [] []
+    2 -> do ff <- insertWord lock fugly autoname topic' mx [] my []
+            insertWord lock fugly{dict=ff} autoname topic' my mx [] []
     _ -> insertWords' fugly autoname topic' 0 len dmsg
   where
     dmsg = dedupD msg
@@ -107,41 +107,43 @@ insertWords st fugly@Fugly{dict=dict'} autoname topic' msg =
     insertWords' :: Fugly -> Bool -> String -> Int -> Int -> [String] -> IO Dict
     insertWords' (Fugly{dict=d}) _ _ _ _ [] = return d
     insertWords' f@(Fugly{dict=d}) a t i l m
-      | i == 0     = do ff <- insertWord st f a t (m!!i) [] (m!!(i+1)) []
+      | i == 0     = do ff <- insertWord lock f a t (m!!i) [] (m!!(i+1)) []
                         insertWords' f{dict=ff} a t (i+1) l m
       | i > l - 1  = return d
-      | i == l - 1 = do ff <- insertWord st f a t (m!!i) (m!!(i-1)) [] []
+      | i == l - 1 = do ff <- insertWord lock f a t (m!!i) (m!!(i-1)) [] []
                         insertWords' f{dict=ff} a t (i+1) l m
-      | otherwise  = do ff <- insertWord st f a t (m!!i) (m!!(i-1)) (m!!(i+1)) []
+      | otherwise  = do ff <- insertWord lock f a t (m!!i) (m!!(i-1)) (m!!(i+1)) []
                         insertWords' f{dict=ff} a t (i+1) l m
 
 insertWordsN :: MVar () -> Fugly -> Bool -> String -> Int -> [String] -> IO Dict
-insertWordsN _ Fugly{dict=d} _ _ _ []   = return d
-insertWordsN st f@(Fugly{dict=d}) an top num msg = f1 0 d
+insertWordsN _ Fugly{dict=dict'} _ _ _ [] = return dict'
+insertWordsN lock f@(Fugly{dict=dict'}) an top num msg = f1 0 dict'
   where
-    f1 n d' = do
-      nd <- insertWords st f{dict=d'} an top msg
+    f1 n d = do
+      nd <- insertWords lock f{dict=d} an top msg
       if n < num then f1 (n + 1) nd else return nd
 
-insertWord :: MVar () -> Fugly -> Bool -> String -> String -> String -> String -> String -> IO Dict
-insertWord _  Fugly{dict=d}                                     _        _      []    _       _      _    = return d
-insertWord st fugly@Fugly{dict=dict', aspell=aspell', ban=ban'} autoname topic' word' before' after' pos' = do
-    n   <- asIsName st aspell' word'
-    nb  <- asIsName st aspell' before'
-    na  <- asIsName st aspell' after'
-    ac  <- asIsAcronym st aspell' word'
-    acb <- asIsAcronym st aspell' before'
-    aca <- asIsAcronym st aspell' after'
+insertWord :: MVar () -> Fugly -> Bool -> String -> String
+              -> String -> String -> String -> IO Dict
+insertWord _ Fugly{dict=dict'} _ _ [] _ _ _ = return dict'
+insertWord lock fugly@Fugly{dict=dict', aspell=aspell', ban=ban'}
+    autoname topic' word' before' after' pos' = do
+    n   <- asIsName lock aspell' word'
+    nb  <- asIsName lock aspell' before'
+    na  <- asIsName lock aspell' after'
+    ac  <- asIsAcronym lock aspell' word'
+    acb <- asIsAcronym lock aspell' before'
+    aca <- asIsAcronym lock aspell' after'
     if (length word' < 3) && (notElem (map toLower word') sWords) then return dict'
-      else if isJust w then f st nb na acb aca $ fromJust w
+      else if isJust w then f lock nb na acb aca $ fromJust w
         else if ac && autoname then
                 if elem (acroword word') ban' then return dict'
-                else insertAcroRaw' st fugly wa (acroword word') (bi nb acb) (ai na aca) topic' []
+                else insertAcroRaw' lock fugly wa (acroword word') (bi nb acb) (ai na aca) topic' []
           else if n && autoname then
                   if elem (upperword word') ban' then return dict'
-                  else insertNameRaw' st fugly False wn word' (bi nb acb) (ai na aca) topic'
-            else if isJust ww then insertWordRaw' st fugly False ww (lowerword word') (bi nb acb) (ai na aca) topic' pos'
-              else insertWordRaw' st fugly False w (lowerword word') (bi nb acb) (ai na aca) topic' pos'
+                  else insertNameRaw' lock fugly False wn word' (bi nb acb) (ai na aca) topic'
+            else if isJust ww then insertWordRaw' lock fugly False ww (lowerword word') (bi nb acb) (ai na aca) topic' pos'
+              else insertWordRaw' lock fugly False w (lowerword word') (bi nb acb) (ai na aca) topic' pos'
   where
     lowerword = map toLower . cleanString
     upperword = toUpperWord . cleanString
@@ -419,8 +421,8 @@ cleanString x
     | otherwise = []
 
 dePlenk :: String -> String
-dePlenk []  = []
-dePlenk s   = dePlenk' s []
+dePlenk [] = []
+dePlenk s  = dePlenk' s []
   where
     dePlenk' [] l  = l
     dePlenk' [x] l = l ++ x:[]
@@ -565,9 +567,9 @@ wnGloss wne' word' pos' = do
       return $ unwords result
 
 wnRelated :: WordNetEnv -> String -> String -> String -> IO String
-wnRelated _    []    _    _    = return []
-wnRelated wne' word' []   _    = wnRelated wne' word' "Hypernym" []
-wnRelated wne' word' form []   = do
+wnRelated _    []    _    _  = return []
+wnRelated wne' word' []   _  = wnRelated wne' word' "Hypernym" []
+wnRelated wne' word' form [] = do
     wnPos <- wnPartString wne' (fixUnderscore word')
     wnRelated wne' word' form wnPos
 wnRelated wne' word' form pos' = do
@@ -581,8 +583,8 @@ wnRelated' :: WordNetEnv -> String -> String -> EPOS -> IO [String]
 wnRelated' _    []    _    _    = return [[]] :: IO [String]
 wnRelated' wne' word' form pos' = catch (do
     let wnForm = readForm form
-    s <- runs wne' $ search (fixUnderscore word') (fromEPOS pos') AllSenses
-    r <- runs wne' $ relatedByList wnForm s
+    s  <- runs wne' $ search (fixUnderscore word') (fromEPOS pos') AllSenses
+    r  <- runs wne' $ relatedByList wnForm s
     ra <- runs wne' $ relatedByListAllForms s
     let result = if (map toLower form) == "all" then
                    concat $ map (fromMaybe [[]]) (runs wne' ra)
