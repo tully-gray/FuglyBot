@@ -274,7 +274,7 @@ defsReplace lock fugly'
     replace' :: [String] -> [String] -> IO String
     replace' a []
       | format    = return $ dePlenk $ unwords $ toUpperSentence $ endSentence a
-      | otherwise = return $ unwords a
+      | otherwise = return $ dePlenk $ unwords a
     replace' [] (x:xs) =
       if x == "#random" then do
         let s = repRand [topic']
