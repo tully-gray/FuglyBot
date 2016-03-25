@@ -583,10 +583,10 @@ forkReply st@(_, lock, tc, _)
     decT tc tId)
   where
     randoms' v w x y z
-      | rand < 20     = [v, w, z]
-      | rand + r < 50 = [v, w, x, z]
-      | rand + r < 90 = [v, w, x, y, z]
-      | otherwise     = [y, v, x, w, z]
+      | rand < 20      = [v, w, z]
+      | rand + r < 80  = [v, w, x, z]
+      | rand + r < 140 = [v, w, x, y, z]
+      | otherwise      = [y, v, x, w, z]
     getResponse []     = return []
     getResponse (x:xs) = do
       x' <- x
