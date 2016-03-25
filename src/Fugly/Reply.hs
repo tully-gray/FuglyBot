@@ -69,8 +69,8 @@ replyMixed lock fugly'@Fugly{wne=wne', match=match'}
     replyMixed' rr msg
   where
     l = length msg
-    t = stries * slen
-    repRand = replyRandom' lock fugly' params' True True
+    t = stries * 5
+    repRand = replyRandom' lock fugly' params'{sLength=5} True True
     fixIt'  = fixIt lock debug'
     replyMixed' :: Int -> [String] -> IO String
     replyMixed' _  [] = return []

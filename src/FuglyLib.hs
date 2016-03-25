@@ -815,31 +815,40 @@ insertPunc :: WordNetEnv -> Int -> [String] -> IO [String]
 insertPunc wne' i w = do
     r  <- Random.getStdRandom (Random.randomR (0, 9)) :: IO Int
     let x  = fHead [] w
-    let xs = fTail [] w
-    let y  = fHead [] xs
-    let l  = length xs
-    let bad = ["a", "am", "an", "and", "as", "but", "by", "for", "from", "had", "has",
+        xs = fTail [] w
+        y  = fHead [] xs
+        l  = length xs
+        bad = ["a", "am", "an", "and", "as", "but", "by", "for", "from", "had", "has",
                "have", "I", "in", "is", "of", "on", "or", "that", "the", "this", "to",
                "very", "was", "with"]
-    let match' = ["a", "also", "but", "however", "our", "the", "then", "though", "will"]
+        match' = ["a", "also", "but", "however", "our", "the", "then", "though", "will"]
     px <- wnPartPOS wne' x
     py <- wnPartPOS wne' y
-    if l < 1 then return w
-      else if elem x bad || elem '\'' x || i < 1 || l < 4 then do
-        xs' <- insertPunc wne' (i + 1) xs
-        return (x : xs')
-           else if (elem y match') && r < 7 then do
-             xs' <- insertPunc wne' 0 xs
-             return $ if r > 4 then (x ++ ".  ") : (toUpperSentence xs') else (x ++ ",") : xs'
-                else if px == POS Noun && (py == POS Noun || py == POS Adj) && r < 8 && y /= "or" && y /= "and" then do
-                  xs' <- insertPunc wne' 0 xs
-                  return ((x ++ if r < 2 then ", or" else ", and") : xs')
-                     else if px == POS Adj && py == POS Adj && r < 7 then do
-                       xs' <- insertPunc wne' 0 xs
-                       return ((x ++ " and") : xs')
-                          else do
-                            xs' <- insertPunc wne' (i + 1) xs
-                            return (x : xs')
+    out r l x xs y px py bad match'
+  where
+    out r l x xs y px py bad match'
+      | l < 1 = return w
+      | elem x bad || elem '\'' x || i < 1 || l < 4 = do
+          xs' <- insertPunc wne' (i + 1) xs
+          return (x : xs')
+      | (elem y match') && r < 7 = do
+          xs' <- insertPunc wne' 0 xs
+          let o' = if r > 4 then (x ++ ".  ") : (toUpperSentence xs') else
+                     (x ++ ",") : xs'
+          return o'
+      | y == "is" && r > 3 && l > 2 && i > 2 = do
+          xs' <- insertPunc wne' 0 xs
+          return ((x ++ ", this") : xs')
+      | px == POS Noun && (py == POS Noun || py == POS Adj)
+        && r < 8 && y /= "or" && y /= "and" = do
+          xs' <- insertPunc wne' 0 xs
+          return ((x ++ if r < 2 then ", or" else ", and") : xs')
+      | px == POS Adj && py == POS Adj && r < 7 = do
+          xs' <- insertPunc wne' 0 xs
+          return ((x ++ " and") : xs')
+      | otherwise = do
+          xs' <- insertPunc wne' (i + 1) xs
+          return (x : xs')
 
 filterWordPOS :: WordNetEnv -> EPOS -> [String] -> IO [String]
 filterWordPOS _    _    []  = return []
@@ -854,8 +863,9 @@ filterWordPOS wne' pos' msg = fpos [] msg
 getNoun :: WordNetEnv -> Int -> [String] -> IO String
 getNoun wne' r w = do
     ww <- filterWordPOS wne' (POS Noun) w
-    let ww' = filter (\x -> length x > 2 && (notElem x qWords)) ww
-    let n   = case mod r 9 of
+    let bad = words "the thing this"
+        ww' = sortOn length $ filter (\x -> length x > 2 && (notElem x $ bad ++ qWords)) ww
+        n   = case mod r 9 of
           0 -> "thing"
           1 -> "stuff"
           2 -> "idea"
@@ -866,7 +876,7 @@ getNoun wne' r w = do
           7 -> "bacon"
           8 -> "pony"
           _ -> []
-    let n'  = if null ww' then n else ww'!!(mod r $ length ww')
+    let n' = fHead n $ reverse ww'
     return $ if last n' == 's' then init n' else if length n' < 3 then n else n'
 
 nouns :: String -> String
