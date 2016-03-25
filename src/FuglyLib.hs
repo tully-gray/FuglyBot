@@ -134,149 +134,167 @@ insertWord lock fugly@Fugly{dict=dict', aspell=aspell', ban=ban'}
     ac  <- asIsAcronym lock aspell' word'
     acb <- asIsAcronym lock aspell' before'
     aca <- asIsAcronym lock aspell' after'
-    if (length word' < 3) && (notElem (map toLower word') sWords) then return dict'
-      else if isJust w then f lock nb na acb aca $ fromJust w
-        else if ac && autoname then
-                if elem (acroword word') ban' then return dict'
-                else insertAcroRaw' lock fugly wa (acroword word') (bi nb acb) (ai na aca) topic' []
-          else if n && autoname then
-                  if elem (upperword word') ban' then return dict'
-                  else insertNameRaw' lock fugly False wn word' (bi nb acb) (ai na aca) topic'
-            else if isJust ww then insertWordRaw' lock fugly False ww (lowerword word') (bi nb acb) (ai na aca) topic' pos'
-              else insertWordRaw' lock fugly False w (lowerword word') (bi nb acb) (ai na aca) topic' pos'
+    insert' n nb na ac acb aca
   where
     lowerword = map toLower . cleanString
     upperword = toUpperWord . cleanString
     acroword  = map toUpper . cleanString
-    w   = Map.lookup word'     dict'
+    w   = Map.lookup word' dict'
     wa  = Map.lookup (acroword  word') dict'
     wn  = Map.lookup (upperword word') dict'
     ww  = Map.lookup (lowerword word') dict'
-    b   = Map.lookup before'   dict'
+    b   = Map.lookup before' dict'
     ba' = Map.lookup (acroword  before') dict'
     bn' = Map.lookup (upperword before') dict'
     bw' = Map.lookup (lowerword before') dict'
-    ai an aa = if isJust w && elem after' (wordGetBanAfter $ fromJust w) then []
-               else if (length after' < 3) && (notElem (map toLower after') sWords) then []
-                    else if aa && autoname then
-                           if elem (acroword after') ban' then []
-                           else if isJust wa && elem (acroword after') (wordGetBanAfter $ fromJust wa) then []
-                                else acroword after'
-                         else if an && autoname then
-                                if elem (upperword after') ban' then []
-                                else if isJust wn && elem (upperword after') (wordGetBanAfter $ fromJust wn) then []
-                                     else upperword after'
-                              else if isJust ww then if elem (lowerword after') (wordGetBanAfter $ fromJust ww) then []
-                                                     else lowerword after'
-                                   else lowerword after'
-    bi bn ba = if isJust b && elem word' (wordGetBanAfter $ fromJust b) then []
-               else if (length before' < 3) && (notElem (map toLower before') sWords) then []
-                    else if ba && autoname then
-                           if elem (acroword before') ban' then []
-                           else if isJust ba' && elem (acroword word') (wordGetBanAfter $ fromJust ba') then []
-                                else acroword before'
-                         else if bn && autoname then
-                                if elem (upperword before') ban' then []
-                                else if isJust bn' && elem (upperword word') (wordGetBanAfter $ fromJust bn') then []
-                                     else upperword before'
-                              else if isJust bw' then if elem (lowerword word') (wordGetBanAfter $ fromJust bw') then []
-                                                      else lowerword before'
-                                   else lowerword before'
-    f st' bn an ba aa Word{}    = insertWordRaw' st' fugly False w  word'             (bi bn ba) (ai an aa) topic' pos'
-    f st' bn an ba aa Name{}    = insertNameRaw' st' fugly True  w  word'             (bi bn ba) (ai an aa) topic'
-    f st' bn an ba aa Acronym{} = insertAcroRaw' st' fugly       wa (acroword word')  (bi bn ba) (ai an aa) topic' []
+    insert' n nb na ac acb aca
+      | (length word' < 3) && (notElem (map toLower word') sWords) = return dict'
+      | isJust w = f nb na acb aca $ fromJust w
+      | ac && autoname = if elem (acroword word') ban' then return dict' else
+                           insertAcroRaw' lock fugly wa (acroword word') (bi nb acb) (ai na aca) topic' []
+      | n && autoname = if elem (upperword word') ban' then return dict' else
+                          insertNameRaw' lock fugly False wn word' (bi nb acb) (ai na aca) topic'
+      | isJust ww = insertWordRaw' lock fugly False ww (lowerword word') (bi nb acb) (ai na aca) topic' pos'
+      | otherwise = insertWordRaw' lock fugly False w (lowerword word') (bi nb acb) (ai na aca) topic' pos'
+    ai an aa
+      | isJust w && elem after' (wordGetBanAfter $ fromJust w) = []
+      | (length after' < 3) && (notElem (map toLower after') sWords) = []
+      | aa && autoname = if elem (acroword after') ban' then [] else
+                           if isJust wa && elem (acroword after') (wordGetBanAfter $ fromJust wa) then []
+                           else acroword after'
+      | an && autoname = if elem (upperword after') ban' then [] else
+                           if isJust wn && elem (upperword after') (wordGetBanAfter $ fromJust wn) then []
+                           else upperword after'
+      | isJust ww = if elem (lowerword after') (wordGetBanAfter $ fromJust ww) then []
+                    else lowerword after'
+      | otherwise = lowerword after'
+    bi bn ba
+      | isJust b && elem word' (wordGetBanAfter $ fromJust b) = []
+      | (length before' < 3) && (notElem (map toLower before') sWords) = []
+      | ba && autoname = if elem (acroword before') ban' then [] else
+                           if isJust ba' && elem (acroword word') (wordGetBanAfter $ fromJust ba') then []
+                           else acroword before'
+      | bn && autoname = if elem (upperword before') ban' then [] else
+                           if isJust bn' && elem (upperword word') (wordGetBanAfter $ fromJust bn') then []
+                           else upperword before'
+      | isJust bw' = if elem (lowerword word') (wordGetBanAfter $ fromJust bw') then []
+                     else lowerword before'
+      | otherwise = lowerword before'
+    f bn an ba aa Word{}    = insertWordRaw' lock fugly False w  word'            (bi bn ba) (ai an aa) topic' pos'
+    f bn an ba aa Name{}    = insertNameRaw' lock fugly True  w  word'            (bi bn ba) (ai an aa) topic'
+    f bn an ba aa Acronym{} = insertAcroRaw' lock fugly       wa (acroword word') (bi bn ba) (ai an aa) topic' []
 
-insertWordRaw :: MVar () -> Fugly -> Bool -> String -> String -> String -> String -> String -> IO Dict
-insertWordRaw st f@Fugly{dict=d} s w b a t p = insertWordRaw' st f s (Map.lookup w d) w b a t p
+insertWordRaw :: MVar () -> Fugly -> Bool -> String -> String -> String
+                 -> String -> String -> IO Dict
+insertWordRaw lock f@Fugly{dict=d} s w b a t p =
+    insertWordRaw' lock f s (Map.lookup w d) w b a t p
 
 insertWordRaw' :: MVar () -> Fugly -> Bool -> Maybe Word -> String -> String
-                 -> String -> String -> String -> IO Dict
-insertWordRaw' _  Fugly{dict=d}                               _      _ []    _       _      _      _    = return d
-insertWordRaw' st Fugly{dict=dict', wne=wne', aspell=aspell'} strict w word' before' after' topic' pos' = do
+                  -> String -> String -> String -> IO Dict
+insertWordRaw' _ Fugly{dict=dict'} _ _ [] _ _ _ _ = return dict'
+insertWordRaw' lock Fugly{dict=dict', wne=wne', aspell=aspell'}
+    strict w word' before' after' topic' pos' = do
     pp <- (if null pos' then wnPartPOS wne' word' else return $ readEPOS pos')
     pa <- wnPartPOS wne' after'
     pb <- wnPartPOS wne' before'
     rel <- wnRelated' wne' word' "Hypernym" pp
-    as <- evalStateT (asSuggest aspell' word') st
+    as <- evalStateT (asSuggest aspell' word') lock
     let asw = words as
-    let nn x y  = if isJust $ Map.lookup x dict' then x
-                  else if y == UnknownEPos && Aspell.check aspell'
-                          (ByteString.pack x) == False then [] else x
+    let nn x y  = if isJust $ Map.lookup x dict' then x else
+                    if y == UnknownEPos && Aspell.check aspell'
+                       (ByteString.pack x) == False then [] else x
     let insert' x = Map.insert x (Word x 1 (e (nn before' pb)) (e (nn after' pa)) [] [topic'] rel pp) dict'
-    let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new word: " ++ w')) st
-    if isJust w then let w' = fromJust w in return $ Map.insert word' w'{count=c, before=nb before' pb,
-                                              after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
-      else if strict then msg word' >> return (insert' word')
-           else if pp /= UnknownEPos || Aspell.check aspell' (ByteString.pack word') then msg word' >> return (insert' word')
-                else if (length asw) > 0 then let hasw = head asw in
-                if (length hasw < 3 && (notElem (map toLower hasw) sWords)) || (isJust $ Map.lookup hasw dict')
-                then return dict' else msg hasw >> return (insert' hasw)
-                     else return dict'
+    let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new word: " ++ w')) lock
+    if isJust w then let w' = fromJust w in
+      return $ Map.insert word' w'{count=c, before=nb before' pb, after=na after' pa,
+                                   topic=sort $ nub (topic' : wordGetTopic w')} dict'
+      else if strict then msg word' >> return (insert' word') else
+      if pp /= UnknownEPos || Aspell.check aspell' (ByteString.pack word') then msg word' >> return (insert' word')
+      else if (length asw) > 0 then let hasw = head asw in
+        if (length hasw < 3 && (notElem (map toLower hasw) sWords)) || (isJust $ Map.lookup hasw dict')
+        then return dict' else msg hasw >> return (insert' hasw)
+           else return dict'
     where
       e [] = Map.empty
       e x  = Map.singleton x 1
       c = incCount' (fromJust w) 1
-      na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1
-               else if y /= UnknownEPos || Aspell.check aspell'
-                       (ByteString.pack x) then incAfter' (fromJust w) x 1
-                    else wordGetAfter (fromJust w)
-      nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1
-               else if y /= UnknownEPos || Aspell.check aspell'
-                       (ByteString.pack x) then incBefore' (fromJust w) x 1
-                    else wordGetBefore (fromJust w)
+      na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1 else
+                 if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then
+                   incAfter' (fromJust w) x 1
+                 else wordGetAfter (fromJust w)
+      nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1 else
+                 if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then
+                   incBefore' (fromJust w) x 1
+                 else wordGetBefore (fromJust w)
 
-insertNameRaw :: MVar () -> Fugly -> Bool -> String -> String -> String -> String -> IO Dict
-insertNameRaw st f@Fugly{dict=d} s w b a t = insertNameRaw' st f s (Map.lookup w d) w b a t
+insertNameRaw :: MVar () -> Fugly -> Bool -> String -> String -> String
+                 -> String -> IO Dict
+insertNameRaw lock f@Fugly{dict=dict'} s w b a t =
+    insertNameRaw' lock f s (Map.lookup w dict') w b a t
 
 insertNameRaw' :: MVar () -> Fugly -> Bool -> Maybe Word -> String -> String
                   -> String -> String -> IO Dict
-insertNameRaw' _  Fugly{dict=d}                               _      _ []    _       _      _      = return d
-insertNameRaw' st Fugly{dict=dict', wne=wne', aspell=aspell'} strict w name' before' after' topic' = do
+insertNameRaw' _ Fugly{dict=dict'} _ _ [] _ _ _ = return dict'
+insertNameRaw' lock Fugly{dict=dict', wne=wne', aspell=aspell'}
+    strict w name' before' after' topic' = do
     pa <- wnPartPOS wne' after'
     pb <- wnPartPOS wne' before'
     let n = if strict then name' else toUpperWord $ map toLower name'
-    let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new name: " ++ w')) st
-    if isJust w then let w' = fromJust w in return $ Map.insert name' w'{count=c, before=nb before' pb,
-                                              after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
-      else msg n >> return (Map.insert n (Name n 1 (e (nn before' pb)) (e (nn after' pa)) [] [topic']) dict')
+    let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new name: " ++ w')) lock
+    if isJust w then let w' = fromJust w in
+      return $ Map.insert name' w'{count=c, before=nb before' pb, after=na after' pa,
+                                   topic=sort $ nub (topic' : wordGetTopic w')} dict'
+      else msg n >> return (Map.insert n (Name n 1 (e (nn before' pb))
+                      (e (nn after' pa)) [] [topic']) dict')
     where
       e [] = Map.empty
       e x = Map.singleton x 1
       c = incCount' (fromJust w) 1
-      na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1
-               else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incAfter' (fromJust w) x 1
-                    else wordGetAfter (fromJust w)
-      nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1
-               else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incBefore' (fromJust w) x 1
-                    else wordGetBefore (fromJust w)
-      nn x y  = if isJust $ Map.lookup x dict' then x
-                else if y == UnknownEPos && Aspell.check aspell' (ByteString.pack x) == False then [] else x
+      na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1 else
+                 if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then
+                   incAfter' (fromJust w) x 1
+                 else wordGetAfter (fromJust w)
+      nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1 else
+                 if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then
+                   incBefore' (fromJust w) x 1
+                 else wordGetBefore (fromJust w)
+      nn x y  = if isJust $ Map.lookup x dict' then x else
+                  if y == UnknownEPos && Aspell.check aspell' (ByteString.pack x) == False
+                  then [] else x
 
-insertAcroRaw :: MVar () -> Fugly -> String -> String -> String -> String -> String -> IO Dict
-insertAcroRaw st f@Fugly{dict=d} w b a t def = insertAcroRaw' st f (Map.lookup w d) w b a t def
+insertAcroRaw :: MVar () -> Fugly -> String -> String -> String -> String
+                 -> String -> IO Dict
+insertAcroRaw lock f@Fugly{dict=dict'} w b a t def =
+    insertAcroRaw' lock f (Map.lookup w dict') w b a t def
 
 insertAcroRaw' :: MVar () -> Fugly -> Maybe Word -> String -> String
                   -> String -> String -> String -> IO Dict
-insertAcroRaw' _  Fugly{dict=d}                               _ []    _       _      _      _   = return d
-insertAcroRaw' st Fugly{dict=dict', wne=wne', aspell=aspell'} w acro' before' after' topic' def = do
+insertAcroRaw' _ Fugly{dict=dict'} _ [] _ _ _ _ = return dict'
+insertAcroRaw' lock Fugly{dict=dict', wne=wne', aspell=aspell'}
+    w acro' before' after' topic' def = do
     pa <- wnPartPOS wne' after'
     pb <- wnPartPOS wne' before'
-    let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new acronym: " ++ w')) st
-    if isJust w then let w' = fromJust w in return $ Map.insert acro' w'{count=c, before=nb before' pb,
-                                              after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
-      else msg acro' >> return (Map.insert acro' (Acronym acro' 1 (e (nn before' pb)) (e (nn after' pa)) [] [topic'] def) dict')
+    let msg w' = evalStateT (hPutStrLnLock stdout ("> inserted new acronym: " ++ w')) lock
+    if isJust w then let w' = fromJust w in
+      return $ Map.insert acro' w'{count=c, before=nb before' pb,
+        after=na after' pa, topic=sort $ nub (topic' : wordGetTopic w')} dict'
+      else msg acro' >> return (Map.insert acro' (Acronym acro' 1 (e (nn before' pb))
+                          (e (nn after' pa)) [] [topic'] def) dict')
     where
       e [] = Map.empty
       e x = Map.singleton x 1
       c = incCount' (fromJust w) 1
-      na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1
-               else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incAfter' (fromJust w) x 1
-                    else wordGetAfter (fromJust w)
-      nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1
-               else if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then incBefore' (fromJust w) x 1
-                    else wordGetBefore (fromJust w)
-      nn x y  = if isJust $ Map.lookup x dict' then x
-                else if y == UnknownEPos && Aspell.check aspell' (ByteString.pack x) == False then [] else x
+      na x y = if isJust $ Map.lookup x dict' then incAfter' (fromJust w) x 1 else
+                 if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then
+                   incAfter' (fromJust w) x 1
+                 else wordGetAfter (fromJust w)
+      nb x y = if isJust $ Map.lookup x dict' then incBefore' (fromJust w) x 1 else
+                 if y /= UnknownEPos || Aspell.check aspell' (ByteString.pack x) then
+                   incBefore' (fromJust w) x 1
+                 else wordGetBefore (fromJust w)
+      nn x y  = if isJust $ Map.lookup x dict' then x else
+                  if y == UnknownEPos && Aspell.check aspell' (ByteString.pack x) == False
+                  then [] else x
 
 addBanAfter :: Word -> String -> Word
 addBanAfter w ban' = let ba = wordGetBanAfter w in w{banafter=sort $ nub $ ban' : ba}
@@ -320,9 +338,10 @@ ageWord m word' num = Map.map age m
     where
       age w = let
         w' = wordGetWord  w
-        c  = wordGetCount w
-        in if w' == word' then w{count=if c - num < 1 then 1 else c - num,
-                                 before=incBefore' w word' (-num), after=incAfter' w word' (-num)}
+        c  = wordGetCount w in
+        if w' == word' then
+           w{count=if c - num < 1 then 1 else
+           c - num, before=incBefore' w word' (-num), after=incAfter' w word' (-num)}
            else w{before=incBefore' w word' (-num), after=incAfter' w word' (-num)}
 
 incCount' :: Word -> Int -> Int
@@ -491,7 +510,7 @@ toUpperSentence [x]    = [toUpperWord x]
 toUpperSentence (x:xs) = toUpperWord x : xs
 
 endSentence :: [String] -> [String]
-endSentence []  = []
+endSentence [] = []
 endSentence msg
     | l == '?' || l == '!' = msg
     | l == '.'  = if r == 0 then (init msg) ++ ((last msg) ++ "..") : []
@@ -654,16 +673,16 @@ sentenceMeet w s m  = do
             return $ getWords $ getSynset $ fromJust m'
 
 asIsName :: MVar () -> Aspell.SpellChecker -> String -> IO Bool
-asIsName _ _ []    = return False
-asIsName _ _ "i"   = return True
-asIsName _ _ "I"   = return True
-asIsName st aspell' word' = do
+asIsName _ _ []  = return False
+asIsName _ _ "i" = return True
+asIsName _ _ "I" = return True
+asIsName lock aspell' word' = do
     let n = ["Can", "Fool", "He", "Male"]
     let l = map toLower word'
     let u = toUpperWord l
     let b = toUpperLast l
-    nl <- evalStateT (asSuggest aspell' l) st
-    nb <- evalStateT (asSuggest aspell' b) st
+    nl <- evalStateT (asSuggest aspell' l) lock
+    nb <- evalStateT (asSuggest aspell' b) lock
     return $ if length word' < 3 || elem word' n then False else
                if (length $ words nb) < 3 then False else
                  if word' == (words nb)!!1 then False else
@@ -671,45 +690,46 @@ asIsName st aspell' word' = do
                    else False
 
 isName :: MVar () -> Aspell.SpellChecker -> Dict -> String -> IO Bool
-isName _  _       _     [] = return False
-isName st aspell' dict' w  = do
-      n <- asIsName st aspell' w
+isName _ _ _ [] = return False
+isName lock aspell' dict' w = do
+      n <- asIsName lock aspell' w
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "name" else n
 
 asIsAcronym :: MVar () -> Aspell.SpellChecker -> String -> IO Bool
-asIsAcronym _  _       []    = return False
-asIsAcronym _  _      (_:[]) = return False
-asIsAcronym st aspell' word' = do
+asIsAcronym _ _ []     = return False
+asIsAcronym _ _ (_:[]) = return False
+asIsAcronym lock aspell' word' = do
     let n = ["now", "us", "who"]
     let a = [toLower $ head word'] ++ (tail $ map toUpper word')
     let u = map toUpper word'
     let l = map toLower word'
-    na <- evalStateT (asSuggest aspell' a) st
-    return $ if (elem l n || elem l sWords) && word' /= u then False
-             else if u == word' && null na then True
-                  else if (length $ words na) > 2 && word' == (words na)!!1 then False
-                       else if (not $ null na) && u == (words na)!!0 then True
-                            else False
+    na <- evalStateT (asSuggest aspell' a) lock
+    return $ if (elem l n || elem l sWords) && word' /= u then False else
+               if u == word' && null na then True else
+                 if (length $ words na) > 2 && word' == (words na)!!1 then False else
+                   if (not $ null na) && u == (words na)!!0 then True
+                   else False
 
 isAcronym :: MVar () -> Aspell.SpellChecker -> Dict -> String -> IO Bool
-isAcronym _  _       _     [] = return False
-isAcronym st aspell' dict' w  = do
-      a <- asIsAcronym st aspell' w
+isAcronym _ _ _ [] = return False
+isAcronym lock aspell' dict' w  = do
+      a <- asIsAcronym lock aspell' w
       let ww = Map.lookup w dict'
       return $ if isJust ww then wordIs (fromJust ww) == "acronym" else a
 
 dictLookup :: MVar () -> Fugly -> String -> String -> IO String
-dictLookup st Fugly{wne=wne', aspell=aspell'} word' pos' = do
+dictLookup _ _ [] _ = return []
+dictLookup lock Fugly{wne=wne', aspell=aspell'} word' pos' = do
     gloss <- wnGloss wne' word' pos'
     if gloss == "Nothing!" then
-       do a <- evalStateT (asSuggest aspell' word') st
+       do a <- evalStateT (asSuggest aspell' word') lock
           return (gloss ++ " Perhaps you meant: " ++
                   (unwords (filter (\x -> x /= word') (words a))))
       else return gloss
 
 asSuggest :: Aspell.SpellChecker -> String -> StateT (MVar ()) IO String
-asSuggest _       []    = return []
+asSuggest _ [] = return []
 asSuggest aspell' word' = do
     l <- get :: StateT (MVar ()) IO (MVar ())
     lock <- lift $ takeMVar l
@@ -720,7 +740,7 @@ asSuggest aspell' word' = do
              else putMVar l lock >> return (unwords ww)
 
 gfLin :: Maybe PGF -> String -> String
-gfLin _    []   = []
+gfLin _ [] = []
 gfLin pgf' msg
     | isJust pgf' && isJust expr = linearize (fromJust pgf') (head $ languages $ fromJust pgf') (fromJust expr)
     | otherwise = []
@@ -728,7 +748,7 @@ gfLin pgf' msg
     expr = readExpr msg
 
 gfParseBool :: Maybe PGF -> Int -> String -> Bool
-gfParseBool _    _   []                 = False
+gfParseBool _ _ [] = False
 gfParseBool pgf' len msg
     | elem (map toLower lw) badEndWords = False
     | elem '\'' (map toLower lw)        = False
@@ -742,7 +762,7 @@ gfParseBool pgf' len msg
     lw   = strip '?' $ strip '.' $ last w
 
 gfParseBool' :: PGF -> [String] -> Bool
-gfParseBool' _    []                           = False
+gfParseBool' _ [] = False
 gfParseBool' pgf' msg
     | null $ parse pgf' lang (startCat pgf') m = False
     | otherwise                                = True
@@ -860,8 +880,8 @@ nouns n
     | otherwise     = n ++ "s"
 
 wnReplaceWords :: Fugly -> Bool -> Int -> [String] -> IO [String]
-wnReplaceWords _                               _     _       []  = return []
-wnReplaceWords _                               False _       msg = return msg
+wnReplaceWords _ _     _ []  = return []
+wnReplaceWords _ False _ msg = return msg
 wnReplaceWords fugly@Fugly{wne=wne', ban=ban'} True  randoms msg = do
     cr <- Random.getStdRandom (Random.randomR (0, (length msg) - 1))
     rr <- Random.getStdRandom (Random.randomR (0, 99))
@@ -876,17 +896,17 @@ wnReplaceWords fugly@Fugly{wne=wne', ban=ban'} True  randoms msg = do
         else return msg
 
 asReplaceWords :: MVar () -> Fugly -> [String] -> IO [String]
-asReplaceWords _  _     []  = return [[]]
-asReplaceWords st fugly msg = mapM (\x -> asReplace st fugly x) msg
+asReplaceWords _ _ [] = return [[]]
+asReplaceWords lock fugly msg = mapM (\x -> asReplace lock fugly x) msg
 
 asReplace :: MVar () -> Fugly -> String -> IO String
-asReplace _  _                                           []    = return []
-asReplace st Fugly{dict=dict', wne=wne', aspell=aspell'} word' = do
-    n  <- asIsName st aspell' word'
-    ac <- asIsAcronym st aspell' word'
+asReplace _ _ [] = return []
+asReplace lock Fugly{dict=dict', wne=wne', aspell=aspell'} word' = do
+    n  <- asIsName lock aspell' word'
+    ac <- asIsAcronym lock aspell' word'
     if (elem ' ' word') || (elem '\'' word') || word' == (toUpperWord word') || n || ac then return word'
       else do
-      a <- evalStateT (asSuggest aspell' word') st
+      a <- evalStateT (asSuggest aspell' word') lock
       p <- wnPartPOS wne' word'
       let w  = Map.lookup word' dict'
       let rw = filter (\x -> (notElem '\'' x) && levenshteinDistance defaultEditCosts word' x < 4) $ words a
@@ -895,11 +915,11 @@ asReplace st Fugly{dict=dict', wne=wne', aspell=aspell'} word' = do
         if head rw == word' then return word' else return $ map toLower (rw!!rr)
 
 rhymesWith :: MVar () -> Aspell.SpellChecker -> String -> IO [String]
-rhymesWith _  _       []    = return []
-rhymesWith st aspell' word' = do
+rhymesWith _ _ [] = return []
+rhymesWith lock aspell' word' = do
     let l = map toLower word'
     let b = toUpperLast l
-    as <- evalStateT (asSuggest aspell' b) st
+    as <- evalStateT (asSuggest aspell' b) lock
     let asw = words as
     let end = case length l of
           1 -> l
@@ -908,12 +928,12 @@ rhymesWith st aspell' word' = do
           4 -> drop 2 l
           x -> drop (x-3) l
     let out = filter (\x -> (notElem '\'' x) && length x > 2 && length l > 2 &&
-                       x Regex.=~ (end ++ "$") && levenshteinDistance defaultEditCosts l x < 4) asw
+                x Regex.=~ (end ++ "$") && levenshteinDistance defaultEditCosts l x < 4) asw
     return $ if null out then [word'] else out
 
 findNextWord :: Fugly -> Int -> Int -> Int -> Bool -> Bool -> String
                 -> String -> String -> [String]
-findNextWord _                 _ _ _    _    _      _   _   [] = []
+findNextWord _ _ _ _ _ _ _ _ [] = []
 findNextWord Fugly{dict=dict'} r i rand prev stopic top noun w =
     let ln = if isJust ww then length neigh else 0
         lm = if isJust ww then length neighmax else 0
