@@ -552,7 +552,7 @@ forkReply :: FState -> Bot -> Int -> [String] -> String
 forkReply _ _ _ _ _ _ [] = forkIO $ return ()
 forkReply st@(_, lock, tc, _)
     Bot{handle=h,
-    params=p@Parameter{numThreads=nt, sTries=str, debug=d, delay=dl},
+    params=p@Parameter{numThreads=nt, sTries=str, debug=d, delay=dl, randoms=rand},
     fugly=fugly'} r load chan nick' msg = forkIO (do
     tId <- myThreadId
     tc' <- incT tc tId
@@ -573,9 +573,7 @@ forkReply st@(_, lock, tc, _)
           y = replyRandom lock fugly' p r num msg
           z = replyDefault lock fugly' p r nick'
       threadDelay $ dl' * (1 + sd + if bd > 90 then 90 else bd)
-      out <- getResponse $ case mod r 4 of
-                             0 -> [y, v, x, w, z]
-                             _ -> [v, w, x, y, z]
+      out <- getResponse $ randoms' v w x y z
       evalStateT (do
         if null out then return () else
           if null nick' || nick' == chan || rr == 0 || rr == 2 then
@@ -584,6 +582,11 @@ forkReply st@(_, lock, tc, _)
       else return ()
     decT tc tId)
   where
+    randoms' v w x y z
+      | rand < 20     = [v, w, z]
+      | rand + r < 50 = [v, w, x, z]
+      | rand + r < 90 = [v, w, x, y, z]
+      | otherwise     = [y, v, x, w, z]
     getResponse []     = return []
     getResponse (x:xs) = do
       x' <- x
