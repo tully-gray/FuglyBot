@@ -102,7 +102,7 @@ nick b st o f1 f2 m =
 showParams :: Bot -> Parameter -> Bool -> (String -> IO ()) -> [String] -> IO Bot
 showParams b (Parameter nick' owners' _ dfile uCmd rkick maxcmsg numt nsets
               sTries' slen plen learn slearn stopic aName allowPM' debug' topic'
-              randoms' rWord timer' delay' greets actions') o f m =
+              randoms' rWord timer' delay' greets actions' matchC) o f m =
     if o then
       case length m of
         0 -> f ("nick: " ++ nick' ++ "  owners: " ++ unwords owners' ++ "  usercommands: " ++ show uCmd
@@ -114,7 +114,7 @@ showParams b (Parameter nick' owners' _ dfile uCmd rkick maxcmsg numt nsets
               ++ "  stricttopic: " ++ show stopic ++ "  debug: " ++ show debug'
               ++ "  autoname: " ++ show aName ++ "  allowpm: " ++ show allowPM'
               ++ "  topic: " ++ topic' ++ "  randoms: " ++ show randoms'
-              ++ "  replacewords: " ++ show rWord
+              ++ "  replacewords: " ++ show rWord ++ "  matchchance: " ++ show matchC
               ++ "  timer: " ++ show timer' ++ "  delay: " ++ show delay'
               ++ "  greetings: " ++ show greets ++ "  actions: " ++ show actions') >> return b
         _ -> f "Usage: !showparams" >> return b

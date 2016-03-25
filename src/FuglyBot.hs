@@ -65,7 +65,7 @@ start = do
     let b = if null p then
               Bot sh (Parameter nick' owners' fDir dFile False 10 400 8 64 10 7
                       0 [] False False True False True topic' 10 False 0 2
-                      0 0) f
+                      0 0 0) f
               else Bot sh ((readParamsFromList p){nick=nick', owners=owners',
                       fuglyDir=fDir, dictFile=dFile}) f
     bot  <- newMVar b
@@ -290,6 +290,8 @@ changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owners=owners',
                         >>= \x -> return bot{params=p{greetings=x}}
       Actions        -> replyMsg' (readInt 0 100 value) "Actions"
                         >>= \x -> return bot{params=p{actions=x}}
+      MatchChance    -> replyMsg' (readInt 0 100 value) "MatchChance"
+                        >>= \x -> return bot{params=p{matchChance=x}}
       DictFile -> do
         (d, de, b, m, pl) <- lift $
           catchJust (\e -> if isDoesNotExistErrorType (ioeGetErrorType e) then
@@ -493,7 +495,7 @@ reply bot _ _ _ _ [] = return bot
 reply bot@Bot{handle=h,
     params=p@Parameter{nick=bn, learning=learn', pLength=plen,
                        autoName=an, allowPM=apm, debug=d, topic=top,
-                       actions=acts, strictLearn=sl, randoms=rand},
+                       actions=acts, strictLearn=sl, matchChance=matchC},
     fugly=f@Fugly{pgf=pgf', aspell=aspell', dict=dict', match=match', ban=ban'}}
     r chanmsg chan nick' msg = do
     st@(_, lock, _, _) <- get :: StateT FState IO FState
@@ -523,7 +525,7 @@ reply bot@Bot{handle=h,
         else return ()
       else
         if chanmsg then
-          if rr < (15 + rand) && (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchOn then
+          if rr < matchC && (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchOn then
             if isAction && (rr - 60 < acts  || rr * 5 + 15 < acts) then do
               action <- ircAction lock f p False nick'
               if null action then return ()

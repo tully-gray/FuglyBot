@@ -7,7 +7,7 @@ data Parameter = Nick | Owners | DictFile | UserCommands | RejoinKick
                | SentenceLength | ParseLength | Learning | StrictLearn
                | StrictTopic | Autoname | AllowPM | Debug
                | Topic | Randoms | ReplaceWords | Timer | Delay
-               | Greetings | Actions | UnknownParam | Parameter {
+               | Greetings | Actions | MatchChance | UnknownParam | Parameter {
                  nick        :: String,
                  owners      :: [String],
                  fuglyDir    :: FilePath,
@@ -32,7 +32,8 @@ data Parameter = Nick | Owners | DictFile | UserCommands | RejoinKick
                  timer       :: Int,
                  delay       :: Int,
                  greetings   :: Int,
-                 actions     :: Int
+                 actions     :: Int,
+                 matchChance :: Int
                  }
                deriving (Eq, Ord, Show)
 
@@ -64,7 +65,8 @@ instance Enum Parameter where
     toEnum 22 = Delay
     toEnum 23 = Greetings
     toEnum 24 = Actions
-    toEnum 25 = UnknownParam
+    toEnum 25 = MatchChance
+    toEnum 26 = UnknownParam
     toEnum _  = UnknownParam
     fromEnum Nick           = 1
     fromEnum Owners         = 2
@@ -90,8 +92,9 @@ instance Enum Parameter where
     fromEnum Delay          = 22
     fromEnum Greetings      = 23
     fromEnum Actions        = 24
-    fromEnum UnknownParam   = 25
-    fromEnum _              = 25
+    fromEnum MatchChance    = 25
+    fromEnum UnknownParam   = 26
+    fromEnum _              = 26
     enumFrom i = enumFromTo i UnknownParam
     enumFromThen i j = enumFromThenTo i j UnknownParam
 
@@ -130,6 +133,8 @@ readParam a | (map toLower a) == "timer"           = Timer
 readParam a | (map toLower a) == "delay"           = Delay
 readParam a | (map toLower a) == "greetings"       = Greetings
 readParam a | (map toLower a) == "actions"         = Actions
+readParam a | (map toLower a) == "matchchance"     = MatchChance
+readParam a | (map toLower a) == "mchance"         = MatchChance
 readParam _                                        = UnknownParam
 
 readParamsFromList :: [String] -> Parameter
@@ -141,12 +146,13 @@ readParamsFromList a = Parameter
      strictLearn=read (a!!9), strictTopic=read (a!!10), autoName=read (a!!11),
      allowPM=read (a!!12), debug=read (a!!13), topic=(a!!14),
      randoms=read (a!!15), replaceWord=read (a!!16), timer=read (a!!17),
-     delay=read (a!!18), greetings=read (a!!19), actions=read (a!!20)}
+     delay=read (a!!18), greetings=read (a!!19), actions=read (a!!20),
+     matchChance=read (a!!21)}
 
 paramsToList :: Parameter -> [String]
 paramsToList (Parameter _ _ _ _ uc rk mcm nt ss st sl
-              pl l stl stt an apm d t r rw ti dl g a) =
+              pl l stl stt an apm d t r rw ti dl g a mc) =
   [show uc, show rk, show mcm, show nt, show ss, show st, show sl,
    show pl, l, show stl, show stt, show an, show apm, show d,
-   t, show r, show rw, show ti, show dl, show g, show a]
+   t, show r, show rw, show ti, show dl, show g, show a, show mc]
 paramsToList _ = []
