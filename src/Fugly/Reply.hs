@@ -279,18 +279,12 @@ defsReplace lock fugly'
         f = return . dePlenk . unwords . dedup
     replace' a m =
       if rl > 0 then do
-        -- evalStateT (hPutStrLnLock stdout ("> debug: defsReplace: x: " ++ x)) lock
-        -- evalStateT (hPutStrLnLock stdout ("> debug: defsReplace: re: " ++ re)) lock
-        -- evalStateT (hPutStrLnLock stdout ("> debug: defsReplace: rn: " ++ rn)) lock
         let w = if null a then topic' else last a
             s = rr [w]
         r <- fixIt lock debug' s [] 1 0 0 15
         if null r then return [] else
           replace' (f' $ a ++ r) $ f' xs
-      else do
-        -- evalStateT (hPutStrLnLock stdout ("> debug: defsReplace: x: " ++ x)) lock
-        -- evalStateT (hPutStrLnLock stdout ("> debug: defsReplace: re: " ++ re)) lock
-        -- evalStateT (hPutStrLnLock stdout ("> debug: defsReplace: rn: " ++ rn)) lock
+      else
         replace' (f' $ a ++ [x]) $ f' xs
       where
         x  = head m
