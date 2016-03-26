@@ -573,7 +573,7 @@ forkReply st@(_, lock, tc, _)
           y = replyRandom lock fugly' p r num msg
           z = replyDefault lock fugly' p r nick'
       threadDelay $ dl' * (1 + sd + if bd > 90 then 90 else bd)
-      out <- getResponse $ randoms' v w x y z
+      out <- getResponse $ rep v w x y z
       evalStateT (do
         if null out then return () else
           if null nick' || nick' == chan || rr == 0 || rr == 2 then
@@ -582,7 +582,7 @@ forkReply st@(_, lock, tc, _)
       else return ()
     decT tc tId)
   where
-    randoms' v w x y z
+    rep v w x y z
       | rand < 20      = [v, w, z]
       | rand + r < 80  = [v, w, x, z]
       | rand + r < 140 = [v, w, x, y, z]

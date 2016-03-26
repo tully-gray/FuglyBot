@@ -9,7 +9,7 @@ module Fugly.Reply (
 
 import           Control.Concurrent             (MVar)
 import           Control.Monad.Trans.State.Lazy (evalStateT)
-import           Data.Char                      (toLower, toUpper)
+import           Data.Char                      (isDigit, toLower, toUpper)
 import           Data.Map.Strict                as Map (lookup)
 import           Data.Maybe
 import           Data.List                      (intercalate)
@@ -60,7 +60,7 @@ replyRegex _ _ _ _ _ _ = return []
 replyMixed :: MVar () -> Fugly -> Parameter -> Int -> [String] -> IO String
 replyMixed _ _ _ _ [] = return []
 replyMixed lock fugly'@Fugly{wne=wne', match=match'}
-    params'@Parameter{debug=debug', sTries=stries, sLength=slen, topic=topic'}
+    params'@Parameter{debug=debug', sTries=stries, topic=topic'}
     r msg = do
     if debug' then
       evalStateT (hPutStrLnLock stdout "> debug: replyMixed") lock
@@ -268,34 +268,40 @@ defsReplace lock fugly'
     let n = if null nick' then "somebody" else nick'
         t = if null topic' then "stuff" else topic'
         o = replace "#nick" n $ replace "#topic" t $ words msg
-    replace' [] o
+    if null $ dropWhile (\x -> x == ' ') $ concat o then return [] else do
+      replace' [] o
   where
-    repRand = replyRandom' lock fugly' params'{sTries=5, sLength=3, pLength=3} True False
     replace' :: [String] -> [String] -> IO String
     replace' a []
-      | format    = return $ dePlenk $ unwords $ toUpperSentence $ endSentence a
-      | otherwise = return $ dePlenk $ unwords a
-    replace' [] (x:xs) =
-      if x == "#random" then do
-        let s = repRand [topic']
-        m <- fixIt lock debug' s [] 1 0 0 15
-        if null m then return [] else
-          replace' m xs
-      else replace' [x] xs
-    replace' a [x] =
-      if x == "#random" then do
-        let s = repRand [topic']
-        m <- fixIt lock debug' s [] 1 0 0 15
-        if null m then return [] else
-          replace' (a ++ m) []
-      else replace' (a ++ [x]) []
-    replace' a (x:y:xs) =
-      if y == "#random" then do
-        let s = repRand [x]
-        m <- fixIt lock debug' s [] 1 0 0 15
-        if null m then return [] else
-          replace' (a ++ m) xs
-      else replace' (a ++ [x]) $ y : xs
+      | format    = f $ toUpperSentence $ endSentence a
+      | otherwise = f a
+      where
+        f = return . dePlenk . unwords . dedup
+    replace' a m =
+      if rl > 0 then do
+        -- evalStateT (hPutStrLnLock stdout ("> debug: defsReplace: x: " ++ x)) lock
+        -- evalStateT (hPutStrLnLock stdout ("> debug: defsReplace: re: " ++ re)) lock
+        -- evalStateT (hPutStrLnLock stdout ("> debug: defsReplace: rn: " ++ rn)) lock
+        let w = if null a then topic' else last a
+            s = rr [w]
+        r <- fixIt lock debug' s [] 1 0 0 15
+        if null r then return [] else
+          replace' (f' $ a ++ r) $ f' xs
+      else do
+        -- evalStateT (hPutStrLnLock stdout ("> debug: defsReplace: x: " ++ x)) lock
+        -- evalStateT (hPutStrLnLock stdout ("> debug: defsReplace: re: " ++ re)) lock
+        -- evalStateT (hPutStrLnLock stdout ("> debug: defsReplace: rn: " ++ rn)) lock
+        replace' (f' $ a ++ [x]) $ f' xs
+      where
+        x  = head m
+        xs = fTail [] m
+        re = reverse $ x Regex.=~ "#random[0-9]+" :: String
+        rn = reverse $ takeWhile isDigit re
+        rl = if x == "#random" then 3 :: Int else
+               if null re then 0 else
+                 read rn :: Int
+        rr = replyRandom' lock fugly' params'{sTries=5, sLength=rl} True False
+        f' = words . unwords
 defsReplace _ _ _ _ _ _ = return []
 
 splitDef :: String -> (String, String)
