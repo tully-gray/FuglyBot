@@ -660,32 +660,41 @@ execCmd b chan nick' (x:xs) = do
 
 replyMsg :: Bot -> String -> String -> String -> StateT FState IO ()
 replyMsg _ _ _ [] = return ()
-replyMsg bot@Bot{handle=h, params=p@Parameter{maxChanMsg=mcm, debug=d}}
-           chan nick' msg
-    | null nick' = if length msg > mcm then do
+replyMsg bot@Bot{handle=h,
+    params=p@Parameter{maxChanMsg=mcm, debug=d}}
+    chan nick' msg
+    | null nick' = if lm > mcm then do
       _ <- return p
-      write h d "PRIVMSG" (chan ++ " :" ++ (take mcm msg))
+      wr (ch ++ (take mcm' msg))
       lift $ threadDelay 2000000
-      replyMsg bot chan [] (drop mcm msg) else
-        write h d "PRIVMSG" (chan ++ " :" ++ msg)
-    | chan == nick' = if length msg > mcm then do
-      write h d "PRIVMSG" (nick' ++ " :" ++ (take mcm msg))
+      rp [] (drop mcm' msg) else
+        wr (ch ++ msg)
+    | chan == nick' = if lm > mcm then do
+      wr (nick' ++ " :" ++ (take mcm' msg))
       lift $ threadDelay 2000000
-      replyMsg bot chan nick' (drop mcm msg) else
-        write h d "PRIVMSG" (nick' ++ " :" ++ msg)
-    | otherwise = if length msg > mcm then do
-      write h d "PRIVMSG" (chan ++ " :" ++ nick' ++ ": " ++ (take mcm msg))
+      rp nick' (drop mcm' msg) else
+        wr (nick' ++ " :" ++ msg)
+    | otherwise = if lm > mcm then do
+      wr (ch ++ nick' ++ ": " ++ (take mcm' msg))
       lift $ threadDelay 2000000
-      replyMsg bot chan nick' (drop mcm msg) else
-        write h d "PRIVMSG" (chan ++ " :" ++ nick' ++ ": " ++ msg)
+      rp nick' (drop mcm' msg) else
+        wr (ch ++ nick' ++ ": " ++ msg)
+  where
+    ch = chan ++ " :"
+    wr = write h d "PRIVMSG"
+    rp = replyMsg bot chan
+    lm = length msg
+    mcm'
+      | lm < mcm  = lm
+      | otherwise = length $ dropWhile (\x -> x /= ' ') $ reverse $ take mcm msg
 replyMsg _ _ _ _ = return ()
 
 replyMsgT :: FState -> Bot -> String -> String -> String -> IO ()
-replyMsgT _  _   _    _     []  = return ()
+replyMsgT _ _ _ _ [] = return ()
 replyMsgT st bot chan nick' msg = evalStateT (replyMsg bot chan nick' msg) st
 
 write :: Handle -> Bool -> String -> String -> StateT FState IO ()
-write _     _ [] _  = return ()
+write _ _ [] _  = return ()
 write h d s []  = do
     hPutStrLnLock h (s ++ "\r")
     if d then hPutStrLnLock stdout ("> debug: " ++ s) else return ()
