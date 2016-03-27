@@ -236,17 +236,19 @@ joinChannel h a (x:xs) = do
       joinChannel h a xs
         else return ()
 
-changeParam :: Bot -> String -> String -> String -> String
+changeParam :: Bot -> String -> String -> String -> [String]
                -> StateT FState IO Bot
-changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owners=owners',
-                    fuglyDir=fDir, dictFile=dFile, debug=debug'},
-                    fugly=f@Fugly{dict=dict', defs=defs', ban=ban',
-                    match=match'}} chan nick' param value = do
+changeParam bot _ _ _ [] = return bot
+changeParam bot@Bot{handle=h,
+    params=p@Parameter{nick=botNick, owners=owners', fuglyDir=fDir, dictFile=dFile, debug=debug'},
+    fugly=f@Fugly{dict=dict', defs=defs', ban=ban', match=match'}}
+    chan nick' param values = do
     lock <- gets getLock
+    let value = head values
     case readParam param of
       Nick           -> (write h debug' "NICK" $
                          cleanStringWhite isAscii value) >> return bot
-      Owners         -> replyMsg' value "Owners"
+      Owners         -> replyMsg' (unwords values) "Owners"
                         >>= \x -> return bot{params=p{owners=words x}}
       Topic          -> replyMsg' value "Topic"
                         >>= \x -> return bot{params=p{topic=x}}
@@ -305,8 +307,9 @@ changeParam bot@Bot{handle=h, params=p@Parameter{nick=botNick, owners=owners',
           fugly=f{dict=d, defs=de, ban=b, match=m}}
       _ -> return bot
   where
-    replyMsg' v msg = do replyMsg bot chan nick' (msg ++ " set to " ++ show v ++ ".")
-                         return v
+    replyMsg' v msg = do
+      replyMsg bot chan nick' (msg ++ " set to " ++ show v ++ ".")
+      return v
     readInt min' max' a
       | aa < min' = min'
       | aa > max' = max'
@@ -617,7 +620,7 @@ execCmd b chan nick' (x:xs) = do
       | x == "!part" = Cmd.part bot st isOwner cn (joinChannel h) xs
       | x == "!nick" = Cmd.nick bot st isOwner showRep write' xs
       | x == "!showparams" = Cmd.showParams bot p isOwner showRep xs
-      | x == "!setparam" = Cmd.setParam bot st isOwner showRep (changeParam bot chan nick') $ map (strip '"') $ joinWords '"' xs
+      | x == "!setparam" = Cmd.setParam bot st isOwner showRep (changeParam bot chan nick') xs
       | x == "!word" || x == "!name" || x == "!acronym" = Cmd.word bot x showRep xs
       | x == "!wordlist" || x == "!namelist" || x == "!acronymlist" = Cmd.wordList bot x showRep xs
       | x == "!insertword" = Cmd.insertWord bot st isOwner showRep topic' xs

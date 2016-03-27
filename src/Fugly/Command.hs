@@ -122,12 +122,16 @@ showParams b (Parameter nick' owners' _ dfile uCmd rkick maxcmsg numt nsets
 showParams b _ _ _ _ = return b
 
 setParam :: Bot -> FState -> Bool -> (String -> IO ())
-            -> (String -> String -> StateT FState IO Bot) -> [String] -> IO Bot
+            -> (String -> [String] -> StateT FState IO Bot) -> [String] -> IO Bot
 setParam b st o f1 f2 m =
+    let f    = evalStateT (f2 (m!!0) $ tail m) st
+        lm   = length m
+        msgH = "Usage: !setparam <parameter> <values>" in
     if o then
-      case length m of
-        2 -> evalStateT (f2 (m!!0) (m!!1)) st
-        _ -> f1 "Usage: !setparam <parameter> <value>" >> return b
+      if lm > 2 then
+        if m!!0 == "owners" then f else f1 msgH >> return b
+      else if lm > 1 then f
+        else f1 msgH >> return b
     else return b
 
 word :: Bot -> String -> (String -> IO ()) -> [String] -> IO Bot
