@@ -59,7 +59,7 @@ replyRegex _ _ _ _ _ _ = return []
 
 replyMixed :: MVar () -> Fugly -> Parameter -> Int -> [String] -> IO String
 replyMixed _ _ _ _ [] = return []
-replyMixed lock fugly'@Fugly{wne=wne', match=match'}
+replyMixed lock fugly'@Fugly{dict=dict', wne=wne', match=match'}
     params'@Parameter{debug=debug', sTries=stries, topic=topic'}
     r msg = do
     if debug' then
@@ -87,69 +87,77 @@ replyMixed lock fugly'@Fugly{wne=wne', match=match'}
               if rr < 20 then "it" else
                 if rr < 40 then "that" else nouns' in
           return $ unwords $ toUpperSentence $ endSentence $ words
-          (case mod r' 5 of
+          (case mod r' 4 of
             0 -> "I don't " ++ s1b r' w
             1 -> "yeah, I " ++ s1b r' w
             2 -> "sometimes I " ++ s1b r' w
             3 -> "can you " ++ s1b r' w
-            4 -> nouns' ++ " are " ++ if r' < 50 then "not" else
-                   " something I " ++ w!!2 Regex.=~ "like|hate|love|have|want|need"
-            _ -> [])
+            _ -> nouns' ++ " are " ++ if r' < 50 then "not" else
+                   " something I " ++ w!!2 Regex.=~ "like|hate|love|have|want|need")
       | l > 3 && l < 15 = do
-          let ra = mod r 4
-          let t' = case ra of
+          let ra = mod r 3
+              t' = case ra of
                 0 -> "food"
                 1 -> "animal"
                 2 -> "tool"
-                3 -> "abstraction"
-                _ -> []
+                _ -> "abstraction"
           (a, b) <- evalStateT (sentenceMeet wne' t' w) lock
           if a then case ra of
             0 -> do
               let s = repRand [b, "is", "tasty", "and"]
-              mm <- fixIt' (return ("Oh yes, " ++ b ++ ".") : s) [] 2 0 0 t
-              return $ unwords mm
+              m <- fixIt' (return ("Oh yes, " ++ b ++ ".") : s) [] 2 0 0 t
+              return $ unwords m
             1 -> do
               let s = repRand [b, "is"]
-              mm <- fixIt' s [] 1 0 0 t
-              return $ unwords mm
+              m <- fixIt' s [] 1 0 0 t
+              return $ unwords m
             2 -> do
               let s = repRand ["my"]
-              mm <- fixIt' s [] 1 0 0 t
-              return $ unwords mm
-            3 -> do
+              m <- fixIt' s [] 1 0 0 t
+              return $ unwords m
+            _ -> do
               let s = repRand ["this", b, "is"]
-              mm <- fixIt' s [] 1 0 0 t
-              return $ unwords mm
-            _ -> return []
+              m <- fixIt' s [] 1 0 0 t
+              return $ unwords m
             else return []
-      | l < 6 && r + r' < 25 = case mod r' 4 of
+      | l < 6 && r + r' < 25 = case mod r' 3 of
          0 -> do
           let s = repRand [topic']
-          mm <- fixIt' (return ("Do you like " ++ topic' ++ "?") : s) [] 2 0 0 t
-          return $ unwords mm
+          m <- fixIt' (return ("Do you like " ++ topic' ++ "?") : s) [] 2 0 0 t
+          return $ unwords m
          1 -> do
           let s = repRand $ words "perhaps you"
-          mm <- fixIt' s [] 2 0 0 t
-          return $ unwords mm
+          m <- fixIt' s [] 2 0 0 t
+          return $ unwords m
          2 -> do
           let s = repRand $ words "can you"
-          mm <- fixIt' s [] 1 0 0 t
-          return $ unwords mm
-         3 -> do
+          m <- fixIt' s [] 1 0 0 t
+          return $ unwords m
+         _ -> do
           let s = repRand $ words "I think that"
-          mm <- fixIt' s [] 1 0 0 t
-          return $ unwords mm
-         _ -> return []
+          m <- fixIt' s [] 1 0 0 t
+          return $ unwords m
       | l == 1 && r < 70 = do
           let s = repRand w
-          mm <- fixIt' s [] 1 0 0 t
-          return $ unwords mm
+          m <- fixIt' s [] 1 0 0 t
+          return $ unwords m
       | otherwise = do
-        noun <- getNoun wne' r' w
-        let s = repRand ["this", noun, "is"]
-        m' <- fixIt' s [] 1 0 0 t
-        return $ unwords $ toUpperSentence $ endSentence m'
+        let ns = getNames dict' w
+        evalStateT (hPutStrLnLock stdout ("> debug: replyMixed: names: " ++ unwords ns)) lock
+        if null ns then do
+          noun <- getNoun wne' r' w
+          let s = repRand ["this", noun, "is"]
+          m <- fixIt' s [] 1 0 0 t
+          return $ unwords $ toUpperSentence $ endSentence m
+          else do
+          let n' = ns!!mod r (length ns)
+              s' = case mod r 3 of
+                     0 -> [n', "said", "that"]
+                     1 -> ["yes", "but", n', "once", "said", "that"]
+                     _ -> ["why", "did", n', "say", "that"]
+              s  = repRand s'
+          m <- fixIt' s [] 1 0 0 t
+          return $ unwords $ toUpperSentence $ endSentence m
     mList   = map toLower (" " ++ intercalate " | " match' ++ " ")
     mMsg    = (" " ++ map toLower (unwords msg) ++ " ")
     mBool   = mMsg Regex.=~ mList :: Bool

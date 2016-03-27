@@ -860,10 +860,21 @@ filterWordPOS wne' pos' msg = fpos [] msg
       if p == pos' then fpos (x : a) xs
         else fpos a xs
 
+getNames :: Dict -> [String] -> [String]
+getNames dict' w = getName' dict' [] w
+  where
+    getName' _ a [] = a
+    getName' d a (x:xs) =
+        let n  = Map.lookup x d
+            f' = getName' d a xs in
+        if isJust n then let n' = fromJust n in
+          if wordIs n' == "name" then getName' d (wordGetWord n' : a) xs else f'
+        else f'
+
 getNoun :: WordNetEnv -> Int -> [String] -> IO String
 getNoun wne' r w = do
     ww <- filterWordPOS wne' (POS Noun) w
-    let bad = words "the thing this"
+    let bad = words "are the thing this"
         ww' = sortOn length $ filter (\x -> length x > 2 && (notElem x $ bad ++ qWords)) ww
         n   = case mod r 9 of
           0 -> "thing"
@@ -877,7 +888,7 @@ getNoun wne' r w = do
           8 -> "pony"
           _ -> []
     let n' = fHead n $ reverse ww'
-    return $ if last n' == 's' then init n' else if length n' < 3 then n else n'
+    return $ if length n' < 3 then n else n'
 
 nouns :: String -> String
 nouns []      = "stuff"
