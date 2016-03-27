@@ -238,13 +238,12 @@ joinChannel h a (x:xs) = do
 
 changeParam :: Bot -> String -> String -> String -> [String]
                -> StateT FState IO Bot
-changeParam bot _ _ _ [] = return bot
 changeParam bot@Bot{handle=h,
     params=p@Parameter{nick=botNick, owners=owners', fuglyDir=fDir, dictFile=dFile, debug=debug'},
     fugly=f@Fugly{dict=dict', defs=defs', ban=ban', match=match'}}
     chan nick' param values = do
     lock <- gets getLock
-    let value = head values
+    let value = fHead [] values
     case readParam param of
       Nick           -> (write h debug' "NICK" $
                          cleanStringWhite isAscii value) >> return bot

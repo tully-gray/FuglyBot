@@ -128,10 +128,10 @@ setParam b st o f1 f2 m =
         lm   = length m
         msgH = "Usage: !setparam <parameter> <values>" in
     if o then
-      if lm > 2 then
-        if m!!0 == "owners" then f else f1 msgH >> return b
-      else if lm > 1 then f
-        else f1 msgH >> return b
+      if lm > 2 && m!!0 == "owners" then f else
+        if lm == 1 && m!!0 == "learning" then f else
+          if lm == 2 then f else
+            f1 msgH >> return b
     else return b
 
 word :: Bot -> String -> (String -> IO ()) -> [String] -> IO Bot
