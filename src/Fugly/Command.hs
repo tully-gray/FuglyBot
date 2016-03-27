@@ -182,21 +182,25 @@ insertAcronym b@Bot{fugly=f@Fugly{dict=d}} st o f1 t m =
 insertDefault :: Bot -> Bool -> (String -> IO ()) -> [String] -> IO Bot
 insertDefault b@Bot{fugly=f@Fugly{defs=d}} o f1 m =
     if o then
-      if length m > 1 then
-        f1 ("Inserted default " ++ show ((read $ head m) :: DType) ++ " " ++ (unwords $ tail m) ++ ".") >>
-        return b{fugly=f{defs=d ++ [(read $ head m, unwords $ tail m)]}}
+      if length m > 1 then let f' = \(t, w) -> t == read (head m) && w == unwords (tail m) in
+        if null $ filter f' d then
+          f1 ("Inserted default " ++ show ((read $ head m) :: DType) ++ " " ++ (unwords $ tail m) ++ ".") >>
+          return b{fugly=f{defs=d ++ [(read $ head m, unwords $ tail m)]}}
+          else f1 ("Default already stored.") >> return b
         else
-          f1 ("Usage: !insertdefault " ++ defMsg ++ " <default>") >> return b
+        f1 ("Usage: !insertdefault " ++ defMsg ++ " <default>") >> return b
     else return b
 
 dropDefault :: Bot -> Bool -> (String -> IO ()) -> [String] -> IO Bot
 dropDefault b@Bot{fugly=f@Fugly{defs=d}} o f1 m =
     if o then
-      if length m > 1 then
-        f1 ("Dropped default " ++ show ((read $ head m) :: DType) ++ " " ++ (unwords $ tail m) ++ ".") >>
-        return b{fugly=f{defs=filter (\(t, w) -> not (t == read (head m) && w == unwords (tail m))) d}}
+      if length m > 1 then let f' = \(t, w) -> t == read (head m) && w == unwords (tail m) in
+        if null $ filter f' d then f1 ("No such default.") >> return b
+          else
+            f1 ("Dropped default " ++ show ((read $ head m) :: DType) ++ " " ++ (unwords $ tail m) ++ ".") >>
+            return b{fugly=f{defs=filter (not . f') d}}
         else
-          f1 ("Usage: !dropdefault " ++ defMsg ++ " <default>") >> return b
+        f1 ("Usage: !dropdefault " ++ defMsg ++ " <default>") >> return b
     else return b
 
 defaultList :: Bot -> Bool -> (String -> IO ()) -> [String] -> IO Bot

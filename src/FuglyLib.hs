@@ -520,18 +520,18 @@ endSentence msg
   where l = last $ last msg
         r = mod (length $ concat msg) 6
 
-fHead :: a -> [a] -> a
 {-# INLINE fHead #-}
+fHead :: a -> [a] -> a
 fHead b [] = b
 fHead _ c  = head c
 
-fLast :: a -> [a] -> a
 {-# INLINE fLast #-}
+fLast :: a -> [a] -> a
 fLast b [] = b
 fLast _ c  = last c
 
-fTail :: [a] -> [a] -> [a]
 {-# INLINE fTail #-}
+fTail :: [a] -> [a] -> [a]
 fTail b [] = b
 fTail _ c  = tail c
 

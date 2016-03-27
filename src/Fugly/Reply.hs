@@ -19,7 +19,7 @@ import           FuglyLib
 import           NLP.WordNet.PrimTypes
 import           System.IO                      (stdout)
 import qualified System.Random                  as Random
-import           Text.EditDistance              as EditDistance
+import           Text.EditDistance
 import qualified Text.Regex.Posix               as Regex
 
 replyResponse :: MVar () -> Fugly -> Parameter -> Int -> Float
