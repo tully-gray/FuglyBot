@@ -336,7 +336,7 @@ getMsg msg
     p = if (length $ drop 1 msg) > 0 then head $ drop 1 msg else ""
 
 getNick :: [String] -> String
-getNick []  = []
+getNick [] = []
 getNick msg
     | (length msg) > 0 = drop 1 $ takeWhile (/= '!') $ head msg
     | otherwise        = []
@@ -384,10 +384,10 @@ timerLoop st = do
     tId <- myThreadId
     _   <- incT tc tId
     forever $ do
-      r <- Random.getStdRandom (Random.randomR (0, 999))
       let b    = getBot st
           lock = getLock st
       Bot{params=p@Parameter{timer=t}} <- readMVar b
+      r <- Random.getStdRandom (Random.randomR (0, 999))
       _ <- return p
       threadDelay $ if (t < 5) then 30000000 else t * 1000000 + (t * r * 500)
       if t > 4 then do
@@ -468,20 +468,21 @@ processLine r line = do
     bot@Bot{handle=h, params=p@Parameter{nick=n, rejoinKick=rk}} <- lift $ takeMVar b
     _ <- return p
     let bk = beenKicked n line
-    if (not $ null bk) then do
-      (rejoinChannel h bk rk >> lift (putMVar b bot) >> return ())
-      else if null msg then lift $ putMVar b bot >> return ()
-         else if chan == n then do
-             nb <- prvcmd bot ; lift $ putMVar b nb >> return ()
-              else if spokenTo n msg then
-                if null (tail msg) then lift $ putMVar b bot >> return ()
-                else if (head $ head $ tail msg) == '!' then do
-                  nb <- execCmd bot chan who (tail msg)
-                  lift $ putMVar b nb >> return ()
-                    else do nb <- reply bot r False chan who (tail msg)
-                            lift $ putMVar b nb >> return ()
-                  else do nb <- reply bot r True chan who msg
-                          lift $ putMVar b nb >> return ()
+    if not $ null bk then do
+      rejoinChannel h bk rk >> lift (putMVar b bot) >> return () else
+      if null msg then lift $ putMVar b bot >> return () else
+        if chan == n then do
+          nb <- prvcmd bot
+          lift $ putMVar b nb >> return () else
+          if spokenTo n msg then
+            if null $ tail msg then lift $ putMVar b bot >> return () else
+              if (head $ head $ tail msg) == '!' then do
+                nb <- execCmd bot chan who $ tail msg
+                lift $ putMVar b nb >> return () else do
+                nb <- reply bot r False chan who $ tail msg
+                lift $ putMVar b nb >> return () else do
+            nb <- reply bot r True chan who msg
+            lift $ putMVar b nb >> return ()
   where
     msg  = getMsg line
     who  = getNick line
@@ -665,20 +666,17 @@ replyMsg bot@Bot{handle=h,
     chan nick' msg
     | null nick' = if lm > mcm then do
       _ <- return p
-      wr (ch ++ (take mcm' msg))
+      wr (ch ++ take mcm' msg)
       lift $ threadDelay 2000000
-      rp [] (drop mcm' msg) else
-        wr (ch ++ msg)
+      rp [] (drop mcm' msg) else wr (ch ++ msg)
     | chan == nick' = if lm > mcm then do
-      wr (nick' ++ " :" ++ (take mcm' msg))
+      wr (nick' ++ " :" ++ take mcm' msg)
       lift $ threadDelay 2000000
-      rp nick' (drop mcm' msg) else
-        wr (nick' ++ " :" ++ msg)
+      rp nick' (drop mcm' msg) else wr (nick' ++ " :" ++ msg)
     | otherwise = if lm > mcm then do
-      wr (ch ++ nick' ++ ": " ++ (take mcm' msg))
+      wr (ch ++ nick' ++ ": " ++ take mcm' msg)
       lift $ threadDelay 2000000
-      rp nick' (drop mcm' msg) else
-        wr (ch ++ nick' ++ ": " ++ msg)
+      rp nick' (drop mcm' msg) else wr (ch ++ nick' ++ ": " ++ msg)
   where
     ch = chan ++ " :"
     wr = write h d "PRIVMSG"
