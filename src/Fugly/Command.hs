@@ -409,14 +409,13 @@ matchWord b@Bot{fugly=f@Fugly{match=match'}} o f1 m =
     msgH = "Usage: !matchword <list|add|delete> <word>"
 
 talk :: Bot -> Bool -> (String -> IO ())
-        -> (Bot -> Int -> [String] -> String -> String -> [String] -> IO ThreadId)
-        -> IO [String] -> [String] -> IO Bot
-talk b o f1 f2 f3 m = do
+        -> (Bot -> Int -> String -> String -> [String] -> IO ThreadId)
+        -> [String] -> IO Bot
+talk b o f1 f2 m = do
     if o then
       if length m > 2 then do
         r <- getStdRandom (randomR (0, 99))
-        l <- f3 -- getLoad
-        f2 b r l (m!!0) (m!!1) (drop 2 m) >> return b
+        f2 b r (m!!0) (m!!1) (drop 2 m) >> return b
       else f1 "Usage: !talk <channel> <nick> <msg>" >> return b
       else return b
 

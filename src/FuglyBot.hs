@@ -193,14 +193,6 @@ cmdLine = do
     maximum' [] = 1000
     maximum' a  = maximum a
 
-getLoad :: IO [String]
-getLoad = do
-    h <- openFile "/proc/loadavg" ReadMode
-    hSetBuffering h LineBuffering
-    l <- hGetLine h
-    hClose h
-    return $ words l
-
 changeNick :: [String] -> StateT FState IO Bot
 changeNick [] = do
     b   <- gets getBot
@@ -401,8 +393,7 @@ timerLoop st = do
         evalStateT (getChannelNicks h chan) st
         threadDelay 1000000
         let nicks = Map.lookup chan cn'
-        load <- getLoad
-        if isJust nicks && (read $ fHead [] load :: Float) < 2.5 then do
+        if isJust nicks then do
           let n   = delete bn $ fromJust nicks
               n'  = cleanStringBlack (\x -> x == '@' || x == '&' ||
                       x == '~' || x == '+') $ n!!mod r (length n)
@@ -414,7 +405,7 @@ timerLoop st = do
             forkIO (evalStateT (write h d "PRIVMSG"
                    (chan ++ " :\SOHACTION " ++ action ++ "\SOH")) st)
             else if r < 850 then
-              forkReply st bot r load chan who $ words msg
+              forkReply st bot r chan who $ words msg
                  else
                    forkIO $ replyMsgT st bot chan who msg
           else forkIO $ return ()
@@ -507,24 +498,19 @@ reply bot@Bot{handle=h,
                    ':' -> tail msg
                    ',' -> tail msg
                    _   -> msg
-    load <- lift getLoad
-    n    <- lift $ isName    lock aspell' dict' $ head mmsg
-    a    <- lift $ isAcronym lock aspell' dict' $ head mmsg
-    r'   <- lift $ Random.getStdRandom (Random.randomR (0, 99)) :: StateT FState IO Int
-    let fload    = read $ fHead [] load :: Float
-        rr       = mod (r + r') 100
+    n  <- lift $ isName    lock aspell' dict' $ head mmsg
+    a  <- lift $ isAcronym lock aspell' dict' $ head mmsg
+    r' <- lift $ Random.getStdRandom (Random.randomR (0, 99)) :: StateT FState IO Int
+    let rr       = mod (r + r') 100
         fmsg     = nmsg n a mmsg
-        parse    = if sl then
-                     if fload < 2.5 then gfParseBool pgf' plen $ unwords fmsg
-                     else False
-                   else True
+        parse    = if sl then gfParseBool pgf' plen $ unwords fmsg else True
         matchOn  = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
         isAction = head msg == "\SOHACTION"
         l        = nick' =~ learn' || chan =~ learn'
     if null fmsg then return () else lift $ (
       if null chan then
         if apm && not isAction then
-          forkReply st bot rr load nick' [] fmsg >> return ()
+          forkReply st bot rr nick' [] fmsg >> return ()
         else return ()
       else
         if chanmsg then
@@ -533,11 +519,11 @@ reply bot@Bot{handle=h,
               action <- ircAction lock f p False nick'
               if null action then return ()
                 else evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
-            else forkReply st bot rr load chan (if r' < 55 then chan else nick') fmsg >> return ()
+            else forkReply st bot rr chan (if r' < 55 then chan else nick') fmsg >> return ()
           else return ()
-        else forkReply st bot rr load chan nick' fmsg >> return ())
+        else forkReply st bot rr chan nick' fmsg >> return ())
     if l && parse && not isAction && noban fmsg ban' then do
-      nd           <- lift $ insertWords lock f an top fmsg
+      nd <- lift $ insertWords lock f an top fmsg
       hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
       return bot{fugly=f{dict=nd}} else
       return bot
@@ -550,22 +536,20 @@ reply bot@Bot{handle=h,
                      else noban xs b
 reply bot _ _ _ _ _ = return bot
 
-forkReply :: FState -> Bot -> Int -> [String] -> String
-             -> String -> [String] -> IO ThreadId
-forkReply _ _ _ _ _ _ [] = forkIO $ return ()
+forkReply :: FState -> Bot -> Int -> String -> String -> [String] -> IO ThreadId
+forkReply _ _ _ _ _ [] = forkIO $ return ()
 forkReply st@(_, lock, tc, _)
     Bot{handle=h,
-    params=p@Parameter{numThreads=nt, sTries=str, debug=d, delay=dl, randoms=rand},
-    fugly=fugly'} r load chan nick' msg = forkIO (do
+    params=p@Parameter{numThreads=nt, sTries=str, debug=d, delay=dl, randoms=rand}, fugly=fugly'}
+    r chan nick' msg = forkIO (do
     tId <- myThreadId
     tc' <- incT tc tId
     if d then
       evalStateT (hPutStrLnLock stdout ("> debug: thread count: " ++ show tc')) st
       else return ()
-    let fload = read $ fHead [] load :: Float
-        r'    = 1 + mod r 7
+    let r'    = 1 + mod r 7
         rr    = mod r 6
-    if tc' < (nt + 2) && fload < 4.3 then do
+    if tc' < (nt + 2) then do
       let num = if r' - 4 < 1 || str < 4 || length msg < 7 then 1 else r' - 4
           dl' = dl * 1000000
           bd  = (if dl < 4 then 0 else if r' - 3 > 0 then r' - 3 else 0) * 9
@@ -594,7 +578,7 @@ forkReply st@(_, lock, tc, _)
     getResponse (x:xs) = do
       x' <- x
       if null x' then getResponse xs else return x'
-forkReply _ _ _ _ _ _ _ = forkIO $ return ()
+forkReply _ _ _ _ _ _ = forkIO $ return ()
 
 execCmd :: Bot -> String -> String -> [String] -> StateT FState IO Bot
 execCmd b _ _ [] = lift $ return b
@@ -638,7 +622,7 @@ execCmd b chan nick' (x:xs) = do
       | x == "!forcelearn" = Cmd.forceLearn bot st isOwner showRep showErr xs
       | x == "!banword" = Cmd.banWord bot isOwner showRep xs
       | x == "!matchword" = Cmd.matchWord bot isOwner showRep xs
-      | x == "!talk" = Cmd.talk bot isOwner showRep (forkReply st) getLoad xs
+      | x == "!talk" = Cmd.talk bot isOwner showRep (forkReply st) xs
       | x == "!raw" = Cmd.raw bot st isOwner showRep write' xs
       | x == "!dict" = Cmd.dictL bot st showRep xs
       | x == "!closure" = Cmd.closure bot showRep (wnClosure wne') xs
