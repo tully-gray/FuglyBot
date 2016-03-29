@@ -238,7 +238,7 @@ replyRandom' lock fugly@Fugly{dict=dict', pgf=pgf', wne=wne', aspell=aspell'}
       let plen' = if ((realToFrac i) :: Float) >
                      (((realToFrac stries) :: Float) / 2) then 0 else plen
       if null y then return [] else
-        if gfParseBool pgf' plen' y && length (words y) > 2 && pos' /= POS Adj then return y else
+        if gfParseBoolS pgf' plen' y && length (words y) > 2 && pos' /= POS Adj then return y else
           if debug' then evalStateT (hPutStrLnLock stdout ("> debug: sentence try: " ++ y)) lock >> return []
           else return []
     s1f _ _ []     = []

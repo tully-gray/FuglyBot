@@ -567,7 +567,7 @@ forkReply _ _ _ _ _ _ = forkIO $ return ()
 doLearning :: Bot -> MVar () -> [String] -> StateT FState IO Bot
 doLearning bot _ [] = return bot
 doLearning bot@Bot{fugly=f@Fugly{aspell=aspell', ban=ban', dict=dict', pgf=pgf'},
-    params=p@Parameter{autoName=an, pLength=plen, topic=top}}
+    params=p@Parameter{autoName=an, pLength=plen, strictLearn=sl, topic=top}}
     lock msg = return p >> doLearn bot $ splitMsg [] $ unwords msg
   where
     doLearn bot' [] = return bot'
@@ -576,15 +576,12 @@ doLearning bot@Bot{fugly=f@Fugly{aspell=aspell', ban=ban', dict=dict', pgf=pgf'}
       n <- lift $ isName    lock aspell' dict' $ head x'
       a <- lift $ isAcronym lock aspell' dict' $ head x'
       let lmsg  = nmsg n a x'
-          parse = gfParseBool pgf' plen $ unwords lmsg
+          parse = if sl then gfParseBool pgf' plen $ unwords lmsg else True
       if parse && noban ban' lmsg then do
         nd <- lift $ insertWords lock f an top lmsg
         hPutStrLnLock stdout ("> parse: " ++ unwords lmsg)
         doLearn bot'{fugly=f{dict=nd}} xs else
         doLearn bot' xs
-    splitMsg a [] = a
-    splitMsg a m  = let f' = \x -> x /= '.' && x /= '!' && x /= '?' in
-      splitMsg (a ++ [takeWhile f' m]) $ drop 1 $ dropWhile f' m
     nmsg _ _ []     = []
     nmsg n a (x:xs) = let x' = if n || a then x else map toLower x in
       map cleanString (x':xs)

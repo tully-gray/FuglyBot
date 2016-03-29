@@ -520,6 +520,11 @@ endSentence msg
   where l = last $ last msg
         r = mod (length $ concat msg) 6
 
+splitMsg :: [String] -> String -> [String]
+splitMsg a [] = a
+splitMsg a m  = let f' = \x -> x /= '.' && x /= '!' && x /= '?' in
+    splitMsg (a ++ [takeWhile f' m]) $ drop 1 $ dropWhile f' m
+
 {-# INLINE fHead #-}
 fHead :: a -> [a] -> a
 fHead b [] = b
@@ -760,6 +765,9 @@ gfParseBool pgf' len msg
     ipgf = fromJust pgf'
     w    = words msg
     lw   = strip '?' $ strip '.' $ last w
+
+gfParseBoolS :: Maybe PGF -> Int -> String -> Bool
+gfParseBoolS pgf' len msg = foldl (&&) True $ map (gfParseBool pgf' len) $ splitMsg [] msg
 
 gfParseBool' :: PGF -> [String] -> Bool
 gfParseBool' _ [] = False
