@@ -487,53 +487,37 @@ reply :: Bot -> Int -> Bool -> String -> String -> [String]
          -> StateT FState IO Bot
 reply bot _ _ _ _ [] = return bot
 reply bot@Bot{handle=h,
-    params=p@Parameter{nick=bn, learning=learn', pLength=plen,
-                       autoName=an, allowPM=apm, debug=d, topic=top,
-                       actions=acts, strictLearn=sl, matchChance=matchC},
-    fugly=f@Fugly{pgf=pgf', aspell=aspell', dict=dict', match=match', ban=ban'}}
+    params=p@Parameter{nick=bn, learning=learn', allowPM=apm, debug=d, actions=acts, matchChance=matchC},
+    fugly=f@Fugly{match=match'}}
     r chanmsg chan nick' msg = do
     st@(_, lock, _, _) <- get :: StateT FState IO FState
-    let mmsg = if null $ head msg then msg
+    r' <- lift $ Random.getStdRandom (Random.randomR (0, 99)) :: StateT FState IO Int
+    let rr   = mod (r + r') 100
+        l    = nick' =~ learn' || chan =~ learn'
+        mmsg = if null $ head msg then msg
                  else case fLast ' ' $ head msg of
                    ':' -> tail msg
                    ',' -> tail msg
                    _   -> msg
-    n  <- lift $ isName    lock aspell' dict' $ head mmsg
-    a  <- lift $ isAcronym lock aspell' dict' $ head mmsg
-    r' <- lift $ Random.getStdRandom (Random.randomR (0, 99)) :: StateT FState IO Int
-    let rr       = mod (r + r') 100
-        fmsg     = nmsg n a mmsg
-        parse    = if sl then gfParseBool pgf' plen $ unwords fmsg else True
         matchOn  = map toLower (" " ++ intercalate " | " (bn : match') ++ " ")
         isAction = head msg == "\SOHACTION"
-        l        = nick' =~ learn' || chan =~ learn'
-    if null fmsg then return () else lift $ (
+    if null mmsg then return () else lift $ (
       if null chan then
         if apm && not isAction then
-          forkReply st bot rr nick' [] fmsg >> return ()
+          forkReply st bot rr nick' [] mmsg >> return ()
         else return ()
       else
         if chanmsg then
-          if rr < matchC && (" " ++ map toLower (unwords fmsg) ++ " ") =~ matchOn then
+          if rr < matchC && (" " ++ map toLower (unwords mmsg) ++ " ") =~ matchOn then
             if isAction && (rr - 60 < acts  || rr * 5 + 15 < acts) then do
               action <- ircAction lock f p False nick'
-              if null action then return ()
-                else evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
-            else forkReply st bot rr chan (if r' < 55 then chan else nick') fmsg >> return ()
+              if null action then return () else
+                evalStateT (write h d "PRIVMSG" (chan ++ " :\SOHACTION "++ action ++ "\SOH")) st
+            else forkReply st bot rr chan (if r' < 55 then chan else nick') mmsg >> return ()
           else return ()
-        else forkReply st bot rr chan nick' fmsg >> return ())
-    if l && parse && not isAction && noban fmsg ban' then do
-      nd <- lift $ insertWords lock f an top fmsg
-      hPutStrLnLock stdout ("> parse: " ++ unwords fmsg)
-      return bot{fugly=f{dict=nd}} else
+        else forkReply st bot rr chan nick' mmsg >> return ())
+    if l && not isAction then doLearning bot lock mmsg else
       return bot
-  where
-    nmsg _ _ []     = []
-    nmsg n a (x:xs) = let x' = if n || a then x else map toLower x in
-      map cleanString (x':xs)
-    noban []     _ = True
-    noban (x:xs) b = if elem x b then False
-                     else noban xs b
 reply bot _ _ _ _ _ = return bot
 
 forkReply :: FState -> Bot -> Int -> String -> String -> [String] -> IO ThreadId
@@ -579,6 +563,34 @@ forkReply st@(_, lock, tc, _)
       x' <- x
       if null x' then getResponse xs else return x'
 forkReply _ _ _ _ _ _ = forkIO $ return ()
+
+doLearning :: Bot -> MVar () -> [String] -> StateT FState IO Bot
+doLearning bot _ [] = return bot
+doLearning bot@Bot{fugly=f@Fugly{aspell=aspell', ban=ban', dict=dict', pgf=pgf'},
+    params=p@Parameter{autoName=an, pLength=plen, topic=top}}
+    lock msg = return p >> doLearn bot $ splitMsg [] $ unwords msg
+  where
+    doLearn bot' [] = return bot'
+    doLearn bot' (x:xs) = do
+      let x' = words x
+      n <- lift $ isName    lock aspell' dict' $ head x'
+      a <- lift $ isAcronym lock aspell' dict' $ head x'
+      let lmsg  = nmsg n a x'
+          parse = gfParseBool pgf' plen $ unwords lmsg
+      if parse && noban ban' lmsg then do
+        nd <- lift $ insertWords lock f an top lmsg
+        hPutStrLnLock stdout ("> parse: " ++ unwords lmsg)
+        doLearn bot'{fugly=f{dict=nd}} xs else
+        doLearn bot' xs
+    splitMsg a [] = a
+    splitMsg a m  = let f' = \x -> x /= '.' && x /= '!' && x /= '?' in
+      splitMsg (a ++ [takeWhile f' m]) $ drop 1 $ dropWhile f' m
+    nmsg _ _ []     = []
+    nmsg n a (x:xs) = let x' = if n || a then x else map toLower x in
+      map cleanString (x':xs)
+    noban _ []     = True
+    noban b (x:xs) = if elem x b then False else noban xs b
+doLearning bot _ _ = return bot
 
 execCmd :: Bot -> String -> String -> [String] -> StateT FState IO Bot
 execCmd b _ _ [] = lift $ return b
