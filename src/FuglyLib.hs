@@ -1,4 +1,67 @@
-module FuglyLib where
+module FuglyLib (
+    emptyWord,
+    qWords,
+    sWords,
+    insertWords,
+    insertWordsN,
+    insertWord,
+    insertWordRaw,
+    insertNameRaw,
+    insertAcroRaw,
+    wordGetWord,
+    wordGetBanAfter,
+    addBanAfter,
+    deleteBanAfter,
+    dropWord,
+    dropAfter,
+    dropAllAfter,
+    dropBefore,
+    dropTopic,
+    dropTopicWords,
+    listWordFull,
+    listNeighShow,
+    listWordsCountSort,
+    listTopics,
+    dictLookup,
+    ageWord,
+    numWords,
+    getNames,
+    getNoun,
+    nouns,
+    joinWords,
+    toUpperWord,
+    toUpperSentence,
+    endSentence,
+    sentenceMeet,
+    replace,
+    dedup,
+    dedupD,
+    cleanString,
+    cleanStringWhite,
+    cleanStringBlack,
+    splitMsg,
+    dePlenk,
+    insertPunc,
+    isName,
+    isAcronym,
+    asIsName,
+    asIsAcronym,
+    findNextWord,
+    wnPartPOS,
+    wnReplaceWords,
+    wnClosure,
+    wnMeet,
+    wnRelated,
+    gfParseShow,
+    gfParseBool,
+    gfParseBoolS,
+    gfRandom,
+    fHead,
+    fLast,
+    fTail,
+    hPutStrLock,
+    hPutStrLnLock
+    ) where
 
 import           Control.Concurrent             (MVar, putMVar, takeMVar)
 import           Control.Exception
@@ -19,7 +82,6 @@ import           PGF
 import           Prelude                        hiding (Word)
 import qualified System.Random                  as Random
 import           System.IO
-import           Text.EditDistance              as EditDistance
 import qualified Text.Regex.Posix               as Regex
 
 class Word_ a where
@@ -393,9 +455,6 @@ listNeighTopic d t n = map wordGetWord $ filter (\x -> elem t $ wordGetTopic x)
 listNeighShow :: Map.Map String Int -> [String]
 listNeighShow m = concat [[w, show c] | (w, c) <- Map.toList m]
 
-listWords :: Dict -> [String]
-listWords m = map wordGetWord $ Map.elems m
-
 listWordsCountSort :: Dict -> Int -> String -> String -> [String]
 listWordsCountSort m num typ top = concat [[w, show c, ";"] | (c, w) <- take num $ reverse $
                                    sort $ map wordGetwc $ filter (\x -> wordIs x == typ &&
@@ -744,14 +803,6 @@ asSuggest aspell' word' = do
              if word' == head ww then putMVar l lock >> return []
              else putMVar l lock >> return (unwords ww)
 
-gfLin :: Maybe PGF -> String -> String
-gfLin _ [] = []
-gfLin pgf' msg
-    | isJust pgf' && isJust expr = linearize (fromJust pgf') (head $ languages $ fromJust pgf') (fromJust expr)
-    | otherwise = []
-  where
-    expr = readExpr msg
-
 gfParseBool :: Maybe PGF -> Int -> String -> Bool
 gfParseBool _ _ [] = False
 gfParseBool pgf' len msg
@@ -791,9 +842,6 @@ gfParseShow pgf' msg = if isJust pgf' then let ipgf' = fromJust pgf' in
     lin' p l t                   = "parse: " ++ showBracketedString (head $ bracketedLinearize p l t)
     lang = head $ languages $ fromJust pgf'
 
-gfCategories :: PGF -> [String]
-gfCategories pgf' = map showCId (categories pgf')
-
 gfRandom :: Maybe PGF -> String -> IO String
 gfRandom pgf' [] = do
     if isJust pgf' then do
@@ -811,13 +859,6 @@ gfRandom' pgf' = do
   where
     gfRand n = linearize pgf' (head $ languages pgf') $ head $
                generateRandomDepth (Random.mkStdGen n) pgf' (startCat pgf') (Just n)
-
-gfShowExpr :: PGF -> String -> Int -> String
-gfShowExpr pgf' type' num = if isJust $ readType type' then
-    let c = fromJust $ readType type' in
-    head $ filter (not . null) $ map (\x -> fromMaybe [] (unStr x))
-      (generateRandomDepth (Random.mkStdGen num) pgf' c (Just num))
-                            else "Not a GF type."
 
 insertPunc :: WordNetEnv -> Int -> [String] -> IO [String]
 insertPunc wne' i w = do
@@ -924,41 +965,41 @@ wnReplaceWords fugly@Fugly{wne=wne', ban=ban'} True  randoms msg = do
           ((takeWhile (/= w') msg) ++ [ww] ++ (tail $ dropWhile (/= w') msg))
         else return msg
 
-asReplaceWords :: MVar () -> Fugly -> [String] -> IO [String]
-asReplaceWords _ _ [] = return [[]]
-asReplaceWords lock fugly msg = mapM (\x -> asReplace lock fugly x) msg
+-- asReplaceWords :: MVar () -> Fugly -> [String] -> IO [String]
+-- asReplaceWords _ _ [] = return [[]]
+-- asReplaceWords lock fugly msg = mapM (\x -> asReplace lock fugly x) msg
 
-asReplace :: MVar () -> Fugly -> String -> IO String
-asReplace _ _ [] = return []
-asReplace lock Fugly{dict=dict', wne=wne', aspell=aspell'} word' = do
-    n  <- asIsName lock aspell' word'
-    ac <- asIsAcronym lock aspell' word'
-    if (elem ' ' word') || (elem '\'' word') || word' == (toUpperWord word') || n || ac then return word'
-      else do
-      a <- evalStateT (asSuggest aspell' word') lock
-      p <- wnPartPOS wne' word'
-      let w  = Map.lookup word' dict'
-      let rw = filter (\x -> (notElem '\'' x) && levenshteinDistance defaultEditCosts word' x < 4) $ words a
-      rr <- Random.getStdRandom (Random.randomR (0, (length rw) - 1))
-      if null rw || p /= UnknownEPos || isJust w then return word' else
-        if head rw == word' then return word' else return $ map toLower (rw!!rr)
+-- asReplace :: MVar () -> Fugly -> String -> IO String
+-- asReplace _ _ [] = return []
+-- asReplace lock Fugly{dict=dict', wne=wne', aspell=aspell'} word' = do
+--     n  <- asIsName lock aspell' word'
+--     ac <- asIsAcronym lock aspell' word'
+--     if (elem ' ' word') || (elem '\'' word') || word' == (toUpperWord word') || n || ac then return word'
+--       else do
+--       a <- evalStateT (asSuggest aspell' word') lock
+--       p <- wnPartPOS wne' word'
+--       let w  = Map.lookup word' dict'
+--       let rw = filter (\x -> (notElem '\'' x) && levenshteinDistance defaultEditCosts word' x < 4) $ words a
+--       rr <- Random.getStdRandom (Random.randomR (0, (length rw) - 1))
+--       if null rw || p /= UnknownEPos || isJust w then return word' else
+--         if head rw == word' then return word' else return $ map toLower (rw!!rr)
 
-rhymesWith :: MVar () -> Aspell.SpellChecker -> String -> IO [String]
-rhymesWith _ _ [] = return []
-rhymesWith lock aspell' word' = do
-    let l = map toLower word'
-    let b = toUpperLast l
-    as <- evalStateT (asSuggest aspell' b) lock
-    let asw = words as
-    let end = case length l of
-          1 -> l
-          2 -> l
-          3 -> drop 1 l
-          4 -> drop 2 l
-          x -> drop (x-3) l
-    let out = filter (\x -> (notElem '\'' x) && length x > 2 && length l > 2 &&
-                x Regex.=~ (end ++ "$") && levenshteinDistance defaultEditCosts l x < 4) asw
-    return $ if null out then [word'] else out
+-- rhymesWith :: MVar () -> Aspell.SpellChecker -> String -> IO [String]
+-- rhymesWith _ _ [] = return []
+-- rhymesWith lock aspell' word' = do
+--     let l = map toLower word'
+--     let b = toUpperLast l
+--     as <- evalStateT (asSuggest aspell' b) lock
+--     let asw = words as
+--     let end = case length l of
+--           1 -> l
+--           2 -> l
+--           3 -> drop 1 l
+--           4 -> drop 2 l
+--           x -> drop (x-3) l
+--     let out = filter (\x -> (notElem '\'' x) && length x > 2 && length l > 2 &&
+--                 x Regex.=~ (end ++ "$") && levenshteinDistance defaultEditCosts l x < 4) asw
+--     return $ if null out then [word'] else out
 
 findNextWord :: Fugly -> Int -> Int -> Int -> Bool -> Bool -> String
                 -> String -> String -> [String]
